@@ -62,6 +62,11 @@ namespace NexusForever.Game.Abstract.Quest
         void CompleteQuest();
 
         /// <summary>
+        /// Send the current progress of every started <see cref="IQuestObjective"/> to the owner.
+        /// </summary>
+        void SendObjectiveProgress();
+
+        /// <summary>
         /// Complete the <see cref="IQuest"/> with the specified reward.
         /// </summary>
         void RewardQuest(ushort reward);

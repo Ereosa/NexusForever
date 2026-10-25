@@ -173,6 +173,10 @@ namespace NexusForever.Game.Entity
                         }).ToList()
                     }).ToList()
             });
+
+            // the client doesn't always pick up objective progress from the init message, resend it explicitly
+            foreach (IQuest quest in activeQuests.Values)
+                quest.SendObjectiveProgress();
         }
 
         /// <summary>

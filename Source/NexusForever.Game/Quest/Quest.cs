@@ -555,6 +555,15 @@ namespace NexusForever.Game.Quest
             }
         }
 
+        /// <summary>
+        /// Send the current progress of every started <see cref="IQuestObjective"/> to the owner.
+        /// </summary>
+        public void SendObjectiveProgress()
+        {
+            foreach (IQuestObjective objective in objectives.Where(o => o.Progress > 0))
+                SendQuestObjectiveUpdate(objective);
+        }
+
         private void SendQuestObjectiveUpdate(IQuestObjective objective)
         {
             // Only update objectives if the state isn't complete. Some scripts will complete quest without objective update.
