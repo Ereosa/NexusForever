@@ -157,8 +157,10 @@ namespace NexusForever.Game.Quest
             flags |= QuestStateFlags.Tracked;
             State  = QuestState.Accepted;
 
-            for (byte i = 0; i < info.Objectives.Count; i++)
-                objectives.Add(new QuestObjective(player, info, info.Objectives[i], i));
+            // a quest being re-added (e.g. previously mentioned or abandoned) keeps its existing objectives, the quest manager resets their progress
+            if (objectives.Count == 0)
+                for (byte i = 0; i < info.Objectives.Count; i++)
+                    objectives.Add(new QuestObjective(player, info, info.Objectives[i], i));
 
             if (objectives.Count == 0)
                 State = QuestState.Achieved;
