@@ -980,6 +980,57 @@ namespace NexusForever.Database.World.Migrations
                     b.ToTable("path_scientist_creature", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.World.Model.PathSoldierHoldoutSpawnModel", b =>
+                {
+                    b.Property<ushort>("PathSoldierEventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("pathSoldierEventId");
+
+                    b.Property<byte>("WaveIndex")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("waveIndex");
+
+                    b.Property<uint>("CreatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varchar(200)")
+                        .HasDefaultValue("")
+                        .HasColumnName("comment");
+
+                    b.Property<byte>("Count")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)1)
+                        .HasColumnName("count");
+
+                    b.Property<float>("Distance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(0f)
+                        .HasColumnName("distance");
+
+                    b.Property<byte>("Flags")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("flags");
+
+                    b.HasKey("PathSoldierEventId", "WaveIndex", "CreatureId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("path_soldier_holdout_spawn", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.World.Model.TutorialModel", b =>
                 {
                     b.Property<uint>("Id")

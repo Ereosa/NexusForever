@@ -33,7 +33,8 @@ namespace NexusForever.Game.Entity
             PathMissionType.ExplorerArea,
             PathMissionType.ExplorerExploreZone,
             PathMissionType.ScientistScan,
-            PathMissionType.ScientistScanChecklist
+            PathMissionType.ScientistScanChecklist,
+            PathMissionType.SoldierHoldout
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }

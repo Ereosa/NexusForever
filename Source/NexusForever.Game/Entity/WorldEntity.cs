@@ -606,6 +606,9 @@ namespace NexusForever.Game.Entity
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, CreatureInfo.Entry.Id, 1u);
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, CreatureInfo.Entry.Id, 1u);
 
+                if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
+                    activator.PathSoldierManager.OnActivate(this);
+
                 foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureInfo.Entry.Id))
                 {
                     // target group objectives are checklists, each entity sets its own bit

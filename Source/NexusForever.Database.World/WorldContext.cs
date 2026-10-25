@@ -36,6 +36,7 @@ namespace NexusForever.Database.World
         public DbSet<StoreOfferItemDataModel> StoreOfferItemData { get; set; }
         public DbSet<StoreOfferItemPriceModel> StoreOfferItemPrice { get; set; }
         public DbSet<PathScientistCreatureModel> PathScientistCreature { get; set; }
+        public DbSet<PathSoldierHoldoutSpawnModel> PathSoldierHoldoutSpawn { get; set; }
         public DbSet<TutorialModel> Tutorial { get; set; }
         public DbSet<VersionModel> Version { get; set; }
 
@@ -963,6 +964,50 @@ namespace NexusForever.Database.World
                     .HasColumnName("pathScientistCreatureInfoId")
                     .HasColumnType("smallint(5) unsigned")
                     .HasDefaultValue(0);
+
+                entity.Property(e => e.Comment)
+                    .IsRequired()
+                    .HasColumnName("comment")
+                    .HasColumnType("varchar(200)")
+                    .HasDefaultValue("");
+            });
+
+            modelBuilder.Entity<PathSoldierHoldoutSpawnModel>(entity =>
+            {
+                entity.ToTable("path_soldier_holdout_spawn");
+
+                entity.HasKey(e => new { e.PathSoldierEventId, e.WaveIndex, e.CreatureId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.PathSoldierEventId)
+                    .HasColumnName("pathSoldierEventId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.WaveIndex)
+                    .HasColumnName("waveIndex")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Count)
+                    .HasColumnName("count")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(1);
+
+                entity.Property(e => e.Flags)
+                    .HasColumnName("flags")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Distance)
+                    .HasColumnName("distance")
+                    .HasColumnType("float")
+                    .HasDefaultValue(0f);
 
                 entity.Property(e => e.Comment)
                     .IsRequired()

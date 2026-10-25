@@ -241,6 +241,7 @@ namespace NexusForever.Game.Entity
         public IPathManager PathManager { get; private set; }
         public IPathMissionManager PathMissionManager { get; private set; }
         public IPathScientistManager PathScientistManager { get; private set; }
+        public IPathSoldierManager PathSoldierManager { get; private set; }
         public ITitleManager TitleManager { get; private set; }
         public ISpellManager SpellManager { get; private set; }
         public ICostumeManager CostumeManager { get; private set; }
@@ -382,6 +383,7 @@ namespace NexusForever.Game.Entity
             ZoneMapManager          = new ZoneMapManager(this, model);
             PathMissionManager      = new PathMissionManager(this, model);
             PathScientistManager    = new PathScientistManager(this);
+            PathSoldierManager      = new PathSoldierManager(this);
             QuestManager.Initialise(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
@@ -429,6 +431,7 @@ namespace NexusForever.Game.Entity
             CostumeManager.Update(lastTick);
             QuestManager.Update(lastTick);
             PathScientistManager.Update(lastTick);
+            PathSoldierManager.Update(lastTick);
             ResurrectionManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
@@ -1398,6 +1401,7 @@ namespace NexusForever.Game.Entity
             RemoveControlUnit();
 
             PathScientistManager.DismissScanbot();
+            PathSoldierManager.Cancel();
 
             // TODO: Remove pets
         }
@@ -1635,6 +1639,7 @@ namespace NexusForever.Game.Entity
 
         protected override void OnDeath(IUnitEntity killer)
         {
+            PathSoldierManager.OnDeath();
             base.OnDeath(killer);
 
             Dismount();
