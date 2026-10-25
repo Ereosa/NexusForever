@@ -615,6 +615,8 @@ namespace NexusForever.Game.Entity
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
             }
 
+            scriptCollection?.Invoke<IUnitScript>(s => s.OnRewardKiller(player));
+
             // TODO: Reward XP
             // TODO: Reward Loot
             // TODO: Handle Achievements

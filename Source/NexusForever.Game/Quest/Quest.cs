@@ -104,6 +104,7 @@ namespace NexusForever.Game.Quest
 
         private IPlayer player;
         private readonly List<IQuestObjective> objectives = [];
+        private bool serverObjectivesChecked;
 
         private UpdateTimer questTimer;
 
@@ -277,6 +278,18 @@ namespace NexusForever.Game.Quest
         public void Update(double lastTick)
         {
             scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
+
+            // quests loaded with every visible objective done may still be waiting on a hidden server objective
+            if (!serverObjectivesChecked)
+            {
+                serverObjectivesChecked = true;
+                if (State == QuestState.Accepted && !PendingDelete)
+                {
+                    CompleteServerObjectives();
+                    if (objectives.All(o => o.IsComplete()))
+                        State = QuestState.Achieved;
+                }
+            }
 
             if (questTimer != null)
             {
@@ -485,6 +498,7 @@ namespace NexusForever.Game.Quest
             player.VisibilityUpdate();
 
             // TODO: Should you be able to complete optional objectives after required are completed?
+            CompleteServerObjectives();
             if (RequiredObjectivesComplete())
                 CompleteOptionalObjectives();
 
@@ -524,6 +538,7 @@ namespace NexusForever.Game.Quest
             player.VisibilityUpdate();
 
             // TODO: Should you be able to complete optional objectives after required are completed?
+            CompleteServerObjectives();
             if (RequiredObjectivesComplete())
                 CompleteOptionalObjectives();
 
@@ -542,6 +557,31 @@ namespace NexusForever.Game.Quest
 
             // TODO: client also checks objective flags 1 and 8 in the same function
             return true;
+        }
+
+        /// <remarks>
+        /// Hidden objectives without any data (no target, no text) were driven by retail server scripts that are unknown,
+        /// they complete once every visible required objective is complete so they don't block the quest forever.
+        /// </remarks>
+        private void CompleteServerObjectives()
+        {
+            if (!objectives
+                .Where(o => !o.ObjectiveInfo.IsOptional() && !IsServerObjective(o))
+                .All(o => o.IsComplete()))
+                return;
+
+            foreach (IQuestObjective objective in objectives.Where(o => IsServerObjective(o) && !o.IsComplete()))
+            {
+                objective.Complete();
+                SendQuestObjectiveUpdate(objective);
+            }
+        }
+
+        private static bool IsServerObjective(IQuestObjective objective)
+        {
+            return objective.ObjectiveInfo.IsHidden()
+                && objective.ObjectiveInfo.Entry.Data == 0u
+                && objective.ObjectiveInfo.Entry.LocalizedTextIdFull == 0u;
         }
 
         private bool RequiredObjectivesComplete()

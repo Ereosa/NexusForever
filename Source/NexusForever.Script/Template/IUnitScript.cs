@@ -54,5 +54,12 @@ namespace NexusForever.Script.Template
         void OnDeath()
         {
         }
+
+        /// <summary>
+        /// Invoked for each <see cref="IPlayer"/> on the threat list when <see cref="IUnitEntity"/> is killed, before the threat list is cleared.
+        /// </summary>
+        void OnRewardKiller(IPlayer player)
+        {
+        }
     }
 }
