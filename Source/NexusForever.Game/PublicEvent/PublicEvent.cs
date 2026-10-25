@@ -4,6 +4,7 @@ using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Static.PublicEvent;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Matching;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Message;
@@ -494,6 +495,10 @@ namespace NexusForever.Game.PublicEvent
 
                     publicEventTeamMember.Send(message);
                     toRemove.Add(publicEventTeamMember.CharacterId);
+
+                    // quests that ask for the event to be completed (eg: defend the memorial service)
+                    if (publicEventTeam.Team == winnerTeam)
+                        playerManager.GetPlayer(publicEventTeamMember.CharacterId)?.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, Id, 1u);
                 }
             }
 
