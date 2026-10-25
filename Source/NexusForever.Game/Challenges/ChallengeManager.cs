@@ -594,6 +594,22 @@ namespace NexusForever.Game.Challenges
         }
 
         /// <summary>
+        /// Start the supplied challenge the way its own targets start it (touching a flitterfly, using a starter object), silently
+        /// doing nothing if it only starts by hand, is outside its area, on cooldown or already running.
+        /// </summary>
+        public bool TryAutoStart(uint challengeId)
+        {
+            ChallengeEntry entry = GameTableManager.Instance.Challenge.GetEntry(challengeId);
+            if (entry == null || (((ChallengeFlags)entry.ChallengeFlags) & ChallengeFlags.ManualStart) != 0 || !IsInArea(entry))
+                return false;
+
+            if (!challenges.TryGetValue(challengeId, out Challenge challenge))
+                challenge = Unlock(entry);
+
+            return challenge.Activated || TryActivate(challenge, false, true, false);
+        }
+
+        /// <summary>
         /// Start the supplied challenge if it can be started, reporting why not when <paramref name="report"/> is set.
         /// </summary>
         /// <remarks>

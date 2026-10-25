@@ -71,6 +71,12 @@ namespace NexusForever.Game.Abstract.Challenges
         bool Activate(uint challengeId);
 
         /// <summary>
+        /// Start the supplied challenge the way its own targets start it, silently doing nothing if it only starts by hand,
+        /// is outside its area, on cooldown or already running.
+        /// </summary>
+        bool TryAutoStart(uint challengeId);
+
+        /// <summary>
         /// Add progress to a running challenge, used by scripts for challenges driven by server side events.
         /// </summary>
         void UpdateProgress(uint challengeId, uint count = 1u);
