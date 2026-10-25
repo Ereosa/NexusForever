@@ -27,14 +27,13 @@ namespace NexusForever.Game.Entity
         /// <remarks>
         /// Retail value is unknown, the client data has no respawn time for harvesting nodes.
         /// </remarks>
-        private static readonly TimeSpan RespawnDelay = TimeSpan.FromMinutes(5d);
+        protected override TimeSpan RespawnDelay => TimeSpan.FromMinutes(5d);
 
         /// <summary>
         /// Maximum time a harvested node stays in the world with loot remaining, matches loot instance expiry.
         /// </summary>
         private static readonly TimeSpan MaxHarvestedTime = TimeSpan.FromMinutes(10d);
 
-        private EntityModel spawnModel;
         private UpdateTimer harvestedTimer;
         private bool despawning;
 
@@ -53,11 +52,10 @@ namespace NexusForever.Game.Entity
 
         #endregion
 
-        public override void Initialise(ICreatureInfo creatureInfo, EntityModel model)
-        {
-            base.Initialise(creatureInfo, model);
-            spawnModel = model;
-        }
+        /// <summary>
+        /// Harvested nodes handle their own removal and respawn once their loot has been collected.
+        /// </summary>
+        protected override bool RespawnsOnDeath => false;
 
         protected override IEntityModel BuildEntityModel()
         {
@@ -83,19 +81,10 @@ namespace NexusForever.Game.Entity
                 return;
 
             despawning = true;
-            if (spawnModel != null)
-                Map.ScheduleRespawn(CreatureInfo, spawnModel, RespawnDelay);
+            if (SpawnModel != null)
+                Map.ScheduleRespawn(CreatureInfo, SpawnModel, RespawnDelay);
 
             RemoveFromMap();
-        }
-
-        private bool HasRemainingLoot()
-        {
-            foreach (ILootInstance lootInstance in Map.LootManager.GetLootInstances(Guid) ?? [])
-                if (lootInstance.GetLootItems().Any())
-                    return true;
-
-            return false;
         }
 
         /// <summary>
