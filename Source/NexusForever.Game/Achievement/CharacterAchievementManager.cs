@@ -53,6 +53,11 @@ namespace NexusForever.Game.Achievement
             if (achievement.Info.Entry.CharacterTitleId != 0u)
                 owner.TitleManager.AddTitle((ushort)achievement.Info.Entry.CharacterTitleId);
 
+            owner.TradeskillManager.OnAchievementCompleted(achievement.Id);
+
+            // achievements that require completing other achievements, eg: tradeskill tech trees
+            CheckAchievements(owner, AchievementType.AchievementComplete, achievement.Id);
+
             // TODO
             /*if (isRealmFirst)
             {
