@@ -604,6 +604,7 @@ namespace NexusForever.Game.Entity
             if (CreatureInfo.Entry != null)
             {
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, CreatureInfo.Entry.Id, 1u);
+                activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity2, CreatureInfo.Entry.Id, 1u);
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, CreatureInfo.Entry.Id, 1u);
 
                 // collectables (supply crates, plants, etc.) hand over the quest's virtual item when used

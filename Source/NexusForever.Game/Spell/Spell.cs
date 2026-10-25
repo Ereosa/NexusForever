@@ -15,6 +15,7 @@ using NexusForever.Game.Spell.Target;
 using NexusForever.Game.Spell.Type;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Spell.Effect;
 using NexusForever.GameTable.Model;
@@ -481,6 +482,7 @@ namespace NexusForever.Game.Spell
             SelectTargets(executionContext);  // First Select Targets
             ExecuteEffects(executionContext); // All Effects are evaluated and executed (after SelectTargets())
             HandleProxies(executionContext);  // Any Proxies that are added by Effects are evaluated and executed (after ExecuteEffects())
+            UpdateQuestObjectives(executionContext);
             
             if (!executionContext.IsDelayed)
                 SendSpellGo();                // Inform the Client once all evaluations are taken place (after Effects & Proxies are executed)
@@ -491,6 +493,28 @@ namespace NexusForever.Game.Spell
                 {
                     CombatLog = combatLog
                 }, true);
+            }
+        }
+
+        /// <summary>
+        /// Credit quest objectives for casting this spell (eg: using a quest item) and for each unit it hits.
+        /// </summary>
+        private void UpdateQuestObjectives(ISpellExecutionContext executionContext)
+        {
+            if (Caster is not IPlayer player || executionContext.IsDelayed)
+                return;
+
+            uint spell4Id = Parameters.SpellInfo.Entry.Id;
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess, spell4Id, 1u);
+
+            foreach (IUnitEntity target in executionContext.TargetCollection
+                .GetTargets(SpellEffectTargetFlags.ExplicitTarget | SpellEffectTargetFlags.ImplicitTarget)
+                .Select(t => t.Entity)
+                .Where(e => e != null && e != Caster)
+                .Distinct())
+            {
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess2, spell4Id, 1u);
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess4, spell4Id, 1u);
             }
         }
 

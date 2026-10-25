@@ -421,6 +421,15 @@ namespace NexusForever.Game.Entity
 
             quest.Initialise(player, info);
             activeQuests.Add((ushort)info.Entry.Id, quest);
+
+            // items already in the inventory count towards collect objectives
+            foreach (IQuestObjectiveInfo objectiveInfo in info.Objectives
+                .Where(o => (QuestObjectiveType)o.Entry.Type == QuestObjectiveType.CollectItem))
+            {
+                uint count = player.Inventory.GetItemCount(objectiveInfo.Entry.Data);
+                if (count > 0u)
+                    quest.ObjectiveUpdate(QuestObjectiveType.CollectItem, objectiveInfo.Entry.Data, count);
+            }
             
             log.LogTrace($"Accepted new quest {info.Entry.Id}.");
         }
@@ -600,9 +609,11 @@ namespace NexusForever.Game.Entity
             }
 
             quest.RewardQuest(reward);
+            TakeCollectedQuestItems(quest);
 
             activeQuests.Remove(questId);
             completedQuests.Add(questId, quest);
+            ObjectiveUpdate(QuestObjectiveType.CompleteQuest, questId, 1u);
         }
 
         /// <summary>
@@ -623,9 +634,33 @@ namespace NexusForever.Game.Entity
                 return;
 
             quest.CompleteQuest();
+            TakeCollectedQuestItems(quest);
 
             activeQuests.Remove(questId);
             completedQuests.Add(questId, quest);
+            ObjectiveUpdate(QuestObjectiveType.CompleteQuest, questId, 1u);
+        }
+
+        /// <summary>
+        /// Remove quest items gathered for the supplied <see cref="IQuest"/>'s collect objectives, they are handed in with the quest.
+        /// </summary>
+        private void TakeCollectedQuestItems(IQuest quest)
+        {
+            // only quest item family, collect objectives for regular items (ore, armor) leave them with the player
+            const uint questItemFamily = 24u;
+
+            foreach (IQuestObjective objective in quest
+                .Where(o => (QuestObjectiveType)o.ObjectiveInfo.Entry.Type == QuestObjectiveType.CollectItem))
+            {
+                uint itemId = objective.ObjectiveInfo.Entry.Data;
+                Item2Entry itemEntry = GameTableManager.Instance.Item.GetEntry(itemId);
+                if (itemEntry == null || itemEntry.Item2FamilyId != questItemFamily)
+                    continue;
+
+                uint count = Math.Min(objective.ObjectiveInfo.Entry.Count, player.Inventory.GetItemCount(itemId));
+                if (count > 0u)
+                    player.Inventory.ItemDelete(itemId, count, ItemUpdateReason.Quest);
+            }
         }
 
         /// <summary>
