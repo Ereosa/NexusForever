@@ -946,5 +946,6 @@ namespace NexusForever.Network.Message
         ServerStoreFinalise             = 0x0987,
         ServerStoreCategories           = 0x0988,
         ServerStoreOffers               = 0x098B,
+        ServerStorePurchaseResult       = 0x098C,
     }
 }

@@ -247,6 +247,18 @@ namespace NexusForever.Game.Entity
             if (bag == null)
                 throw new ArgumentException();
 
+            // looted tradeskill materials go straight into the supply satchel, anything that doesn't fit goes into the inventory
+            if (player != null && location == InventoryLocation.Inventory && reason == ItemUpdateReason.Loot)
+            {
+                TradeskillMaterialEntry materialEntry = SupplySatchelManager.GetMaterialEntry(info.Id);
+                if (materialEntry != null && materialEntry.Item2IdStatRevolution != 0)
+                {
+                    count = player.SupplySatchelManager.AddAmount((ushort)materialEntry.Id, count);
+                    if (count == 0u)
+                        return;
+                }
+            }
+
             // update any existing stacks before creating new items
             if (info.IsStackable())
             {

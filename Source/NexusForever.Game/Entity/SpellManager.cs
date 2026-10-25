@@ -160,6 +160,12 @@ namespace NexusForever.Game.Entity
                 }
             }
 
+            // every character knows Sprint, Mount Sprint and Hoverboard Sprint, the client won't sprint unless the spell is known
+            // tier 2 is the out of combat sprint the client casts from game formula 1227
+            foreach (uint sprintBaseId in new uint[] { 1316u, 36122u, 36240u })
+                if (GetSpell(sprintBaseId) == null)
+                    AddSpell(sprintBaseId, 2);
+
             ClassEntry classEntry = GameTableManager.Instance.Class.GetEntry((byte)player.Class);
             foreach (uint classSpell in classEntry.Spell4IdInnateAbilityActive
                 .Concat(classEntry.Spell4IdInnateAbilityPassive)

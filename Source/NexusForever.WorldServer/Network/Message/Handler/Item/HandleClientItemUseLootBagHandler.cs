@@ -20,6 +20,10 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Item
             /*if (item.Info.Entry.Item2CategoryId != 138)
                 throw new NotImplementedException();*/
 
+            // don't consume bags whose contents aren't known yet
+            if (!session.Player.Map.LootManager.HasItemLoot(item.Id))
+                return;
+
             if (session.Player.Inventory.ItemUse(item))
                 session.Player.Map.LootManager.GenerateLoot(session.Player, item);
         }

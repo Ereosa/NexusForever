@@ -4,6 +4,7 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map;
@@ -90,6 +91,8 @@ namespace NexusForever.Game.Abstract.Entity
         IQuestManager QuestManager { get; }
         ICharacterAchievementManager AchievementManager { get; }
         ISupplySatchelManager SupplySatchelManager { get; }
+        ITradeskillManager TradeskillManager { get; }
+        ICraftingManager CraftingManager { get; }
         IXpManager XpManager { get; }
         IReputationManager ReputationManager { get; }
         IGuildManager GuildManager { get; }

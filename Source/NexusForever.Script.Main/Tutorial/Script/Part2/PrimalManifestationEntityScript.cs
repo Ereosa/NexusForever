@@ -1,9 +1,11 @@
-﻿using System.Numerics;
+﻿using System.Linq;
+using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Static.Quest;
+using NexusForever.Game.Static.Spell;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 using NexusForever.Shared;
@@ -68,7 +70,13 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             if (quest == null)
                 return;
 
-            // each ring boosts the player's jump so they can reach the next one
+            // each ring boosts the player's jump so they can reach the next one, the new boost replaces the previous ring's
+            // the boosts end on their own once the player leaves the area (target persistence prerequisite)
+            foreach (ISpell spell in player.GetSpellsByEffect(SpellEffectType.UnitPropertyModifier)
+                .Where(s => !s.IsFinished && jumpBuffs.Any(b => b.Spell4Id == s.Spell4Id))
+                .ToList())
+                spell.Finish();
+
             ISpellParameters parameters = spellParameterFactory.Resolve();
             parameters.UserInitiatedSpellCast = false;
             parameters.PrimaryTargetId        = player.Guid;

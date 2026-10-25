@@ -7,6 +7,16 @@ namespace NexusForever.Game.Abstract.Entity
         ushort[] BuildNetworkPacket();
 
         /// <summary>
+        /// Return the amount of the supplied material stored in the supply satchel.
+        /// </summary>
+        uint GetAmount(ushort materialId);
+
+        /// <summary>
+        /// Remove the provided amount of the supplied material.
+        /// </summary>
+        void RemoveAmount(ushort materialId, uint amount);
+
+        /// <summary>
         /// Add the provided amount to the <see cref="ITradeskillMaterial"/> that is associated with the provided <see cref="IItem"/>
         /// </summary>
         /// <returns>

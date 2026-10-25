@@ -7,8 +7,10 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Achievement;
+using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
+using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Static;
@@ -455,6 +457,30 @@ namespace NexusForever.Game.Quest
                 case QuestRewardType.AccountCurrency:
                     player.Account.CurrencyManager.CurrencyAddAmount((AccountCurrencyType)entry.ObjectId, entry.ObjectAmount);
                     break;
+                case QuestRewardType.TradeSkillXp:
+                {
+                    // object is a TradeskillTier, only that tradeskill receives the experience
+                    TradeskillTierEntry tier = GameTableManager.Instance.TradeskillTier.GetEntry(entry.ObjectId);
+                    if (tier != null)
+                        player.TradeskillManager.AddXp((TradeskillType)tier.TradeSkillId, entry.ObjectAmount);
+                    break;
+                }
+                case QuestRewardType.TradeSkill:
+                {
+                    var tradeskillId = (TradeskillType)entry.ObjectId;
+                    if (player.TradeskillManager.IsTradeskillActive(tradeskillId))
+                        break;
+
+                    try
+                    {
+                        player.TradeskillManager.LearnTradeskill(tradeskillId, 0);
+                    }
+                    catch (InvalidOperationException exception)
+                    {
+                        log.LogWarning($"Failed to reward tradeskill {tradeskillId} for quest {Id}: {exception.Message}");
+                    }
+                    break;
+                }
                 default:
                 {
                     log.LogWarning($"Unhandled quest reward type {entry.Quest2RewardTypeId}!");

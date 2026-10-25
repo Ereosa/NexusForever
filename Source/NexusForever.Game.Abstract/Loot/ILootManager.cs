@@ -38,6 +38,11 @@ namespace NexusForever.Game.Abstract.Loot
         void GenerateLoot(IPlayer looter, IItem lootedItem);
 
         /// <summary>
+        /// Returns if the supplied item id has a loot table (eg: loot bags).
+        /// </summary>
+        bool HasItemLoot(uint itemId);
+
+        /// <summary>
         /// Generates loot for the specified player from a looted entity.
         /// </summary>
         /// <param name="looter">The player who looted the entity.</param>

@@ -103,6 +103,29 @@ namespace NexusForever.Game.Combat
         }
 
         /// <summary>
+        /// Returns the calculated heal and updates the referenced <see cref="ISpellTargetEffectInfo"/> appropriately.
+        /// </summary>
+        /// <remarks>
+        /// Heals use the same base formula as damage but can't be deflected and aren't reduced by armor or shields.
+        /// </remarks>
+        public void CalculateHeal(ISpellExecutionContext executionContext, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            damageDescription.DamageType   = info.Entry.EffectType == SpellEffectType.HealShields ? DamageType.HealShields : DamageType.Heal;
+            damageDescription.CombatResult = CombatResult.Hit;
+
+            uint heal = CalculateBaseDamage(executionContext.Spell.Caster, target, info.Entry);
+            damageDescription.RawDamage       = heal;
+            damageDescription.RawScaledDamage = heal;
+
+            heal = CalculateBaseDamageVariance(heal);
+            if (CalculateCrit(ref heal, executionContext.Spell.Caster, target))
+                damageDescription.CombatResult = CombatResult.Critical;
+
+            damageDescription.AdjustedDamage = heal;
+            info.AddDamage(damageDescription);
+        }
+
+        /// <summary>
         /// Get base damage value for the given <see cref="IUnitEntity"/> with the provided parameter data from the <see cref="Spell4EffectsEntry"/>.
         /// </summary>
         private uint CalculateBaseDamage(IUnitEntity caster, IUnitEntity target, Spell4EffectsEntry entry)

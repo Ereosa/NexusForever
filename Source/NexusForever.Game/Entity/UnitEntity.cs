@@ -615,13 +615,49 @@ namespace NexusForever.Game.Entity
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
             }
 
+            // quest items dropped by creatures, there is no drop data for these so they drop half the time
+            foreach (uint virtualItemId in AssetManager.Instance.GetVirtualCollectItemsForCreatureId(CreatureId))
+                if (Random.Shared.Next(2) == 0)
+                    player.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
+
             player.PathMissionManager.OnCreatureKilled(this);
 
             scriptCollection?.Invoke<IUnitScript>(s => s.OnRewardKiller(player));
 
-            // TODO: Reward XP
+            RewardKillXp(player);
             // TODO: Reward Loot
             // TODO: Handle Achievements
+        }
+
+        /// <summary>
+        /// Grant experience to the supplied <see cref="IPlayer"/> for killing this unit.
+        /// </summary>
+        /// <remarks>
+        /// The client data has no kill experience values, this is derived from the creature level's base quest experience and its rank:
+        /// a Challenger at the player's level gives 12% of a level's base quest experience.
+        /// Creatures below the player give 20% less per level and nothing at 5 or more levels below, creatures above give 10% more per level up to 40%.
+        /// </remarks>
+        private void RewardKillXp(IPlayer player)
+        {
+            if (this is IPlayer || CreatureInfo?.Entry == null)
+                return;
+
+            XpPerLevelEntry levelEntry = GameTableManager.Instance.XpPerLevel.GetEntry(Level);
+            Creature2DifficultyEntry difficulty = GameTableManager.Instance.Creature2Difficulty.GetEntry(CreatureInfo.Entry.Creature2DifficultyId);
+            if (levelEntry == null || difficulty == null)
+                return;
+
+            int levelDifference = (int)Level - (int)player.Level;
+            float levelMultiplier = levelDifference >= 0
+                ? 1f + 0.1f * Math.Min(levelDifference, 4)
+                : Math.Max(0f, 1f + 0.2f * levelDifference);
+
+            // group and raid creatures share their larger contribution across the expected group
+            float rankMultiplier = difficulty.ClusterContributionValueDifficulty / Math.Max(1u, difficulty.GroupValue);
+
+            uint xp = (uint)(levelEntry.BaseQuestXpPerLevel * 0.15f * rankMultiplier * levelMultiplier);
+            if (xp > 0u)
+                player.XpManager.GrantXp(xp, ExpReason.KillCreature);
         }
 
         /// <summary>

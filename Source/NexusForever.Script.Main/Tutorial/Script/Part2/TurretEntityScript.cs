@@ -142,7 +142,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             owner.CastSpell((uint)spell, parameters);
         }
 
-        private class SearchCheckHostilePlayer : Game.Abstract.Map.Search.ISearchCheck<IPlayer>
+        internal class SearchCheckHostilePlayer : Game.Abstract.Map.Search.ISearchCheck<IPlayer>
         {
             private readonly ICreatureEntity owner;
 

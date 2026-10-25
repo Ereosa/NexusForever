@@ -97,6 +97,11 @@ namespace NexusForever.Game.Loot
         /// </summary>
         /// <param name="looter">The player who looted the item.</param>
         /// <param name="lootedItem">The item that was looted.</param>
+        public bool HasItemLoot(uint itemId)
+        {
+            return lootGroupManager.HasItemLoot(itemId);
+        }
+
         public void GenerateLoot(IPlayer looter, IItem lootedItem)
         {
             ILootBuilder lootBuilder = lootGroupManager.GenerateItemLoot(lootedItem.Id, [ looter ]);

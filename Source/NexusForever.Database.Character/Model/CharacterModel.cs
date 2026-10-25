@@ -39,6 +39,7 @@ namespace NexusForever.Database.Character.Model
         public ulong? GuildAffiliation { get; set; }
         public uint Flags { get; set; }
         public bool IsOnline { get; set; }
+        public DateTime? TradeskillRelearnCooldown { get; set; }
 
         public ResidenceModel Residence { get; set; }
         public ICollection<CharacterAchievementModel> Achievement { get; set; } = new HashSet<CharacterAchievementModel>();
@@ -63,7 +64,9 @@ namespace NexusForever.Database.Character.Model
         public ICollection<CharacterSpellModel> Spell { get; set; } = new HashSet<CharacterSpellModel>();
         public ICollection<CharacterStatModel> Stat { get; set; } = new HashSet<CharacterStatModel>();
         public ICollection<CharacterTitleModel> CharacterTitle { get; set; } = new HashSet<CharacterTitleModel>();
+        public ICollection<CharacterTradeskillModel> Tradeskill { get; set; } = new HashSet<CharacterTradeskillModel>();
         public ICollection<CharacterTradeskillMaterialModel> TradeskillMaterials { get; set; } = new HashSet<CharacterTradeskillMaterialModel>();
+        public ICollection<CharacterTradeskillSchematicModel> TradeskillSchematic { get; set; } = new HashSet<CharacterTradeskillSchematicModel>();
         public ICollection<CharacterZonemapHexgroupModel> ZonemapHexgroup { get; set; } = new HashSet<CharacterZonemapHexgroupModel>();
         public ICollection<ItemModel> Item { get; set; } = new HashSet<ItemModel>();
     }

@@ -321,6 +321,16 @@ namespace NexusForever.Game.Spell
             // not sure if this should be for explicit and/or implicit targets
             if (Parameters.SpellInfo.TargetCastPrerequisites != null)
             {
+                // TODO: evaluate for all targets, currently only harvesting nodes which use this to check the correct tool is used
+                if (Parameters.PrimaryTargetId > 0 && Caster.GetVisible<IUnitEntity>(Parameters.PrimaryTargetId) is IHarvestUnitEntity harvestUnit)
+                {
+                    var parameters = new PrerequisiteParameters
+                    {
+                        Target = harvestUnit
+                    };
+                    if (!PrerequisiteManager.Instance.Meets(player, Parameters.SpellInfo.TargetCastPrerequisites.Id, parameters))
+                        return parameters.CastResult ?? CastResult.PrereqTargetCast;
+                }
             }
 
             // this probably isn't the correct place, name implies this should be constantly checked
@@ -624,6 +634,18 @@ namespace NexusForever.Game.Spell
         {
             bool effectCanApply = true;
 
+            // harvesting tools have effects that only apply to some nodes, evaluated for the caster against the node
+            if (unit is IHarvestUnitEntity harvestUnit)
+            {
+                if (spell4EffectsEntry.PrerequisiteIdTargetApply == 0 || Caster is not IPlayer caster)
+                    return true;
+
+                return PrerequisiteManager.Instance.Meets(caster, spell4EffectsEntry.PrerequisiteIdTargetApply, new PrerequisiteParameters
+                {
+                    Target = harvestUnit
+                });
+            }
+
             // TODO: Possibly update Prereq Manager to handle other Units
             if (unit is not IPlayer player)
                 return true;
@@ -897,7 +919,14 @@ namespace NexusForever.Game.Spell
                 if (Parameters.SpellInfo.Entry.PrerequisiteIdCasterPersistence > 0 && !PrerequisiteManager.Instance.Meets(player, Parameters.SpellInfo.Entry.PrerequisiteIdCasterPersistence, parameters))
                     Finish();
 
-                // TODO: Check if target can still persist
+                if (Parameters.SpellInfo.Entry.PrerequisiteIdTargetPersistence > 0)
+                {
+                    IPlayer target = Parameters.PrimaryTargetId == 0u || Parameters.PrimaryTargetId == player.Guid
+                        ? player
+                        : player.GetVisible<IPlayer>(Parameters.PrimaryTargetId);
+                    if (target != null && !PrerequisiteManager.Instance.Meets(target, Parameters.SpellInfo.Entry.PrerequisiteIdTargetPersistence, parameters))
+                        Finish();
+                }
 
                 persistCheck.Reset();
             }

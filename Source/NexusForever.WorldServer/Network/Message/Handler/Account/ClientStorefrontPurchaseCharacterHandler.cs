@@ -18,6 +18,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Account
                 Operation = AccountOperation.MTXPurchase,
                 Result    = result
             });
+
+            // client waits for this and an account currency change before closing the purchase spinner
+            session.EnqueueMessageEncrypted(new ServerStorePurchaseResult
+            {
+                Success = result == AccountOperationResult.Ok
+            });
         }
 
         private static AccountOperationResult Purchase(IWorldSession session, ClientStorefrontPurchaseCharacter purchase)
