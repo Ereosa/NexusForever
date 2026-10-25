@@ -59,6 +59,7 @@ namespace NexusForever.Game.Entity
             datacubes.Add(DatacubeHash(id, DatacubeType.Datacube), datacube);
 
             SendDatacube(datacube);
+            player.PathMissionManager.OnDatacubeDiscovered(id);
         }
 
         /// <summary>

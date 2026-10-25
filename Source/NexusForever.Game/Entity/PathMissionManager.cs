@@ -5,6 +5,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Prerequisite;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.PlayerPath;
 using NexusForever.GameTable;
@@ -42,7 +43,8 @@ namespace NexusForever.Game.Entity
             PathMissionType.SoldierSWAT,
             PathMissionType.SoldierDemolition,
             PathMissionType.SoldierRescue,
-            PathMissionType.ExplorerActivateChecklist
+            PathMissionType.ExplorerActivateChecklist,
+            PathMissionType.ScientistDatacubeDiscovery
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -293,6 +295,9 @@ namespace NexusForever.Game.Entity
                         CompleteMission(mission);
                     break;
                 }
+                case PathMissionType.ScientistDatacubeDiscovery:
+                    UpdateDatacubeDiscovery(mission);
+                    break;
             }
         }
 
@@ -327,7 +332,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Returns if the objectives of the mission are met, this mirrors the client GetNumCompleted and GetNumNeeded.
         /// </summary>
-        private static bool IsObjectiveComplete(IPathMission mission)
+        private bool IsObjectiveComplete(IPathMission mission)
         {
             switch (mission.Type)
             {
@@ -340,6 +345,11 @@ namespace NexusForever.Game.Entity
                 }
                 case PathMissionType.ScientistScan:
                     return mission.Progress >= 100u;
+                case PathMissionType.ScientistDatacubeDiscovery:
+                {
+                    uint needed = (uint)GetZoneDatacubes(mission.Entry.ObjectId).Count();
+                    return needed > 0u && mission.Progress >= needed;
+                }
                 case PathMissionType.SoldierAssassinate:
                     return mission.Progress >= (GameTableManager.Instance.PathSoldierAssassinate.GetEntry(mission.Entry.ObjectId)?.Count ?? uint.MaxValue);
                 case PathMissionType.SoldierSWAT:
@@ -554,6 +564,36 @@ namespace NexusForever.Game.Entity
                 if (entry != null && MatchesTarget(entry.Creature2Id, entry.TargetGroupId, entity))
                     UpdateMission(mission, mission.Progress | entity.QuestChecklistMask, mission.State);
             }
+        }
+
+        /// <summary>
+        /// Datacubes of the zone a datacube discovery mission is for, this mirrors the client zone datacube count.
+        /// </summary>
+        private IEnumerable<DatacubeEntry> GetZoneDatacubes(uint pathScientistDatacubeDiscoveryId)
+        {
+            PathScientistDatacubeDiscoveryEntry entry = GameTableManager.Instance.PathScientistDatacubeDiscovery.GetEntry(pathScientistDatacubeDiscoveryId);
+            if (entry == null)
+                return [];
+
+            uint faction = player.Faction1 == Faction.Exile ? 1u : 2u;
+            return GameTableManager.Instance.Datacube.Entries
+                .Where(d => d != null
+                    && d.WorldZoneId == entry.WorldZoneId
+                    && d.DatacubeTypeEnum == (uint)DatacubeType.Datacube
+                    && (d.DatacubeFactionEnum == 0u || d.DatacubeFactionEnum == faction));
+        }
+
+        private void UpdateDatacubeDiscovery(IPathMission mission)
+        {
+            uint discovered = (uint)GetZoneDatacubes(mission.Entry.ObjectId)
+                .Count(d => player.DatacubeManager.GetDatacube((ushort)d.Id, DatacubeType.Datacube) != null);
+            UpdateMission(mission, discovered, mission.State);
+        }
+
+        public void OnDatacubeDiscovered(uint datacubeId)
+        {
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ScientistDatacubeDiscovery))
+                UpdateDatacubeDiscovery(mission);
         }
 
         public void OnQuestCompleted(uint questId)

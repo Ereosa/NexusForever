@@ -72,6 +72,11 @@ namespace NexusForever.Game.Abstract.Entity
         void OnQuestCompleted(uint questId);
 
         /// <summary>
+        /// Invoked when the player discovers a datacube.
+        /// </summary>
+        void OnDatacubeDiscovered(uint datacubeId);
+
+        /// <summary>
         /// Returns if the player has completed the supplied mission.
         /// </summary>
         bool IsMissionComplete(uint missionId);
