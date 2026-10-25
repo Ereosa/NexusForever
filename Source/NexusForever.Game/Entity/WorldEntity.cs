@@ -100,6 +100,7 @@ namespace NexusForever.Game.Entity
         public Faction Faction2 { get; set; }
 
         public byte QuestChecklistIdx { get; private set; }
+        public uint QuestChecklistMask => QuestChecklistIdx < 32 ? 1u << QuestChecklistIdx : 1u;
 
         public ulong ActivePropId { get; private set; }
         public ushort WorldSocketId { get; private set; }
@@ -603,12 +604,13 @@ namespace NexusForever.Game.Entity
             if (CreatureInfo.Entry != null)
             {
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, CreatureInfo.Entry.Id, 1u);
-                activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, CreatureInfo.Entry.Id, QuestChecklistIdx);
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, CreatureInfo.Entry.Id, 1u);
 
                 foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureInfo.Entry.Id))
                 {
-                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, 1u); // Updates the objective, but seems to disable all the other targets. TODO: Investigate
+                    // target group objectives are checklists, each entity sets its own bit
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, QuestChecklistMask);
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistMask);
 
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroup, targetGroupId, 1);
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistIdx);

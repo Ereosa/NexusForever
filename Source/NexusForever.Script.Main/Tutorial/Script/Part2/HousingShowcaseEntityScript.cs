@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Static.Quest;
@@ -13,7 +13,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
     /// </summary>
     /// <remarks>
     /// Talking to one starts its 2 second "Inquiring About ..." activate cast. On success the NPC counts towards the
-    /// quest once per player and shows off its example (decoration, sky or music).
+    /// quest and shows off its example (decoration, sky or music).
     /// </remarks>
     [ScriptFilterCreatureId(LandscapeArchitect, DecorationsExpert, SkySpecialist, MusicManager)]
     public class HousingShowcaseEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
@@ -51,7 +51,6 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         ];
 
         private IWorldEntity owner;
-        private readonly HashSet<ulong> credited = [];
 
         #region Dependency Injection
 
@@ -87,20 +86,18 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         /// </summary>
         public void OnActivateSuccess(IPlayer activator)
         {
-            if (credited.Add(activator.CharacterId))
+            // each architect and expert has its own checklist slot, so the same NPC only counts once
+            switch (owner.CreatureId)
             {
-                switch (owner.CreatureId)
-                {
-                    case LandscapeArchitect:
-                        activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, LandscapeArchitectTargetGroup, 1u);
-                        break;
-                    case DecorationsExpert:
-                        activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, DecorationsExpertTargetGroup, 1u);
-                        break;
-                    default:
-                        activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, owner.CreatureId, 1u);
-                        break;
-                }
+                case LandscapeArchitect:
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, LandscapeArchitectTargetGroup, owner.QuestChecklistMask);
+                    break;
+                case DecorationsExpert:
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, DecorationsExpertTargetGroup, owner.QuestChecklistMask);
+                    break;
+                default:
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, owner.CreatureId, 1u);
+                    break;
             }
 
             PlayDemo(activator);

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+﻿using System.Numerics;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
@@ -142,11 +143,25 @@ namespace NexusForever.Game.Quest
                 && !ObjectiveInfo.HasUnknown0200();
         }
 
+        /// <remarks>
+        /// Target group objectives are checklists, progress is a bit mask of the entity <see cref="IWorldEntity.QuestChecklistIdx"/>'s completed.
+        /// The client uses the bits to know which entities can still be interacted with.
+        /// </remarks>
+        private bool IsChecklist()
+        {
+            return ObjectiveInfo.Type is QuestObjectiveType.ActivateTargetGroup
+                or QuestObjectiveType.ActivateTargetGroupChecklist
+                or QuestObjectiveType.TalkToTargetGroup;
+        }
+
         /// <summary>
         /// Return if the objective has been completed.
         /// </summary>
         public bool IsComplete()
         {
+            if (IsChecklist())
+                return BitOperations.PopCount(progress) >= ObjectiveInfo.Entry.Count;
+
             return progress >= GetMaxValue();
         }
 
@@ -160,6 +175,12 @@ namespace NexusForever.Game.Quest
         /// </summary>
         public void ObjectiveUpdate(uint update)
         {
+            if (IsChecklist())
+            {
+                Progress = progress | update;
+                return;
+            }
+
             if (IsDynamic())
                 update = (uint)(((float)update / ObjectiveInfo.Entry.Count) * 1000f);
 
@@ -169,6 +190,15 @@ namespace NexusForever.Game.Quest
        
         public void Complete()
         {
+            if (IsChecklist())
+            {
+                uint mask = progress;
+                for (int i = 0; i < 32 && BitOperations.PopCount(mask) < ObjectiveInfo.Entry.Count; i++)
+                    mask |= 1u << i;
+                Progress = mask;
+                return;
+            }
+
             Progress = GetMaxValue();
         }
     }

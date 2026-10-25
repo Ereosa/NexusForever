@@ -1,7 +1,8 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Quest;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
@@ -13,17 +14,17 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
     [ScriptFilterCreatureId(73500)]
     public class PrimalManifestationEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
     {
-        private const uint RingObjectiveId = 21294;
+        private const uint RingObjectiveId   = 21294;
+        private const uint RingTargetGroupId = 14425;
         private const uint ConstructCreatureId = 73499;
 
         // centre of the construct objective area (WorldLocation2 51744)
         private static readonly Vector3 ConstructPosition = new(429.29544f, -388.8825f, 253.77565f);
 
-        private readonly HashSet<ulong> visited = [];
-
         #region Dependency Injection
 
         private readonly ICreatureInfoManager creatureInfoManager;
+        private IWorldEntity owner;
 
         public PrimalManifestationEntityScript(
             ICreatureInfoManager creatureInfoManager)
@@ -38,6 +39,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         /// </summary>
         public void OnLoad(IWorldEntity owner)
         {
+            this.owner = owner;
             owner.SetInRangeCheck(4f);
         }
 
@@ -57,10 +59,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             if (objective == null || objective.IsComplete())
                 return;
 
-            if (!visited.Add(player.CharacterId))
-                return;
-
-            quest.ObjectiveUpdate(RingObjectiveId, 1u);
+            // each ring has its own checklist slot
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, RingTargetGroupId, owner.QuestChecklistMask);
             if (!objective.IsComplete())
                 return;
 

@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Chat;
 using NexusForever.Game.Abstract.Entity.Creature;
@@ -35,6 +35,11 @@ namespace NexusForever.Game.Abstract.Entity
         Faction Faction2 { get; set; }
 
         byte QuestChecklistIdx { get; }
+
+        /// <summary>
+        /// Checklist objective progress contributed by this <see cref="IWorldEntity"/>, a single bit for <see cref="QuestChecklistIdx"/>.
+        /// </summary>
+        uint QuestChecklistMask { get; }
 
         ushort WorldSocketId { get; }
         ulong ActivePropId { get; }
