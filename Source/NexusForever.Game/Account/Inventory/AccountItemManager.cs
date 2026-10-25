@@ -8,6 +8,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.AccountInventory;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Prerequisite;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model.AccountInventory;
@@ -138,9 +139,9 @@ namespace NexusForever.Game.Account.Inventory
                 return AccountOperationResult.InvalidAccountItem;
 
             bool needsCharacter = entry.Item2Id != 0u
-                || entry.PrerequisiteId != 0u
                 || entry.EntitlementScopeEnum == 1u
-                || IsCharacterEntitlement(entitlementEntry);
+                || IsCharacterEntitlement(entitlementEntry)
+                || (entry.PrerequisiteId != 0u && !IsAccountPrerequisite(entry.PrerequisiteId));
             if (needsCharacter && player == null)
                 return AccountOperationResult.NoCharacter;
 
@@ -152,8 +153,14 @@ namespace NexusForever.Game.Account.Inventory
             }
 
             // eg: "You have already claimed the maximum of 12 Extra Character Slots."
-            if (entry.PrerequisiteId != 0u && !PrerequisiteManager.Instance.Meets(player, entry.PrerequisiteId))
-                return AccountOperationResult.Prereq;
+            if (entry.PrerequisiteId != 0u)
+            {
+                bool meets = player != null
+                    ? PrerequisiteManager.Instance.Meets(player, entry.PrerequisiteId)
+                    : MeetsAccountPrerequisite(entry.PrerequisiteId);
+                if (!meets)
+                    return AccountOperationResult.Prereq;
+            }
 
             if (entitlementEntry != null)
             {
@@ -168,6 +175,74 @@ namespace NexusForever.Game.Account.Inventory
                 return AccountOperationResult.InvalidInventoryItem;
 
             return AccountOperationResult.Ok;
+        }
+
+        /// <summary>
+        /// Returns if the prerequisite only checks account entitlements, so it can be evaluated without a character (eg: at character select).
+        /// </summary>
+        private static bool IsAccountPrerequisite(uint prerequisiteId)
+        {
+            PrerequisiteEntry prerequisite = GameTableManager.Instance.Prerequisite.GetEntry(prerequisiteId);
+            if (prerequisite == null)
+                return false;
+
+            for (int i = 0; i < prerequisite.PrerequisiteTypeId.Length; i++)
+            {
+                PrerequisiteType type = prerequisite.PrerequisiteTypeId[i];
+                if (type == PrerequisiteType.None)
+                    continue;
+
+                if (type != PrerequisiteType.EntitlementCount || IsCharacterEntitlement(GameTableManager.Instance.Entitlement.GetEntry(prerequisite.ObjectId[i])))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool MeetsAccountPrerequisite(uint prerequisiteId)
+        {
+            PrerequisiteEntry prerequisite = GameTableManager.Instance.Prerequisite.GetEntry(prerequisiteId);
+            bool any = prerequisite.Flags == EvaluationMode.EvaluateOR;
+
+            for (int i = 0; i < prerequisite.PrerequisiteTypeId.Length; i++)
+            {
+                if (prerequisite.PrerequisiteTypeId[i] == PrerequisiteType.None)
+                    continue;
+
+                uint count = account.EntitlementManager.GetEntitlement((EntitlementType)prerequisite.ObjectId[i])?.Amount ?? 0u;
+                uint value = prerequisite.Value[i];
+                bool meets = prerequisite.PrerequisiteComparisonId[i] switch
+                {
+                    PrerequisiteComparison.Equal              => count == value,
+                    PrerequisiteComparison.NotEqual           => count != value,
+                    PrerequisiteComparison.GreaterThan        => count > value,
+                    PrerequisiteComparison.GreaterThanOrEqual => count >= value,
+                    PrerequisiteComparison.LessThan           => count < value,
+                    PrerequisiteComparison.LessThanOrEqual    => count <= value,
+                    _                                         => false
+                };
+
+                if (any && meets)
+                    return true;
+                if (!any && !meets)
+                    return false;
+            }
+
+            return !any;
+        }
+
+        /// <summary>
+        /// Returns if the <see cref="IAccountItem"/> only grants account wide contents, these are applied straight away when bought at character select.
+        /// </summary>
+        public bool IsAccountOnly(IAccountItem item)
+        {
+            AccountItemEntry entry = item.Entry;
+            EntitlementEntry entitlementEntry = entry.EntitlementId != 0u ? GameTableManager.Instance.Entitlement.GetEntry(entry.EntitlementId) : null;
+            return entitlementEntry != null
+                && entry.Item2Id == 0u
+                && entry.EntitlementScopeEnum != 1u
+                && !IsCharacterEntitlement(entitlementEntry)
+                && (entry.PrerequisiteId == 0u || IsAccountPrerequisite(entry.PrerequisiteId));
         }
 
         private static bool IsCharacterEntitlement(EntitlementEntry entry)
