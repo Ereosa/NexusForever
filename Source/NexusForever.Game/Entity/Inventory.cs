@@ -265,7 +265,10 @@ namespace NexusForever.Game.Entity
 
             // quest collect objectives count items as they arrive in the inventory
             if (player != null && location == InventoryLocation.Inventory && count > 0u)
+            {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CollectItem, info.Id, count);
+                player.ChallengeManager.OnItemAdded(info.Id, count);
+            }
 
             // looted tradeskill materials go straight into the supply satchel, anything that doesn't fit goes into the inventory
             if (player != null && location == InventoryLocation.Inventory && reason == ItemUpdateReason.Loot)
@@ -280,9 +283,7 @@ namespace NexusForever.Game.Entity
             }
 
             // update any existing stacks before creating new items
-            // TODO: looted items go into new stacks for now, the client crashes handling a stack count update after
-            // looting (its player unit pointer is null at that point, cause not found yet)
-            if (info.IsStackable() && reason != ItemUpdateReason.Loot)
+            if (info.IsStackable())
             {
                 foreach (IItem item in bag.Where(i => i.Info.Id == info.Id))
                 {

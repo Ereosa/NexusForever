@@ -2,7 +2,9 @@
 using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map.Instance;
+using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
@@ -17,6 +19,17 @@ namespace NexusForever.Script.Main.Tutorial
         {
             HoloTechVfx = 86985
         }
+
+        /// <summary>
+        /// Tutorial quests that are completed by script as soon as they are achieved, and the quest that follows them.
+        /// </summary>
+        private static readonly (QuestId QuestId, QuestId NextQuestId)[] autoCompleteQuests =
+        [
+            (QuestId.NavigatingNexusExile,       QuestId.NavigatingNexusPt2Exile),
+            (QuestId.NavigatingNexusPt2Exile,    QuestId.TheFaceOfTheEnemyExile),
+            (QuestId.NavigatingNexusDominion,    QuestId.NavigatingNexusPt2Dominion),
+            (QuestId.NavigatingNexusPt2Dominion, QuestId.TheFaceOfTheEnemyDominion)
+        ];
 
         #region Dependency Injection
 
@@ -47,6 +60,8 @@ namespace NexusForever.Script.Main.Tutorial
             parameters.UserInitiatedSpellCast = false;
             player.CastSpell(SpellId.HoloTechVfx, parameters);
 
+            CompleteAchievedQuests(player);
+
             QuestId questId = player.Faction2 == Faction.Exile
                 ? QuestId.NavigatingNexusExile
                 : QuestId.NavigatingNexusDominion;
@@ -55,6 +70,24 @@ namespace NexusForever.Script.Main.Tutorial
                 return;
             
             player.QuestManager.QuestAdd(questId);
+        }
+
+        /// <summary>
+        /// Hand over any auto completed quest that was achieved without its quest script running, eg a Dominion character from before the Dominion scripts existed.
+        /// </summary>
+        private static void CompleteAchievedQuests(IPlayer player)
+        {
+            foreach ((QuestId questId, QuestId nextQuestId) in autoCompleteQuests)
+            {
+                IQuest quest = player.QuestManager.GetActiveQuest(questId);
+                if (quest?.State != QuestState.Achieved)
+                    continue;
+
+                quest.RewardQuest(0);
+                player.QuestManager.QuestComplete(questId);
+                if (player.QuestManager.GetQuestState(nextQuestId) == null)
+                    player.QuestManager.QuestAdd(nextQuestId);
+            }
         }
     }
 }

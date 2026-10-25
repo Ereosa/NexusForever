@@ -231,14 +231,21 @@ namespace NexusForever.Game.Entity
                     value = levelEntry.UnitPropertyValue[(uint)levelProperty];
             }
 
-            if (CreatureInfo?.ArcheTypeEntry != null)
-                value *= CreatureInfo.ArcheTypeEntry.UnitPropertyMultiplier[(uint)property];
-            if (CreatureInfo?.DifficultyEntry != null)
-                value *= CreatureInfo.DifficultyEntry.UnitPropertyMultiplier[(uint)property];
-            if (CreatureInfo?.TierEntry != null)
-                value *= CreatureInfo.TierEntry.UnitPropertyMultiplier[(uint)property];
+            // bot archetype 18 has a BaseHealth multiplier of 0, which would summon every bot dead, a 0 health multiplier doesn't adjust health
+            value *= GetMultiplier(CreatureInfo?.ArcheTypeEntry?.UnitPropertyMultiplier, property);
+            value *= GetMultiplier(CreatureInfo?.DifficultyEntry?.UnitPropertyMultiplier, property);
+            value *= GetMultiplier(CreatureInfo?.TierEntry?.UnitPropertyMultiplier, property);
 
             return value;
+        }
+
+        private static float GetMultiplier(float[] multipliers, Property property)
+        {
+            if (multipliers == null || (uint)property >= multipliers.Length)
+                return 1f;
+
+            float multiplier = multipliers[(uint)property];
+            return multiplier == 0f && property == Property.BaseHealth ? 1f : multiplier;
         }
 
         public override void OnAddToMap(IBaseMap map, uint guid, Vector3 vector)

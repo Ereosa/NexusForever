@@ -194,6 +194,7 @@ namespace NexusForever.Game.Entity
             player.SpellManager.GrantSpells();
             player.SpellManager.SendServerAbilityPoints();
             player.TradeskillManager.LearnAutoTradeskills();
+            player.QuestManager.CheckCommunicatorMessages();
             // Unlock LAS slots
             // Unlock AMPs
             // Add feature access

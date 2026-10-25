@@ -26,5 +26,25 @@ namespace NexusForever.Game.Abstract.Quest
         bool IsOptional();
 
         bool HasUnknown0200();
+
+        /// <summary>
+        /// Return the world locations an enter area objective is completed at.
+        /// </summary>
+        IEnumerable<WorldLocation2Entry> GetAreaLocations();
+
+        /// <summary>
+        /// Returns if the objective is completed by reaching its area, enter area objectives and target-less objectives asking to go somewhere.
+        /// </summary>
+        bool IsAreaObjective();
+
+        /// <summary>
+        /// Return the creature a target-less "Listen to" objective names, 0 if it isn't one.
+        /// </summary>
+        uint GetListenCreatureId();
+
+        /// <summary>
+        /// Return the creature a target-less "Follow" objective names, 0 if it isn't one.
+        /// </summary>
+        uint GetFollowCreatureId();
     }
 }

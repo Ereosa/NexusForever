@@ -130,9 +130,25 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         void ObjectiveUpdate(QuestObjectiveType type, uint data, uint progress);
 
+        /// <summary>
+        /// Update any active quest <see cref="IQuestObjective"/>'s with supplied <see cref="QuestObjectiveType"/> that have no target of their own
+        /// and list their targets in the supplied reward pane target group instead.
+        /// </summary>
+        void ObjectiveUpdateRewardPane(QuestObjectiveType type, uint targetGroupId, uint progress);
+
         // <summary>
         /// Update any active quest <see cref="IQuestObjective"/>'s with supplied ID with progress.
         /// </summary>
         void ObjectiveUpdate(uint id, uint progress);
+
+        /// <summary>
+        /// Mention quests from communicator messages whose conditions the owner now meets (zone, level, world, quest states).
+        /// </summary>
+        void CheckCommunicatorMessages();
+
+        /// <summary>
+        /// Invoked when the owner moves, completes enter area objectives the owner is now inside of.
+        /// </summary>
+        void OnRelocate(System.Numerics.Vector3 position);
     }
 }

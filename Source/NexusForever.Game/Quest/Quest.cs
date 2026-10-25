@@ -104,6 +104,11 @@ namespace NexusForever.Game.Quest
 
         private QuestSaveMask saveMask;
 
+        /// <summary>
+        /// The quest has a row in the database (loaded from it or created by a save).
+        /// </summary>
+        private bool persisted;
+
         private IPlayer player;
         private readonly List<IQuestObjective> objectives = [];
         private bool serverObjectivesChecked;
@@ -141,6 +146,7 @@ namespace NexusForever.Game.Quest
             flags  = (QuestStateFlags)model.Flags;
             timer  = model.Timer;
             reset  = model.Reset;
+            persisted = true;
 
             if (timer != null)
                 questTimer = new UpdateTimer(timer.Value);
@@ -175,7 +181,10 @@ namespace NexusForever.Game.Quest
 
             player.VisibilityUpdate();
 
-            saveMask = QuestSaveMask.Create;
+            // a quest re-added after being mentioned, abandoned or completed already has a row, inserting it again fails the whole character save
+            saveMask = persisted
+                ? (saveMask & ~(QuestSaveMask.Create | QuestSaveMask.Delete)) | QuestSaveMask.State | QuestSaveMask.Flags | QuestSaveMask.Timer | QuestSaveMask.Reset
+                : QuestSaveMask.Create;
 
             scriptCollection = scriptManager.InitialiseOwnedCollection<IQuest>(this);
             scriptManager.InitialiseOwnedScripts<IQuest>(scriptCollection, info.Entry.Id);
@@ -218,6 +227,7 @@ namespace NexusForever.Game.Quest
             {
                 if ((saveMask & QuestSaveMask.Create) != 0)
                 {
+                    persisted = true;
                     context.Add(new CharacterQuestModel
                     {
                         Id      = player.CharacterId,
@@ -230,6 +240,7 @@ namespace NexusForever.Game.Quest
                 }
                 else if ((saveMask & QuestSaveMask.Delete) != 0)
                 {
+                    persisted = false;
                     var model = new CharacterQuestModel
                     {
                         Id      = player.CharacterId,
@@ -498,6 +509,24 @@ namespace NexusForever.Game.Quest
         /// </summary>
         public void ObjectiveUpdate(QuestObjectiveType type, uint data, uint progress)
         {
+            ObjectiveUpdate(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data, progress);
+        }
+
+        /// <summary>
+        /// Update any <see cref="IQuestObjective"/>'s with supplied <see cref="QuestObjectiveType"/> whose targets are the supplied target group:
+        /// creature objectives with no target of their own that list them in their reward pane target group,
+        /// and creature objectives whose data is a target group rather than a creature (eg: Captives of the Dominion).
+        /// </summary>
+        public void ObjectiveUpdateRewardPane(QuestObjectiveType type, uint targetGroupId, uint progress)
+        {
+            ObjectiveUpdate(o => o.ObjectiveInfo.Entry.Type == (uint)type
+                && (o.ObjectiveInfo.Entry.Data == 0u
+                    ? o.ObjectiveInfo.Entry.TargetGroupIdRewardPane == targetGroupId
+                    : o.ObjectiveInfo.Entry.Data == targetGroupId && GameTableManager.Instance.Creature2.GetEntry(targetGroupId) == null), progress);
+        }
+
+        private void ObjectiveUpdate(Func<IQuestObjective, bool> predicate, uint progress)
+        {
             if (PendingDelete)
                 return;
 
@@ -505,12 +534,12 @@ namespace NexusForever.Game.Quest
                 return;
 
             // most updates (spell casts, item pickups) don't match any objective, skip the visibility and completion checks for them
-            if (!objectives.Any(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data))
+            if (!objectives.Any(predicate))
                 return;
 
             // Order in reverse Index so that sequential steps don't completed by the same action
             foreach (IQuestObjective objective in objectives
-                .Where(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data)
+                .Where(predicate)
                 .OrderByDescending(o => o.Index))
             {
                 if (objective.IsComplete())

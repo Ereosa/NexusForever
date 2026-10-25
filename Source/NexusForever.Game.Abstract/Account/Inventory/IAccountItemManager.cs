@@ -17,6 +17,16 @@ namespace NexusForever.Game.Abstract.Account.Inventory
         AccountOperationResult TakeItem(IPlayer player, ulong id);
 
         /// <summary>
+        /// Returns if the account inventory contains an item for the supplied account item id.
+        /// </summary>
+        bool HasItem(uint accountItemId);
+
+        /// <summary>
+        /// Returns if the <see cref="IAccountItem"/> only grants account wide contents, these are applied straight away when bought at character select.
+        /// </summary>
+        bool IsAccountOnly(IAccountItem item);
+
+        /// <summary>
         /// Send the account inventory to the client.
         /// </summary>
         void SendInitialPackets();

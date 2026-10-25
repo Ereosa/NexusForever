@@ -71,6 +71,11 @@ namespace NexusForever.Game.Spell
 
         private readonly Dictionary<Spell4EffectsEntry, UpdateTimer> delayedEffects = [];
 
+        /// <summary>
+        /// Units this cast has already been credited for in the caster's challenges, each unit counts once per cast.
+        /// </summary>
+        private readonly HashSet<uint> challengeCreditedUnits = [];
+
         private IScriptCollection scriptCollection;
 
         #region Dependency Injection
@@ -507,6 +512,8 @@ namespace NexusForever.Game.Spell
             uint spell4Id = Parameters.SpellInfo.Entry.Id;
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess, spell4Id, 1u);
 
+            bool dealsDamage = Parameters.SpellInfo.Effects.Any(e => e.EffectType == SpellEffectType.Damage);
+
             foreach (IUnitEntity target in executionContext.TargetCollection
                 .GetTargets(SpellEffectTargetFlags.ExplicitTarget | SpellEffectTargetFlags.ImplicitTarget)
                 .Select(t => t.Entity)
@@ -515,6 +522,10 @@ namespace NexusForever.Game.Spell
             {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess2, spell4Id, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess4, spell4Id, 1u);
+
+                // "give the killing blow with" or "destroy with" a quest spell, spells that don't deal damage credit each target they hit
+                if (!target.IsAlive || !dealsDamage)
+                    player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess3, spell4Id, 1u);
             }
         }
 
@@ -650,6 +661,10 @@ namespace NexusForever.Game.Spell
                     // Track the number of times this effect has fired.
                     // Some spell effects have a limited trigger count per spell cast.
                     executionContext.IncrementEffectTriggerCount(spell4EffectsEntry.Id);
+
+                    // Ability challenges count the units their T-spell lands on
+                    if (Caster is IPlayer player && challengeCreditedUnits.Add(spellTarget.Entity.Guid))
+                        player.ChallengeManager.OnSpellEffectHit(Parameters.RootSpellInfo?.Entry.Id ?? Spell4Id, spellTarget.Entity, challengeCreditedUnits.Count == 1);
                 }
             }
         }

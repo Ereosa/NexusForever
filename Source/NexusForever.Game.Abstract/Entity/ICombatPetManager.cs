@@ -45,6 +45,11 @@ namespace NexusForever.Game.Abstract.Entity
         void OnPetDeath(ICombatPetEntity pet);
 
         /// <summary>
+        /// Show the engineer pet bar if bots are summoned and no other bar is shown in its place, hide it otherwise.
+        /// </summary>
+        void UpdateActionBar();
+
+        /// <summary>
         /// Invoked when the owner is removed from the map, pets are removed and summoned again when the owner is added to a map.
         /// </summary>
         void OnRemoveFromMap();

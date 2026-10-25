@@ -365,8 +365,13 @@ namespace NexusForever.Game.Entity
             CreatureInfo         = creatureInfo;
             EntityId             = model.Id;
             Rotation             = new Vector3(model.Rx, model.Ry, model.Rz);
-            CreatureDisplayEntry = GameTableManager.Instance.Creature2DisplayInfo.GetEntry(model.DisplayInfo);
-            CreatureOutfitEntry  = GameTableManager.Instance.Creature2OutfitInfo.GetEntry(model.OutfitInfo);
+            // spawns added by hand (not captured) often leave the display and outfit at 0, use the creature's own groups then
+            CreatureDisplayEntry = model.DisplayInfo != 0u
+                ? GameTableManager.Instance.Creature2DisplayInfo.GetEntry(model.DisplayInfo)
+                : creatureInfo?.GetDisplayInfoEntry();
+            CreatureOutfitEntry  = model.OutfitInfo != 0u
+                ? GameTableManager.Instance.Creature2OutfitInfo.GetEntry(model.OutfitInfo)
+                : creatureInfo?.GetOutfitInfoEntry();
             Faction1             = (Faction)model.Faction1;
             Faction2             = (Faction)model.Faction2;
             QuestChecklistIdx    = model.QuestChecklistIdx;
@@ -642,6 +647,7 @@ namespace NexusForever.Game.Entity
 
                 activator.PathMissionManager.OnEntityActivated(this);
                 activator.PathSettlerManager.OnEntityActivated(this);
+                activator.ChallengeManager.OnActivateSuccess(this);
 
                 if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
                     activator.PathSoldierManager.OnActivate(this);
@@ -652,7 +658,13 @@ namespace NexusForever.Game.Entity
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, QuestChecklistMask);
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistMask);
                     // counted activations of a target group (eg: Shellshock! overloading the Dominion cannons)
-                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, targetGroupId, 1u);
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, targetGroupId, QuestChecklistMask);
+
+                    // objectives without a target list the objects in their reward pane target group (eg: detonating Marauder Mines)
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.ActivateEntity, targetGroupId, 1u);
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.ActivateEntity2, targetGroupId, 1u);
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.SucceedCSI, targetGroupId, 1u);
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.Unknown10, targetGroupId, QuestChecklistMask);
 
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroup, targetGroupId, 1);
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistIdx);

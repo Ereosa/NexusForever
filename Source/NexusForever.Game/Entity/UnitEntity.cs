@@ -632,12 +632,17 @@ namespace NexusForever.Game.Entity
         protected virtual void RewardKiller(IPlayer player)
         {
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature, CreatureId, 1u);
-            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature2, CreatureId, 1u);
+
+            // "kill creatures of a difficulty or higher", data is the lowest Creature2Difficulty id (inferred: Prime is 6)
+            for (uint difficultyId = 1u; difficultyId <= (CreatureInfo?.Entry?.Creature2DifficultyId ?? 0u); difficultyId++)
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature2, difficultyId, 1u);
 
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
             {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroup, targetGroupId, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown15, targetGroupId, 1u);
+                player.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.KillCreature, targetGroupId, 1u);
             }
 
             // quest items dropped by creatures, there is no drop data for these so they drop half the time
@@ -646,6 +651,7 @@ namespace NexusForever.Game.Entity
                     player.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
 
             player.PathMissionManager.OnCreatureKilled(this);
+            player.ChallengeManager.OnKill(this);
 
             scriptCollection?.Invoke<IUnitScript>(s => s.OnRewardKiller(player));
 

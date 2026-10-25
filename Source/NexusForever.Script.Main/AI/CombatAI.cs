@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Combat;
+﻿using System.Numerics;
+using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement.Command;
 using NexusForever.Game.Abstract.Entity.Movement.Command.Position;
@@ -26,6 +27,13 @@ namespace NexusForever.Script.Main.AI
         protected List<uint> autoAttacks = [5649, 5652];
         private readonly UpdateTimer autoAttackTimer = new(TimeSpan.FromSeconds(1.5d));
 
+        /// <summary>
+        /// Turrets shoot from where they were placed and never chase.
+        /// </summary>
+        private bool stationary;
+        private const uint TurretUnitRaceId = 267;
+        private const uint TurretAutoAttackSpell4Id = 23121;
+
         private float chaseDistance = 5f;
         private readonly UpdateTimer chaseDistanceTimer = new(TimeSpan.FromSeconds(1f));
 
@@ -42,6 +50,15 @@ namespace NexusForever.Script.Main.AI
         /// </summary>
         private bool evading;
         private readonly UpdateTimer evadeTimer = new(TimeSpan.FromSeconds(8d));
+
+        /// <summary>
+        /// Where the creature was standing when the fight started, it leashes to and returns to this point.
+        /// </summary>
+        /// <remarks>
+        /// Creatures on a patrol spline can be far from their spawn point, leashing to the spawn made them give up as soon as they were pulled.
+        /// </remarks>
+        private Vector3? combatHome;
+        private Vector3 Home => combatHome ?? entity.LeashPosition;
 
         #region Dependency Injection
 
@@ -65,6 +82,12 @@ namespace NexusForever.Script.Main.AI
         {
             entity = owner;
             entity.SetInRangeCheck(15f);
+
+            if (entity.Type == EntityType.AiTurret || entity.CreatureInfo?.Entry?.UnitRaceId == TurretUnitRaceId)
+            {
+                stationary  = true;
+                autoAttacks = [TurretAutoAttackSpell4Id];
+            }
         }
 
         /// <summary>
@@ -78,13 +101,16 @@ namespace NexusForever.Script.Main.AI
             if (evading)
             {
                 evadeTimer.Update(lastTick);
-                if (evadeTimer.HasElapsed || entity.Position.GetDistance(entity.LeashPosition) < 2f)
+                if (evadeTimer.HasElapsed || entity.Position.GetDistance(Home) < 2f)
                     evading = false;
                 return;
             }
 
             if (!entity.TargetGuid.HasValue)
                 return;
+
+            // also covers fights started without going through AggroEntity (eg: pulled by an ally)
+            combatHome ??= entity.Position;
 
             if (CheckLeash())
                 return;
@@ -117,7 +143,7 @@ namespace NexusForever.Script.Main.AI
         /// </summary>
         private bool CheckLeash()
         {
-            if (entity.Position.GetDistance(entity.LeashPosition) <= LeashDistance)
+            if (entity.Position.GetDistance(Home) <= LeashDistance)
                 return false;
 
             evading = true;
@@ -157,6 +183,9 @@ namespace NexusForever.Script.Main.AI
 
         private void DoChase()
         {
+            if (stationary)
+                return;
+
             if (!entity.TargetGuid.HasValue)
                 return;
 
@@ -230,6 +259,8 @@ namespace NexusForever.Script.Main.AI
             // environmental hazards (security beams, traps) aren't something creatures fight
             if (unit.CreatureInfo?.Entry != null && ScriptFilterDynamicCombatAI.IsEnvironmentalHazard(unit.CreatureInfo.Entry))
                 return;
+
+            combatHome ??= entity.Position;
 
             var spellParameters = spellParametersFactory.Resolve();
             entity.CastSpell(41368, spellParameters);
@@ -312,7 +343,8 @@ namespace NexusForever.Script.Main.AI
             // TODO: cancel all pending spells
 
             float speed = entity.GetPropertyValue(Property.MoveSpeedMultiplier) * 10f;
-            entity.MovementManager.LaunchSpline([entity.Position, entity.LeashPosition], SplineType.Linear, SplineMode.OneShot, speed);
+            entity.MovementManager.LaunchSpline([entity.Position, Home], SplineType.Linear, SplineMode.OneShot, speed);
+            combatHome = null;
         }
     }
 }

@@ -9,6 +9,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Challenges;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
@@ -22,8 +23,10 @@ using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Abstract.Reputation;
+using NexusForever.Game.Abstract.Reward;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Achievement;
+using NexusForever.Game.Challenges;
 using NexusForever.Game.Character;
 using NexusForever.Game.Chat;
 using NexusForever.Game.Crafting;
@@ -33,6 +36,7 @@ using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Reputation;
+using NexusForever.Game.Reward;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Chat;
 using NexusForever.Game.Static.Entity;
@@ -56,6 +60,7 @@ using NexusForever.Network.Session;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Model.Abilities;
 using NexusForever.Network.World.Message.Model.Chat;
 using NexusForever.Network.World.Message.Model.Info;
 using NexusForever.Network.World.Message.Model.Pregame;
@@ -261,6 +266,8 @@ namespace NexusForever.Game.Entity
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
         public ITradeskillManager TradeskillManager { get; private set; }
         public ICraftingManager CraftingManager { get; private set; }
+        public IChallengeManager ChallengeManager { get; private set; }
+        public IRewardTrackManager RewardTrackManager { get; private set; }
         public IXpManager XpManager { get; private set; }
         public IReputationManager ReputationManager { get; private set; }
         public IGuildManager GuildManager { get; }
@@ -403,6 +410,8 @@ namespace NexusForever.Game.Entity
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             TradeskillManager       = new TradeskillManager(this, model);
             CraftingManager         = new CraftingManager(this);
+            ChallengeManager        = new ChallengeManager(this, model);
+            RewardTrackManager      = new RewardTrackManager(this, model);
             XpManager               = new XpManager(this, model);
             ReputationManager       = new ReputationManager(this, model);
             GuildManager.Initialise(this, model);
@@ -450,6 +459,7 @@ namespace NexusForever.Game.Entity
             PathScientistManager.Update(lastTick);
             PathSoldierManager.Update(lastTick);
             PathExplorerManager.Update(lastTick);
+            ChallengeManager.Update(lastTick);
             ResurrectionManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
@@ -646,6 +656,8 @@ namespace NexusForever.Game.Entity
             AchievementManager.Save(context);
             SupplySatchelManager.Save(context);
             TradeskillManager.Save(context);
+            ChallengeManager.Save(context);
+            RewardTrackManager.Save(context);
             XpManager.Save(context);
             ReputationManager.Save(context);
             GuildManager.Save(context);
@@ -803,6 +815,7 @@ namespace NexusForever.Game.Entity
 
             ZoneMapManager.OnRelocate(vector);
             PathMissionManager.OnRelocate(vector);
+            QuestManager.OnRelocate(vector);
 
             if (!relocationTimer.IsTicking)
                 relocationTimer.Resume();
@@ -833,8 +846,11 @@ namespace NexusForever.Game.Entity
             }
 
             ZoneMapManager.OnZoneUpdate();
+            QuestManager.CheckCommunicatorMessages();
             PathMissionManager.OnZoneUpdate();
             PathSettlerManager.OnZoneUpdate();
+            ChallengeManager.OnZoneUpdate();
+            RewardTrackManager.OnZoneUpdate();
 
             messagePublisher.PublishAsync(new PlayerWorldZoneUpdatedMessage
             {
@@ -918,10 +934,13 @@ namespace NexusForever.Game.Entity
             PathMissionManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             Account.ItemManager.SendInitialPackets();
+            Account.DailyLoginManager.OnLogin();
             QuestManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);
             TradeskillManager.SendInitialPackets();
             Account.RewardPropertyManager.SendInitialPackets();
+            RewardTrackManager.SendInitialPackets();
+            ChallengeManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
 
             Session.EnqueueMessageEncrypted(new ServerPhaseVisibilityWorldLocation
@@ -1142,6 +1161,7 @@ namespace NexusForever.Game.Entity
         private void OnLogout()
         {
             GuildManager.OnLogout();
+            ChallengeManager.OnLogout();
 
             matchingManager.OnLogout(this);
             matchManager.OnLogout(this);
@@ -1438,6 +1458,81 @@ namespace NexusForever.Game.Entity
             {
                 Error = error
             });
+        }
+
+        private readonly Dictionary<ShortcutSet, ushort> shownActionBars = [];
+
+        /// <summary>
+        /// Show the supplied action bar to the player, the buttons on it cast their spells through <see cref="CastActionBarShortcut"/>.
+        /// </summary>
+        public void ShowActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId, uint associatedUnitId)
+        {
+            shownActionBars[shortcutSet] = actionBarShortcutSetId;
+            Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            {
+                ShortcutSet            = shortcutSet,
+                ActionBarShortcutSetId = actionBarShortcutSetId,
+                AssociatedUnitId       = associatedUnitId
+            });
+        }
+
+        /// <summary>
+        /// Hide the supplied action bar if it is still the one shown on <paramref name="shortcutSet"/>.
+        /// </summary>
+        public void HideActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId)
+        {
+            if (!shownActionBars.TryGetValue(shortcutSet, out ushort shownId) || shownId != actionBarShortcutSetId)
+                return;
+
+            shownActionBars.Remove(shortcutSet);
+            Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            {
+                ShortcutSet            = shortcutSet,
+                ActionBarShortcutSetId = 0
+            });
+
+            // the engineer pet bar shares its bar with bars shown by spell effects
+            if (shortcutSet == ShortcutSet.PrimaryPetBar)
+                CombatPetManager.UpdateActionBar();
+        }
+
+        /// <summary>
+        /// Return the action bar shown on <paramref name="shortcutSet"/> with <see cref="ShowActionBar"/>.
+        /// </summary>
+        public ushort? GetShownActionBar(ShortcutSet shortcutSet)
+        {
+            return shownActionBars.TryGetValue(shortcutSet, out ushort shownId) ? shownId : null;
+        }
+
+        /// <summary>
+        /// Cast the spell of a button on an action bar shown with <see cref="ShowActionBar"/>, returns false if no such bar is shown.
+        /// </summary>
+        public bool CastActionBarShortcut(ShortcutSet shortcutSet, uint slot, uint targetUnitId, Vector3 position)
+        {
+            if (!shownActionBars.TryGetValue(shortcutSet, out ushort shownId))
+                return false;
+
+            ActionBarShortcutSetEntry entry = GameTableManager.Instance.ActionBarShortcutSet.GetEntry(shownId);
+            if (entry == null)
+                return false;
+
+            uint[] types   = [entry.ShortcutType00, entry.ShortcutType01, entry.ShortcutType02, entry.ShortcutType03, entry.ShortcutType04, entry.ShortcutType05,
+                              entry.ShortcutType06, entry.ShortcutType07, entry.ShortcutType08, entry.ShortcutType09, entry.ShortcutType10, entry.ShortcutType11];
+            uint[] objects = [entry.ObjectId00, entry.ObjectId01, entry.ObjectId02, entry.ObjectId03, entry.ObjectId04, entry.ObjectId05,
+                              entry.ObjectId06, entry.ObjectId07, entry.ObjectId08, entry.ObjectId09, entry.ObjectId10, entry.ObjectId11];
+            if (slot >= types.Length || objects[slot] == 0u)
+                return false;
+
+            // ShortcutType 6 and 7 are spells, see CombatPetManager
+            if (types[slot] is not (6u or 7u) || GameTableManager.Instance.Spell4.GetEntry(objects[slot]) == null)
+                return true;
+
+            ISpellParameters parameters = LegacyServiceProvider.Provider.GetService<IFactory<ISpellParameters>>().Resolve();
+            parameters.PrimaryTargetId        = targetUnitId;
+            parameters.TargetPosition         = new Network.World.Entity.Position(position);
+            parameters.UserInitiatedSpellCast = true;
+            CastSpell(objects[slot], parameters);
+            return true;
         }
 
         /// <summary>

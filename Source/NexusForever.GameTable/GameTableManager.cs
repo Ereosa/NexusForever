@@ -66,7 +66,10 @@ namespace NexusForever.GameTable
         [GameData]
         public GameTable<CCStatesEntry> CCStates { get; private set; }
 
+        [GameData]
         public GameTable<ChallengeEntry> Challenge { get; private set; }
+
+        [GameData]
         public GameTable<ChallengeTierEntry> ChallengeTier { get; private set; }
 
         [GameData]
@@ -182,6 +185,7 @@ namespace NexusForever.GameTable
         public GameTable<CustomerSurveyEntry> CustomerSurvey { get; private set; }
         public GameTable<CustomizationParameterEntry> CustomizationParameter { get; private set; }
         public GameTable<CustomizationParameterMapEntry> CustomizationParameterMap { get; private set; }
+        [GameData]
         public GameTable<DailyLoginRewardEntry> DailyLoginReward { get; private set; }
 
         [GameData]
@@ -511,7 +515,9 @@ namespace NexusForever.GameTable
         [GameData]
         public GameTable<Quest2RewardEntry> Quest2Reward { get; private set; }
         public GameTable<QuestCategoryEntry> QuestCategory { get; private set; }
+        [GameData]
         public GameTable<QuestDirectionEntry> QuestDirection { get; private set; }
+        [GameData]
         public GameTable<QuestDirectionEntryEntry> QuestDirectionEntry { get; private set; }
         public GameTable<QuestGroupEntry> QuestGroup { get; private set; }
         public GameTable<QuestHubEntry> QuestHub { get; private set; }
@@ -541,8 +547,13 @@ namespace NexusForever.GameTable
         public GameTable<RewardRotationEssenceEntry> RewardRotationEssence { get; private set; }
         public GameTable<RewardRotationItemEntry> RewardRotationItem { get; private set; }
         public GameTable<RewardRotationModifierEntry> RewardRotationModifier { get; private set; }
+
+        [GameData]
         public GameTable<RewardTrackEntry> RewardTrack { get; private set; }
+
+        [GameData]
         public GameTable<RewardTrackRewardsEntry> RewardTrackRewards { get; private set; }
+
         public GameTable<SalvageEntry> Salvage { get; private set; }
         public GameTable<SalvageExceptionEntry> SalvageException { get; private set; }
         public GameTable<SkyCloudSetEntry> SkyCloudSet { get; private set; }

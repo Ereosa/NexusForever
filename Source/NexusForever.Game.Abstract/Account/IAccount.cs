@@ -11,6 +11,8 @@ using NexusForever.Game.Abstract.RBAC;
 using NexusForever.Game.Static;
 using NexusForever.Network.Session;
 
+using NexusForever.Game.Abstract.Account.DailyLogin;
+
 namespace NexusForever.Game.Abstract.Account
 {
     public interface IAccount : IDatabaseAuth
@@ -26,6 +28,7 @@ namespace NexusForever.Game.Abstract.Account
         IAccountCostumeManager CostumeManager { get; }
         IRewardPropertyManager RewardPropertyManager { get; }
         IAccountKeybindingManager KeybindingManager { get; }
+        IAccountDailyLoginManager DailyLoginManager { get; }
 
         AccountTier AccountTier { get; }
 

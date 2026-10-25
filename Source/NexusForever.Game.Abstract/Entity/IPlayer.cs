@@ -4,16 +4,19 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Challenges;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Reputation;
+using NexusForever.Game.Abstract.Reward;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Option;
 using NexusForever.Game.Static.PVP;
 using NexusForever.Game.Static.Setting;
+using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Session;
 using NexusForever.Network.World.Message.Static;
@@ -94,6 +97,8 @@ namespace NexusForever.Game.Abstract.Entity
         ICharacterAchievementManager AchievementManager { get; }
         ISupplySatchelManager SupplySatchelManager { get; }
         ITradeskillManager TradeskillManager { get; }
+        IChallengeManager ChallengeManager { get; }
+        IRewardTrackManager RewardTrackManager { get; }
         ICraftingManager CraftingManager { get; }
         IXpManager XpManager { get; }
         IReputationManager ReputationManager { get; }
@@ -188,6 +193,26 @@ namespace NexusForever.Game.Abstract.Entity
         void Unsit();
 
         void SendGenericError(GenericError error);
+
+        /// <summary>
+        /// Show the supplied action bar to the player, the buttons on it cast their spells through <see cref="CastActionBarShortcut"/>.
+        /// </summary>
+        void ShowActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId, uint associatedUnitId);
+
+        /// <summary>
+        /// Hide the supplied action bar if it is still the one shown on <paramref name="shortcutSet"/>.
+        /// </summary>
+        void HideActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId);
+
+        /// <summary>
+        /// Return the action bar shown on <paramref name="shortcutSet"/> with <see cref="ShowActionBar"/>.
+        /// </summary>
+        ushort? GetShownActionBar(ShortcutSet shortcutSet);
+
+        /// <summary>
+        /// Cast the spell of a button on an action bar shown with <see cref="ShowActionBar"/>, returns false if no such bar is shown.
+        /// </summary>
+        bool CastActionBarShortcut(ShortcutSet shortcutSet, uint slot, uint targetUnitId, Vector3 position);
         void SendSystemMessage(string text);
 
         /// <summary>

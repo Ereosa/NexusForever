@@ -1,8 +1,13 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Quest;
+using NexusForever.Game.Static.Entity.Movement.Spline;
+using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Quest;
 using NexusForever.Game.Static;
@@ -325,32 +330,37 @@ namespace NexusForever.Game.Entity
                 if (!GlobalQuestManager.Instance.GetQuestGivers((ushort)info.Entry.Id)
                         .Any(c => player.GetVisibleCreature<WorldEntity>(c).Any())
                     && !GlobalQuestManager.Instance.GetQuestCommunicatorMessages((ushort)info.Entry.Id)
-                        .Any(m => m.Meets(player)))
+                        .Any(m => m.Meets(player, false)))
                     throw new QuestException($"Player {player.CharacterId} tried to start quest {info.Entry.Id} without quest giver!");
             }
 
             // server doesn't send an error message for prerequisites since the client does the exact same checks
             // it's assumed that a player could never get here without cheating in some way
-            if (!MeetsPrerequisites(info))
-                throw new QuestException($"Player {player.CharacterId} tried to start quest {info.Entry.Id} without meeting the prerequisites!");
+            if (!MeetsPrerequisites(info, out string reason))
+                throw new QuestException($"Player {player.CharacterId} tried to start quest {info.Entry.Id} without meeting the prerequisites ({reason})!");
 
             QuestAdd(info);
         }
 
         private bool MeetsPrerequisites(IQuestInfo info)
         {
-            if (info.Entry.QuestPlayerFactionEnum == 0u && player.Faction1 != Faction.Exile)
-                return false;
-            if (info.Entry.QuestPlayerFactionEnum == 1u && player.Faction1 != Faction.Dominion)
-                return false;
-            if (info.Entry.PrerequisiteRace != 0u && player.Race != (Race)info.Entry.PrerequisiteRace)
-                return false;
-            if (info.Entry.PrerequisiteClass != 0u && player.Class != (Class)info.Entry.PrerequisiteClass)
-                return false;
-            if (player.Level < info.Entry.PrerequisiteLevel)
-                return false;
+            return MeetsPrerequisites(info, out _);
+        }
 
-            if (!info.PrerequisiteQuests.IsEmpty)
+        private bool MeetsPrerequisites(IQuestInfo info, out string reason)
+        {
+            reason = null;
+            if (info.Entry.QuestPlayerFactionEnum == 0u && player.Faction1 != Faction.Exile)
+                reason = "faction (Exile only)";
+            else if (info.Entry.QuestPlayerFactionEnum == 1u && player.Faction1 != Faction.Dominion)
+                reason = "faction (Dominion only)";
+            else if (info.Entry.PrerequisiteRace != 0u && player.Race != (Race)info.Entry.PrerequisiteRace)
+                reason = $"race {info.Entry.PrerequisiteRace}";
+            else if (info.Entry.PrerequisiteClass != 0u && player.Class != (Class)info.Entry.PrerequisiteClass)
+                reason = $"class {info.Entry.PrerequisiteClass}";
+            else if (player.Level < info.Entry.PrerequisiteLevel)
+                reason = $"level {info.Entry.PrerequisiteLevel}";
+            else if (!info.PrerequisiteQuests.IsEmpty)
             {
                 bool preReqQuestsCompleted;
                 if ((info.Entry.PrerequisiteFlags & 1) != 0u)
@@ -359,25 +369,28 @@ namespace NexusForever.Game.Entity
                     preReqQuestsCompleted = info.PrerequisiteQuests.All(q => GetQuestState((ushort)q.Id) == QuestState.Completed);
 
                 if (!preReqQuestsCompleted)
-                    return false;
+                    reason = $"prerequisite quests {string.Join(",", info.PrerequisiteQuests.Select(q => q.Id))}";
             }
 
-            if (info.Entry.PrerequisiteId != 0u && !PrerequisiteManager.Instance.Meets(player, info.Entry.PrerequisiteId))
-                return false;
+            if (reason == null && info.Entry.PrerequisiteId != 0u && !PrerequisiteManager.Instance.Meets(player, info.Entry.PrerequisiteId))
+                reason = $"prerequisite {info.Entry.PrerequisiteId}";
 
-            if (!info.IsContract())
+            if (reason == null)
             {
-                GameFormulaEntry entry = GameTableManager.Instance.GameFormula.GetEntry(655);
-                // client also hard codes 40 if entry doesn't exist
-                if (activeQuests.Count > (entry?.Dataint0 ?? 40u))
-                    return false;
-            }
-            else
-            {
-                // TODO: contracts use reward property for max slots, RewardProperty.ActiveContractSlots
+                if (!info.IsContract())
+                {
+                    GameFormulaEntry entry = GameTableManager.Instance.GameFormula.GetEntry(655);
+                    // client also hard codes 40 if entry doesn't exist
+                    if (activeQuests.Count > (entry?.Dataint0 ?? 40u))
+                        reason = "quest log full";
+                }
+                else
+                {
+                    // TODO: contracts use reward property for max slots, RewardProperty.ActiveContractSlots
+                }
             }
 
-            return true;
+            return reason == null;
         }
 
         /// <summary>
@@ -434,6 +447,14 @@ namespace NexusForever.Game.Entity
             // already standing in the zone an enter zone objective asks for
             for (WorldZoneEntry zone = player.Zone; zone != null; zone = zone.ParentZoneId != 0u ? GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) : null)
                 quest.ObjectiveUpdate(QuestObjectiveType.EnterZone, zone.Id, 1u);
+
+            // and the area an enter area objective asks for
+            OnRelocate(player.Position);
+
+            // objectives the server has no event for never progress, make them visible in the log
+            foreach (IQuestObjectiveInfo objectiveInfo in info.Objectives
+                .Where(o => !o.IsOptional() && QuestObjectiveSupport.GetLevel(o.Type) == QuestSupportLevel.Unsupported))
+                log.LogWarning($"Quest {info.Entry.Id} objective {objectiveInfo.Id} has objective type {objectiveInfo.Type} ({(uint)objectiveInfo.Type}) which the server doesn't support, it won't progress!");
 
             log.LogTrace($"Accepted new quest {info.Entry.Id}.");
         }
@@ -601,9 +622,9 @@ namespace NexusForever.Game.Entity
 
             if (communicator)
             {
-                // TODO: check if this is complete, client seems to also refer to contact info
-                // for more see QuestTracker:HelperShowQuestCallbackBtn in LUA which contains the logic to show the complete button in the quest tracker
-                if (!quest.Info.IsCommunicatorReceived())
+                // the client shows the quest tracker call back button for quests received over the communicator and quests that can be called back (flag 0x04),
+                // see QuestTracker:HelperShowQuestCallbackBtn
+                if (!quest.Info.IsCommunicatorReceived() && !quest.Info.CanBeCalledBack())
                     throw new QuestException($"Player {player.CharacterId} tried to complete quest {questId} without communicator message!");
             }
             else
@@ -761,12 +782,184 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Update any active quest <see cref="IQuestObjective"/>'s with supplied <see cref="QuestObjectiveType"/> that have no target of their own
+        /// and list their targets in the supplied reward pane target group instead.
+        /// </summary>
+        public void ObjectiveUpdateRewardPane(QuestObjectiveType type, uint targetGroupId, uint progress)
+        {
+            foreach (IQuest quest in activeQuests.Values.ToList())
+                quest.ObjectiveUpdateRewardPane(type, targetGroupId, progress);
+        }
+
+        /// <summary>
         /// Update any active quest <see cref="IQuestObjective"/>'s with supplied ID with progress.
         /// </summary>
         public void ObjectiveUpdate(uint id, uint progress)
         {
             foreach (IQuest quest in activeQuests.Values.ToList())
                 quest.ObjectiveUpdate(id, progress);
+        }
+
+        /// <summary>
+        /// Mention quests from communicator messages whose conditions the owner now meets (zone, level, world, quest states).
+        /// </summary>
+        /// <remarks>
+        /// Invoked on login, zone change and level up, quest state changes are handled by the state triggers in <see cref="Quest"/>.
+        /// </remarks>
+        public void CheckCommunicatorMessages()
+        {
+            if (player.Map == null)
+                return;
+
+            foreach (ICommunicatorMessage message in GlobalQuestManager.Instance.GetQuestCommunicatorMessages())
+            {
+                // messages without any condition are sent by scripts or other content
+                if (!message.HasConditions())
+                    continue;
+
+                // quests the player already has, or has finished, aren't delivered again
+                QuestState? state = GetQuestState(message.QuestId);
+                if (state is not (null or QuestState.Abandoned))
+                    continue;
+
+                IQuestInfo info = GlobalQuestManager.Instance.GetQuestInfo(message.QuestId);
+                if (info == null || DisableManager.Instance.IsDisabled(DisableType.Quest, message.QuestId))
+                    continue;
+
+                if (!message.Meets(player) || !MeetsPrerequisites(info))
+                    continue;
+
+                QuestMention(info);
+            }
+        }
+
+        /// <summary>
+        /// Speed of a summoned "Follow the ..." guide, a walking pace the player can keep up with.
+        /// </summary>
+        private const float FollowGuideSpeed = 3.5f;
+
+        private readonly Dictionary<uint /*objective id*/, uint /*guid*/> followGuides = [];
+
+        /// <summary>
+        /// Summon the creature a "Follow the ..." objective names once the objective is the current step, it walks to the objective's marker.
+        /// </summary>
+        /// <remarks>
+        /// Retail scripts summoned these (eg: the Spatial Anomaly), the client data only names the creature and the destination.
+        /// </remarks>
+        private void StartFollowGuide(IQuest quest, IQuestObjective objective)
+        {
+            if (followGuides.TryGetValue(objective.ObjectiveInfo.Id, out uint existing))
+            {
+                if (player.Map.GetEntity<IWorldEntity>(existing) != null)
+                    return;
+                followGuides.Remove(objective.ObjectiveInfo.Id);
+            }
+
+            // only the current step of the quest
+            if (quest.Any(o => o.Index < objective.Index && !o.ObjectiveInfo.IsOptional() && !o.IsComplete()))
+                return;
+
+            ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(objective.ObjectiveInfo.GetFollowCreatureId());
+            if (creatureInfo == null)
+                return;
+
+            List<Vector3> destinations = objective.ObjectiveInfo.GetAreaLocations()
+                .Where(l => l.WorldId == player.Map.Entry.Id)
+                .Select(l => new Vector3(l.Position0, l.Position1, l.Position2))
+                .ToList();
+            if (destinations.Count == 0)
+                return;
+
+            Vector3 direction = Vector3.Normalize(new Vector3(destinations[0].X - player.Position.X, 0f, destinations[0].Z - player.Position.Z));
+            if (float.IsNaN(direction.X))
+                direction = Vector3.UnitX;
+            Vector3 start = player.Position + direction * 4f;
+            start.Y = player.Map.GetTerrainHeight(start.X, start.Z) ?? player.Position.Y;
+
+            var nodes = new List<Vector3> { start };
+            nodes.AddRange(destinations);
+
+            void OnAdd(IBaseMap map, uint guid, Vector3 vector)
+            {
+                map.GetEntity<IWorldEntity>(guid)?.MovementManager.LaunchSpline(nodes, SplineType.Linear, SplineMode.OneShot, FollowGuideSpeed);
+            }
+
+            IWorldEntity guide = creatureInfo.Entry.CreationTypeEnum == EntityType.NonPlayer
+                ? player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, start, Vector3.Zero, OnAdd)
+                : player.SummonFactory.Summon<ISimpleEntity>(creatureInfo, start, Vector3.Zero, OnAdd);
+            followGuides[objective.ObjectiveInfo.Id] = guide.Guid;
+        }
+
+        /// <summary>
+        /// Remove guides of follow objectives that are done or no longer in the quest log.
+        /// </summary>
+        private void CleanupFollowGuides()
+        {
+            if (followGuides.Count == 0)
+                return;
+
+            foreach ((uint objectiveId, uint guid) in followGuides.ToList())
+            {
+                bool active = activeQuests.Values.Any(q => q.State == QuestState.Accepted
+                    && q.Any(o => o.ObjectiveInfo.Id == objectiveId && !o.IsComplete()));
+                if (active)
+                    continue;
+
+                player.Map?.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+                followGuides.Remove(objectiveId);
+            }
+        }
+
+        /// <summary>
+        /// Distance from an enter area objective's location the objective completes at.
+        /// </summary>
+        /// <remarks>
+        /// Retail used server trigger volumes that aren't in the client data, most indicator locations are points (radius 1).
+        /// </remarks>
+        private const float EnterAreaMinimumRadius = 20f;
+
+        /// <summary>
+        /// Distance from the speaking creature a "Listen to" objective completes at (inferred, retail scripts finished them after the speech).
+        /// </summary>
+        private const float ListenRadius = 15f;
+
+        /// <summary>
+        /// Invoked when the owner moves, completes enter area objectives the owner is now inside of.
+        /// </summary>
+        public void OnRelocate(Vector3 position)
+        {
+            if (player.Map == null)
+                return;
+
+            CleanupFollowGuides();
+
+            foreach (IQuest quest in activeQuests.Values.ToList())
+            {
+                if (quest.State != QuestState.Accepted)
+                    continue;
+
+                foreach (IQuestObjective objective in quest
+                    .Where(o => !o.IsComplete())
+                    .ToList())
+                {
+                    if (objective.ObjectiveInfo.IsAreaObjective())
+                    {
+                        if (objective.ObjectiveInfo.GetAreaLocations()
+                            .Any(l => l.WorldId == player.Map.Entry.Id
+                                && Vector3.Distance(position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(l.Radius, EnterAreaMinimumRadius)))
+                            quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                        else if (objective.ObjectiveInfo.GetFollowCreatureId() != 0u)
+                            StartFollowGuide(quest, objective);
+                    }
+                    else
+                    {
+                        uint listenCreatureId = objective.ObjectiveInfo.GetListenCreatureId();
+                        if (listenCreatureId != 0u && player.GetVisibleCreature<IWorldEntity>(listenCreatureId)
+                                .Any(e => Vector3.Distance(position, e.Position) <= ListenRadius))
+                            quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                    }
+                }
+            }
         }
     }
 }

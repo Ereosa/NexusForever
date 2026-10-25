@@ -31,7 +31,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part1
             if (quest == null)
                 return false;
 
-            return !quest.GetQuestObjective(21321).IsComplete();
+            // objective 0 (jump onto the high platform) is the same for both factions
+            return !(quest.GetQuestObjectiveByIndex(0)?.IsComplete() ?? false);
         }
     }
 }
