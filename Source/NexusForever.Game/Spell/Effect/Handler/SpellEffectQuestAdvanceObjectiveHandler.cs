@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Spell;
@@ -37,7 +37,8 @@ namespace NexusForever.Game.Spell.Effect.Handler
             uint amount = Math.Max(1u, data.DataBits02);
             if (objective.ObjectiveInfo.Type is QuestObjectiveType.ActivateTargetGroup
                 or QuestObjectiveType.ActivateTargetGroupChecklist
-                or QuestObjectiveType.TalkToTargetGroup)
+                or QuestObjectiveType.TalkToTargetGroup
+                or QuestObjectiveType.Unknown10)
             {
                 // checklist progress is a bit mask, set the next unset bits
                 uint mask = 0u;
