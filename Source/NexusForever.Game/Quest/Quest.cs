@@ -498,6 +498,22 @@ namespace NexusForever.Game.Quest
         /// </summary>
         public void ObjectiveUpdate(QuestObjectiveType type, uint data, uint progress)
         {
+            ObjectiveUpdate(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data, progress);
+        }
+
+        /// <summary>
+        /// Update any <see cref="IQuestObjective"/>'s with supplied <see cref="QuestObjectiveType"/> that have no target of their own
+        /// and list their targets in the supplied reward pane target group instead.
+        /// </summary>
+        public void ObjectiveUpdateRewardPane(QuestObjectiveType type, uint targetGroupId, uint progress)
+        {
+            ObjectiveUpdate(o => o.ObjectiveInfo.Entry.Type == (uint)type
+                && o.ObjectiveInfo.Entry.Data == 0u
+                && o.ObjectiveInfo.Entry.TargetGroupIdRewardPane == targetGroupId, progress);
+        }
+
+        private void ObjectiveUpdate(Func<IQuestObjective, bool> predicate, uint progress)
+        {
             if (PendingDelete)
                 return;
 
@@ -505,12 +521,12 @@ namespace NexusForever.Game.Quest
                 return;
 
             // most updates (spell casts, item pickups) don't match any objective, skip the visibility and completion checks for them
-            if (!objectives.Any(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data))
+            if (!objectives.Any(predicate))
                 return;
 
             // Order in reverse Index so that sequential steps don't completed by the same action
             foreach (IQuestObjective objective in objectives
-                .Where(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data)
+                .Where(predicate)
                 .OrderByDescending(o => o.Index))
             {
                 if (objective.IsComplete())

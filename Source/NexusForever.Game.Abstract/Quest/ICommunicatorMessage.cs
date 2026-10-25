@@ -11,7 +11,13 @@ namespace NexusForever.Game.Abstract.Quest
         /// <summary>
         /// Checks if <see cref="IPlayer"/> meets the required conditions for this quest to be added to their communicator.
         /// </summary>
-        bool Meets(IPlayer player);
+        /// <param name="checkLocation">Whether the world and zone the message is sent in are checked, a message already received can be answered anywhere.</param>
+        bool Meets(IPlayer player, bool checkLocation = true);
+
+        /// <summary>
+        /// Returns if the message has any condition that decides when it is sent.
+        /// </summary>
+        bool HasConditions();
 
         /// <summary>
         /// Send communicator message to <see cref="IGameSession"/>.

@@ -1,5 +1,9 @@
-﻿using NexusForever.Game.Abstract.Quest;
+﻿using System.Collections.Immutable;
+using System.Text.RegularExpressions;
+using NexusForever.Game.Abstract.Quest;
+using NexusForever.Game.Static;
 using NexusForever.Game.Static.Quest;
+using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 
 namespace NexusForever.Game.Quest
@@ -46,6 +50,118 @@ namespace NexusForever.Game.Quest
         public bool HasUnknown0200()
         {
             return ((QuestObjectiveFlags)Entry.Flags & QuestObjectiveFlags.Unknown0200) != 0;
+        }
+
+        /// <summary>
+        /// Short text openings of target-less activate objectives that ask to reach a place, retail completed these with server trigger volumes.
+        /// </summary>
+        private static readonly string[] areaVerbs =
+        [
+            "Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape"
+        ];
+
+        private bool? isAreaObjective;
+        private uint? listenCreatureId;
+
+        /// <summary>
+        /// Returns if the objective is completed by reaching its area, enter area objectives and target-less objectives asking to go somewhere.
+        /// </summary>
+        public bool IsAreaObjective()
+        {
+            if (Type == QuestObjectiveType.EnterArea)
+                return true;
+
+            isAreaObjective ??= IsTargetless()
+                && areaVerbs.Any(v => GetShortText().StartsWith(v, StringComparison.OrdinalIgnoreCase))
+                && GetAreaLocations().Any();
+            return isAreaObjective.Value;
+        }
+
+        /// <summary>
+        /// Return the creature a target-less "Listen to" objective names, 0 if it isn't one.
+        /// </summary>
+        /// <remarks>
+        /// Retail completed these once the creature finished speaking to the player, here they complete once the player is close to the creature.
+        /// </remarks>
+        public uint GetListenCreatureId()
+        {
+            if (listenCreatureId == null)
+            {
+                listenCreatureId = 0u;
+                string text = GetShortText();
+                if (IsTargetless() && text.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase))
+                {
+                    Match match = Regex.Match(text, @"\$\w*\(creature=(\d+)\)");
+                    if (match.Success)
+                        listenCreatureId = uint.Parse(match.Groups[1].Value);
+                }
+            }
+
+            return listenCreatureId.Value;
+        }
+
+        /// <remarks>
+        /// Target-less activate objectives that aren't advanced by a quest object or reward pane target group.
+        /// </remarks>
+        private bool IsTargetless()
+        {
+            return Type == QuestObjectiveType.ActivateEntity
+                && Entry.Data == 0u
+                && Entry.TargetGroupIdRewardPane == 0u;
+        }
+
+        private string GetShortText()
+        {
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            uint textId = Entry.LocalizedTextIdShort != 0u ? Entry.LocalizedTextIdShort : Entry.LocalizedTextIdFull;
+            return (textId != 0u ? textTable?.GetEntry(textId) : null) ?? "";
+        }
+
+        private ImmutableList<WorldLocation2Entry> areaLocations;
+
+        /// <summary>
+        /// Return the world locations an enter area objective is completed at.
+        /// </summary>
+        /// <remarks>
+        /// The objective data is a server trigger volume which isn't in the client data,
+        /// the objective's map indicators (or quest direction locations) mark the area instead.
+        /// </remarks>
+        public IEnumerable<WorldLocation2Entry> GetAreaLocations()
+        {
+            if (areaLocations != null)
+                return areaLocations;
+
+            var builder = ImmutableList.CreateBuilder<WorldLocation2Entry>();
+            foreach (uint locationId in new[] { Entry.WorldLocationsIdIndicator00, Entry.WorldLocationsIdIndicator01, Entry.WorldLocationsIdIndicator02, Entry.WorldLocationsIdIndicator03 })
+            {
+                WorldLocation2Entry location = GameTableManager.Instance.WorldLocation2.GetEntry(locationId);
+                if (location != null)
+                    builder.Add(location);
+            }
+
+            if (builder.Count == 0 && Entry.QuestDirectionId != 0u)
+            {
+                QuestDirectionEntry direction = GameTableManager.Instance.QuestDirection.GetEntry(Entry.QuestDirectionId);
+                if (direction != null)
+                {
+                    foreach (uint directionEntryId in new[]
+                    {
+                        direction.QuestDirectionEntryId00, direction.QuestDirectionEntryId01, direction.QuestDirectionEntryId02, direction.QuestDirectionEntryId03,
+                        direction.QuestDirectionEntryId04, direction.QuestDirectionEntryId05, direction.QuestDirectionEntryId06, direction.QuestDirectionEntryId07,
+                        direction.QuestDirectionEntryId08, direction.QuestDirectionEntryId09, direction.QuestDirectionEntryId10, direction.QuestDirectionEntryId11,
+                        direction.QuestDirectionEntryId12, direction.QuestDirectionEntryId13, direction.QuestDirectionEntryId14, direction.QuestDirectionEntryId15
+                    })
+                    {
+                        QuestDirectionEntryEntry directionEntry = GameTableManager.Instance.QuestDirectionEntry.GetEntry(directionEntryId);
+                        WorldLocation2Entry location = directionEntry != null ? GameTableManager.Instance.WorldLocation2.GetEntry(directionEntry.WorldLocation2Id) : null;
+                        if (location != null)
+                            builder.Add(location);
+                    }
+                }
+            }
+
+            areaLocations = builder.ToImmutable();
+            return areaLocations;
         }
     }
 }

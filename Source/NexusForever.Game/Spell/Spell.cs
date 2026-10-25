@@ -512,6 +512,8 @@ namespace NexusForever.Game.Spell
             uint spell4Id = Parameters.SpellInfo.Entry.Id;
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess, spell4Id, 1u);
 
+            bool dealsDamage = Parameters.SpellInfo.Effects.Any(e => e.EffectType == SpellEffectType.Damage);
+
             foreach (IUnitEntity target in executionContext.TargetCollection
                 .GetTargets(SpellEffectTargetFlags.ExplicitTarget | SpellEffectTargetFlags.ImplicitTarget)
                 .Select(t => t.Entity)
@@ -520,6 +522,10 @@ namespace NexusForever.Game.Spell
             {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess2, spell4Id, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess4, spell4Id, 1u);
+
+                // "give the killing blow with" or "destroy with" a quest spell, spells that don't deal damage credit each target they hit
+                if (!target.IsAlive || !dealsDamage)
+                    player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess3, spell4Id, 1u);
             }
         }
 

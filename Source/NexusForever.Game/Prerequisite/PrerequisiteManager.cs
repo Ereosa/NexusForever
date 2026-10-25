@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Prerequisite;
@@ -71,7 +72,7 @@ namespace NexusForever.Game.Prerequisite
                     continue;
 
                 PrerequisiteComparison comparison = entry.PrerequisiteComparisonId[i];
-                if (!Meets(player, type, comparison, entry.Value[i], entry.ObjectId[i], parameters))
+                if (!Meets(player, prerequisiteId, type, comparison, entry.Value[i], entry.ObjectId[i], parameters))
                 {
                     log.LogTrace($"Player {player.Name} failed prerequisite AND check ({prerequisiteId}) {type}, {comparison}, {entry.Value[i]}, {entry.ObjectId[i]}");
                     return false;
@@ -89,7 +90,7 @@ namespace NexusForever.Game.Prerequisite
                 if (type == PrerequisiteType.None)
                     continue;
 
-                if (Meets(player, type, entry.PrerequisiteComparisonId[i], entry.Value[i], entry.ObjectId[i], parameters))
+                if (Meets(player, prerequisiteId, type, entry.PrerequisiteComparisonId[i], entry.Value[i], entry.ObjectId[i], parameters))
                     return true;
             }
 
@@ -97,12 +98,18 @@ namespace NexusForever.Game.Prerequisite
             return false;
         }
 
-        private bool Meets(IPlayer player, PrerequisiteType type, PrerequisiteComparison comparison, uint value, uint objectId, IPrerequisiteParameters parameters)
+        private readonly ConcurrentDictionary<PrerequisiteType, bool> reportedUnhandledTypes = new();
+
+        private bool Meets(IPlayer player, uint prerequisiteId, PrerequisiteType type, PrerequisiteComparison comparison, uint value, uint objectId, IPrerequisiteParameters parameters)
         {
             IPrerequisiteCheck handler = serviceProvider.GetKeyedService<IPrerequisiteCheck>(type);
             if (handler == null)
             {
-                log.LogWarning($"Unhandled PrerequisiteType {type}!");
+                // anything gated by an unhandled type silently fails for players (quests can't be accepted, objects stay hidden), make the first one stand out
+                if (reportedUnhandledTypes.TryAdd(type, true))
+                    log.LogError($"Unhandled PrerequisiteType {type} ({(uint)type}) in prerequisite {prerequisiteId}, comparison {comparison}, value {value}, object {objectId}! Everything gated by it fails, run NexusForever.QuestAudit for the affected quests.");
+                else
+                    log.LogWarning($"Unhandled PrerequisiteType {type} in prerequisite {prerequisiteId}!");
                 return false;
             }
 
