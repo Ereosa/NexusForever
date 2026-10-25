@@ -280,7 +280,9 @@ namespace NexusForever.Game.Entity
             }
 
             // update any existing stacks before creating new items
-            if (info.IsStackable())
+            // TODO: looted items go into new stacks for now, the client crashes handling a stack count update after
+            // looting (its player unit pointer is null at that point, cause not found yet)
+            if (info.IsStackable() && reason != ItemUpdateReason.Loot)
             {
                 foreach (IItem item in bag.Where(i => i.Info.Id == info.Id))
                 {
@@ -292,9 +294,7 @@ namespace NexusForever.Game.Entity
 
                     uint newStackCount = Math.Min(item.StackCount + count, info.Entry.MaxStackCount);
                     count -= newStackCount - item.StackCount;
-                    // the client resolves the source unit for loot stack updates and crashes when that unit (eg: a corpse) is gone,
-                    // the loot notification has already been shown so the update is sent without a reason
-                    ItemStackCountUpdate(item, newStackCount, reason == ItemUpdateReason.Loot ? ItemUpdateReason.NoReason : reason);
+                    ItemStackCountUpdate(item, newStackCount, reason);
                 }
             }
 
