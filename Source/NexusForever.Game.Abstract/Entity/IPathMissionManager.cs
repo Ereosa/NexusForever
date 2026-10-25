@@ -77,6 +77,16 @@ namespace NexusForever.Game.Abstract.Entity
         void OnDatacubeDiscovered(uint datacubeId);
 
         /// <summary>
+        /// Invoked when the player interacts with an entity, gives missions with an unlock creature and starts scavenger hunts.
+        /// </summary>
+        void OnEntityInteract(IWorldEntity entity);
+
+        /// <summary>
+        /// Invoked when the player uses the explorer path action to search for a scavenger hunt dig location.
+        /// </summary>
+        void OnExplorerSearch(uint clueId, byte searchRadiusBand);
+
+        /// <summary>
         /// Returns if the player has completed the supplied mission.
         /// </summary>
         bool IsMissionComplete(uint missionId);

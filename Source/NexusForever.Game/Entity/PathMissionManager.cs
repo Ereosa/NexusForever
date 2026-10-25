@@ -44,7 +44,9 @@ namespace NexusForever.Game.Entity
             PathMissionType.SoldierDemolition,
             PathMissionType.SoldierRescue,
             PathMissionType.ExplorerActivateChecklist,
-            PathMissionType.ScientistDatacubeDiscovery
+            PathMissionType.ScientistDatacubeDiscovery,
+            PathMissionType.ExplorerScavengerHunt,
+            PathMissionType.ExplorerDoor
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -146,6 +148,7 @@ namespace NexusForever.Game.Entity
             }
 
             CheckUnlocks(player.Position);
+            CheckDoors();
         }
 
         public void OnRelocate(Vector3 position)
@@ -157,6 +160,7 @@ namespace NexusForever.Game.Entity
                 return;
 
             CheckUnlocks(position);
+            CheckScavengerProximity(position);
         }
 
         private PathEpisodeEntry FindEpisode()
@@ -208,6 +212,10 @@ namespace NexusForever.Game.Entity
                 if (!CanUnlock(entry))
                     continue;
 
+                // missions with an unlock creature are given by talking to it
+                if (entry.Creature2IdUnlock != 0u)
+                    continue;
+
                 if (entry.WorldLocation2Id00 != 0u)
                 {
                     WorldLocation2Entry location = GameTableManager.Instance.WorldLocation2.GetEntry(entry.WorldLocation2Id00);
@@ -233,10 +241,6 @@ namespace NexusForever.Game.Entity
                 return false;
 
             if (!supportedTypes.Contains((PathMissionType)entry.PathMissionTypeEnum))
-                return false;
-
-            // missions with an unlock creature are given by talking to it
-            if (entry.Creature2IdUnlock != 0u)
                 return false;
 
             switch (entry.PathMissionFactionEnum)
@@ -345,6 +349,24 @@ namespace NexusForever.Game.Entity
                 }
                 case PathMissionType.ScientistScan:
                     return mission.Progress >= 100u;
+                case PathMissionType.ExplorerScavengerHunt:
+                {
+                    uint needed = (uint)GetScavengerClues(mission.Entry.ObjectId).Count(c => c != 0u);
+                    return needed > 0u && BitOperations.PopCount(mission.Progress) >= needed;
+                }
+                case PathMissionType.ExplorerDoor:
+                {
+                    PathExplorerDoorEntry door = GameTableManager.Instance.PathExplorerDoor.GetEntry(mission.Entry.ObjectId);
+                    if (door == null)
+                        return false;
+
+                    uint needed = DoorStateEntered;
+                    if (door.TargetGroupIdActivate != 0u)
+                        needed |= DoorStateActivated;
+                    if (door.TargetGroupIdKill != 0u)
+                        needed |= DoorStateKilled;
+                    return (mission.State & needed) == needed;
+                }
                 case PathMissionType.ScientistDatacubeDiscovery:
                 {
                     uint needed = (uint)GetZoneDatacubes(mission.Entry.ObjectId).Count();
@@ -526,6 +548,13 @@ namespace NexusForever.Game.Entity
 
         public void OnCreatureKilled(IWorldEntity entity)
         {
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerDoor))
+            {
+                PathExplorerDoorEntry door = GameTableManager.Instance.PathExplorerDoor.GetEntry(mission.Entry.ObjectId);
+                if (door != null && MatchesTarget(0u, door.TargetGroupIdKill, entity))
+                    UpdateMission(mission, mission.Progress, mission.State | DoorStateKilled);
+            }
+
             foreach (IPathMission mission in GetActiveMissions(PathMissionType.SoldierAssassinate))
             {
                 PathSoldierAssassinateEntry entry = GameTableManager.Instance.PathSoldierAssassinate.GetEntry(mission.Entry.ObjectId);
@@ -543,6 +572,30 @@ namespace NexusForever.Game.Entity
 
         public void OnEntityActivated(IWorldEntity entity)
         {
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerDoor))
+            {
+                PathExplorerDoorEntry door = GameTableManager.Instance.PathExplorerDoor.GetEntry(mission.Entry.ObjectId);
+                if (door != null && MatchesTarget(0u, door.TargetGroupIdActivate, entity))
+                    UpdateMission(mission, mission.Progress, mission.State | DoorStateActivated);
+            }
+
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerScavengerHunt))
+            {
+                if ((mission.State & ScavengerHuntStarted) == 0u)
+                    continue;
+
+                uint[] clues = GetScavengerClues(mission.Entry.ObjectId);
+                for (int i = 0; i < clues.Length; i++)
+                {
+                    PathExplorerScavengerClueEntry clue = GameTableManager.Instance.PathExplorerScavengerClue.GetEntry(clues[i]);
+                    if (clue == null || clue.ExplorerScavengerClueTypeEnum == ScavengerClueTypeDig)
+                        continue;
+
+                    if (MatchesTarget(clue.Creature2Id, clue.TargetGroupId, entity))
+                        CompleteScavengerClue(mission, i);
+                }
+            }
+
             foreach (PathMissionType type in new[] { PathMissionType.SoldierDemolition, PathMissionType.SoldierRescue })
             {
                 foreach (IPathMission mission in GetActiveMissions(type))
@@ -594,6 +647,175 @@ namespace NexusForever.Game.Entity
         {
             foreach (IPathMission mission in GetActiveMissions(PathMissionType.ScientistDatacubeDiscovery))
                 UpdateDatacubeDiscovery(mission);
+        }
+
+        private const uint DoorStateEntered   = 0x01;
+        private const uint DoorStateActivated = 0x02;
+        private const uint DoorStateKilled    = 0x04;
+
+        private const uint ScavengerHuntStarted = 0x40000000;
+        private const uint ScavengerClueTypeDig = 2u;
+
+        /// <summary>
+        /// Explorer door missions are explored by entering the micro zone behind the door.
+        /// </summary>
+        private void CheckDoors()
+        {
+            HashSet<uint> zones = null;
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerDoor))
+            {
+                PathExplorerDoorEntry door = GameTableManager.Instance.PathExplorerDoor.GetEntry(mission.Entry.ObjectId);
+                if (door == null || (mission.State & DoorStateEntered) != 0u)
+                    continue;
+
+                zones ??= GetZoneChain();
+                if (zones.Contains(door.WorldZoneIdInsideMicro))
+                    UpdateMission(mission, mission.Progress, mission.State | DoorStateEntered);
+            }
+        }
+
+        private static uint[] GetScavengerClues(uint pathExplorerScavengerHuntId)
+        {
+            PathExplorerScavengerHuntEntry entry = GameTableManager.Instance.PathExplorerScavengerHunt.GetEntry(pathExplorerScavengerHuntId);
+            if (entry == null)
+                return [];
+
+            return
+            [
+                entry.PathExplorerScavengerClueId00, entry.PathExplorerScavengerClueId01, entry.PathExplorerScavengerClueId02,
+                entry.PathExplorerScavengerClueId03, entry.PathExplorerScavengerClueId04, entry.PathExplorerScavengerClueId05,
+                entry.PathExplorerScavengerClueId06
+            ];
+        }
+
+        public void OnEntityInteract(IWorldEntity entity)
+        {
+            // missions given by talking to a creature
+            if (CurrentEpisode != null)
+            {
+                foreach (PathMissionEntry entry in missionsByEpisode[CurrentEpisode.Id])
+                {
+                    if (entry.Creature2IdUnlock == 0u || entry.Creature2IdUnlock != entity.CreatureId)
+                        continue;
+
+                    if (!missions.ContainsKey((ushort)entry.Id) && CanUnlock(entry))
+                        UnlockMission(entry);
+                }
+            }
+
+            // scavenger hunts are started by talking to their start creature
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerScavengerHunt))
+            {
+                PathExplorerScavengerHuntEntry hunt = GameTableManager.Instance.PathExplorerScavengerHunt.GetEntry(mission.Entry.ObjectId);
+                if (hunt == null || hunt.Creature2IdStart != entity.CreatureId || (mission.State & ScavengerHuntStarted) != 0u)
+                    continue;
+
+                UpdateMission(mission, mission.Progress, mission.State | ScavengerHuntStarted);
+                SendScavengerClues(mission);
+            }
+        }
+
+        private void SendScavengerClues(IPathMission mission)
+        {
+            foreach (uint clueId in GetScavengerClues(mission.Entry.ObjectId))
+            {
+                PathExplorerScavengerClueEntry clue = GameTableManager.Instance.PathExplorerScavengerClue.GetEntry(clueId);
+                if (clue == null)
+                    continue;
+
+                if (clue.ExplorerScavengerClueTypeEnum == ScavengerClueTypeDig)
+                {
+                    if (clue.WorldLocation2IdMiniMap == 0u)
+                        continue;
+
+                    player.Session.EnqueueMessageEncrypted(new ServerPathExplorerScavengerHuntClueAddWorldLocation
+                    {
+                        WorldLocation2Id            = clue.WorldLocation2IdMiniMap,
+                        PathExplorerScavengerClueId = (ushort)clue.Id
+                    });
+                }
+                else
+                {
+                    uint[] units = player.GetVisible()
+                        .OfType<IWorldEntity>()
+                        .Where(e => MatchesTarget(clue.Creature2Id, clue.TargetGroupId, e))
+                        .Select(e => e.Guid)
+                        .ToArray();
+                    if (units.Length == 0)
+                        continue;
+
+                    player.Session.EnqueueMessageEncrypted(new ServerPathExplorerScavengerHuntClueAddUnitList
+                    {
+                        PathExplorerScavengerClueId = (ushort)clue.Id,
+                        UnitIdList                  = units
+                    });
+                }
+            }
+        }
+
+        private void CompleteScavengerClue(IPathMission mission, int index)
+        {
+            if ((mission.Progress & (1u << index)) != 0u)
+                return;
+
+            uint clueId = GetScavengerClues(mission.Entry.ObjectId)[index];
+            player.Session.EnqueueMessageEncrypted(new ServerPathExplorerScavengerHuntClueRemoveByClueId
+            {
+                PathExplorerScavengerClueId = (ushort)clueId
+            });
+
+            UpdateMission(mission, mission.Progress | (1u << index), mission.State);
+        }
+
+        /// <summary>
+        /// Creature clues with an active radius are found by getting close to the creature.
+        /// </summary>
+        private void CheckScavengerProximity(Vector3 position)
+        {
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerScavengerHunt))
+            {
+                if ((mission.State & ScavengerHuntStarted) == 0u)
+                    continue;
+
+                uint[] clues = GetScavengerClues(mission.Entry.ObjectId);
+                for (int i = 0; i < clues.Length; i++)
+                {
+                    PathExplorerScavengerClueEntry clue = GameTableManager.Instance.PathExplorerScavengerClue.GetEntry(clues[i]);
+                    if (clue == null || clue.Creature2Id == 0u || clue.ActiveRadius <= 0f || (mission.Progress & (1u << i)) != 0u)
+                        continue;
+
+                    if (player.GetVisibleCreature<IWorldEntity>(clue.Creature2Id).Any(e => Vector3.Distance(position, e.Position) <= clue.ActiveRadius))
+                        CompleteScavengerClue(mission, i);
+                }
+            }
+        }
+
+        public void OnExplorerSearch(uint clueId, byte searchRadiusBand)
+        {
+            // the client picks the band from how close the player is to the dig location, the last band is a successful dig
+            if (searchRadiusBand < 2)
+                return;
+
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerScavengerHunt))
+            {
+                if ((mission.State & ScavengerHuntStarted) == 0u)
+                    continue;
+
+                int index = Array.IndexOf(GetScavengerClues(mission.Entry.ObjectId), clueId);
+                if (index < 0)
+                    continue;
+
+                PathExplorerScavengerClueEntry clue = GameTableManager.Instance.PathExplorerScavengerClue.GetEntry(clueId);
+                WorldLocation2Entry location = clue != null ? GameTableManager.Instance.WorldLocation2.GetEntry(clue.WorldLocation2IdMiniMap) : null;
+                if (location == null)
+                    continue;
+
+                float range = MathF.Max(location.Radius, 10f);
+                if (Vector3.Distance(player.Position, new Vector3(location.Position0, location.Position1, location.Position2)) > range)
+                    continue;
+
+                CompleteScavengerClue(mission, index);
+            }
         }
 
         public void OnQuestCompleted(uint questId)
