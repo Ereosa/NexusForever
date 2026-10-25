@@ -611,6 +611,8 @@ namespace NexusForever.Game.Entity
                 foreach (uint virtualItemId in AssetManager.Instance.GetVirtualCollectItemsForCreatureId(CreatureInfo.Entry.Id))
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
 
+                activator.PathMissionManager.OnEntityActivated(this);
+
                 if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
                     activator.PathSoldierManager.OnActivate(this);
 
