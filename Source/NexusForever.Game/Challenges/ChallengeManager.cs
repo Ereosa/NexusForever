@@ -131,6 +131,10 @@ namespace NexusForever.Game.Challenges
 
                         // the target of a General challenge is a target group to kill or use (Gold Grab, Squirg Run) or
                         // the spell of the action to repeat (Roan Tipping, pulling Wiggleroot Radishes, Whack-a-Pole)
+                        // races only finish at their goal, whatever they name as their target
+                        if (IsReachChallenge(entry))
+                            break;
+
                         if (GameTableManager.Instance.TargetGroup.GetEntry(entry.Target) != null)
                             Add(challengeIndex.ByTargetGroup, entry.Target, entry);
                         else if (GameTableManager.Instance.Spell4.GetEntry(entry.Target) != null)
@@ -483,8 +487,10 @@ namespace NexusForever.Game.Challenges
         /// </summary>
         private static bool IsReachChallenge(ChallengeEntry entry)
         {
+            // timed races can name the vortices or currents used on the way as their target (Windrunner, Windy Climb)
+            bool timeTiered = (((ChallengeFlags)entry.ChallengeFlags) & ChallengeFlags.TimeTiered) != 0;
             if ((ChallengeType)entry.ChallengeTypeEnum != ChallengeType.General
-                || entry.Target != 0u
+                || (entry.Target != 0u && !timeTiered)
                 || entry.TargetGroupIdRewardPane != 0u
                 || entry.WorldLocation2IdIndicator == 0u
                 || entry.WorldLocation2IdIndicator == entry.WorldLocation2IdStartLocation)
