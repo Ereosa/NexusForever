@@ -98,6 +98,12 @@ namespace NexusForever.Database.World
             context.SaveChanges();
         }
 
+        public ImmutableList<PathScientistCreatureModel> GetPathScientistCreatures()
+        {
+            using var context = new WorldContext(config);
+            return context.PathScientistCreature.ToImmutableList();
+        }
+
         public ImmutableList<TutorialModel> GetTutorialTriggers()
         {
             using var context = new WorldContext(config);

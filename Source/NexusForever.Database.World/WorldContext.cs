@@ -35,6 +35,7 @@ namespace NexusForever.Database.World
         public DbSet<StoreOfferItemModel> StoreOfferItem { get; set; }
         public DbSet<StoreOfferItemDataModel> StoreOfferItemData { get; set; }
         public DbSet<StoreOfferItemPriceModel> StoreOfferItemPrice { get; set; }
+        public DbSet<PathScientistCreatureModel> PathScientistCreature { get; set; }
         public DbSet<TutorialModel> Tutorial { get; set; }
         public DbSet<VersionModel> Version { get; set; }
 
@@ -944,6 +945,30 @@ namespace NexusForever.Database.World
                     .HasPrincipalKey(p => p.Id)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__store_offer_item_price_id__store_offer_item_id");
+            });
+
+            modelBuilder.Entity<PathScientistCreatureModel>(entity =>
+            {
+                entity.ToTable("path_scientist_creature");
+
+                entity.HasKey(e => new { e.CreatureId, e.PathScientistCreatureInfoId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PathScientistCreatureInfoId)
+                    .HasColumnName("pathScientistCreatureInfoId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Comment)
+                    .IsRequired()
+                    .HasColumnName("comment")
+                    .HasColumnType("varchar(200)")
+                    .HasDefaultValue("");
             });
 
             modelBuilder.Entity<TutorialModel>(entity =>

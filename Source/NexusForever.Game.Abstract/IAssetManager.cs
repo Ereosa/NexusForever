@@ -29,6 +29,11 @@ namespace NexusForever.Game.Abstract
         ImmutableList<uint> GetTargetGroupsForCreatureId(uint creatureId);
 
         /// <summary>
+        /// Returns the PathScientistCreatureInfo ids a creature can be scanned for.
+        /// </summary>
+        ImmutableList<uint> GetScientistCreatureInfoIds(uint creatureId);
+
+        /// <summary>
         /// Returns an <see cref="ImmutableList{T}"/> containing all <see cref="RewardPropertyPremiumModifierEntry"/> for the given <see cref="AccountTier"/>.
         /// </summary>
         ImmutableList<RewardPropertyPremiumModifierEntry> GetRewardPropertiesForTier(AccountTier tier);

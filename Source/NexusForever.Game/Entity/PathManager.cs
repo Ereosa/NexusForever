@@ -98,6 +98,7 @@ namespace NexusForever.Game.Entity
             SendSetUnitPathTypePacket();
             SendPathLogPacket();
 
+            player.PathScientistManager.DismissScanbot();
             player.PathMissionManager.OnPathChanged();
         }
 
@@ -157,7 +158,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Get the current <see cref="Path"/> level for the <see cref="IPlayer"/>.
         /// </summary>
-        private uint GetCurrentLevel(Path path)
+        public uint GetCurrentLevel(Path path)
         {
             return GameTableManager.Instance.PathLevel.Entries
                 .Last(x => x.PathXP <= paths[path].TotalXp && x.PathTypeEnum == (uint)path).PathLevel;

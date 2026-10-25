@@ -240,6 +240,7 @@ namespace NexusForever.Game.Entity
         public ICurrencyManager CurrencyManager { get; }
         public IPathManager PathManager { get; private set; }
         public IPathMissionManager PathMissionManager { get; private set; }
+        public IPathScientistManager PathScientistManager { get; private set; }
         public ITitleManager TitleManager { get; private set; }
         public ISpellManager SpellManager { get; private set; }
         public ICostumeManager CostumeManager { get; private set; }
@@ -380,6 +381,7 @@ namespace NexusForever.Game.Entity
             MailManager             = new MailManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
             PathMissionManager      = new PathMissionManager(this, model);
+            PathScientistManager    = new PathScientistManager(this);
             QuestManager.Initialise(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
@@ -426,6 +428,7 @@ namespace NexusForever.Game.Entity
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
             QuestManager.Update(lastTick);
+            PathScientistManager.Update(lastTick);
             ResurrectionManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
@@ -890,6 +893,9 @@ namespace NexusForever.Game.Entity
                     Unknown1 = 1
                 });
             }
+
+            if (entity is IWorldEntity scannableEntity)
+                PathScientistManager.OnAddVisible(scannableEntity);
 
             if (entity is IUnitEntity unitEntity && unitEntity.InCombat)
             {
@@ -1391,7 +1397,9 @@ namespace NexusForever.Game.Entity
 
             RemoveControlUnit();
 
-            // TODO: Remove pets, scanbots
+            PathScientistManager.DismissScanbot();
+
+            // TODO: Remove pets
         }
 
         private void RemoveControlUnit()

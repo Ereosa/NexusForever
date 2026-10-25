@@ -31,7 +31,9 @@ namespace NexusForever.Game.Entity
         [
             PathMissionType.ExplorerVista,
             PathMissionType.ExplorerArea,
-            PathMissionType.ExplorerExploreZone
+            PathMissionType.ExplorerExploreZone,
+            PathMissionType.ScientistScan,
+            PathMissionType.ScientistScanChecklist
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -263,6 +265,8 @@ namespace NexusForever.Game.Entity
             log.Trace($"Player {player.CharacterId} unlocked path mission {entry.Id}.");
 
             OnMissionUnlocked(mission);
+            if (hidden)
+                player.PathScientistManager.RefreshScannableEntities();
             return mission;
         }
 
@@ -327,6 +331,11 @@ namespace NexusForever.Game.Entity
                 }
                 case PathMissionType.ScientistScan:
                     return mission.Progress >= 100u;
+                case PathMissionType.ScientistScanChecklist:
+                {
+                    PathScientistCreatureInfoEntry info = GameTableManager.Instance.PathScientistCreatureInfo.GetEntry(mission.Entry.ObjectId);
+                    return info != null && info.ChecklistCount > 0u && BitOperations.PopCount(mission.Progress) >= info.ChecklistCount;
+                }
                 default:
                     return false;
             }
@@ -356,6 +365,9 @@ namespace NexusForever.Game.Entity
                 player.PathManager.GrantPathReward(reward);
 
             CheckEpisodeComplete(mission.Entry.PathEpisodeId);
+
+            if (mission.Type is PathMissionType.ScientistScan or PathMissionType.ScientistScanChecklist)
+                player.PathScientistManager.RefreshScannableEntities();
         }
 
         /// <summary>

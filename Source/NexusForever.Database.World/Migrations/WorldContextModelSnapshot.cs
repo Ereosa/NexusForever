@@ -953,6 +953,33 @@ namespace NexusForever.Database.World.Migrations
                     b.ToTable("store_offer_item_price", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.World.Model.PathScientistCreatureModel", b =>
+                {
+                    b.Property<uint>("CreatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<ushort>("PathScientistCreatureInfoId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("pathScientistCreatureInfoId");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varchar(200)")
+                        .HasDefaultValue("")
+                        .HasColumnName("comment");
+
+                    b.HasKey("CreatureId", "PathScientistCreatureInfoId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("path_scientist_creature", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.World.Model.TutorialModel", b =>
                 {
                     b.Property<uint>("Id")
