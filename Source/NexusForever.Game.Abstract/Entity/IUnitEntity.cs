@@ -115,6 +115,16 @@ namespace NexusForever.Game.Abstract.Entity
         void CancelSpellsOnMove();
 
         /// <summary>
+        /// Finish all active <see cref="ISpell"/>'s that match the supplied predicate.
+        /// </summary>
+        void FinishSpells(Func<ISpell, bool> predicate);
+
+        /// <summary>
+        /// Cancel all <see cref="ISpell"/>'s that are currently casting.
+        /// </summary>
+        void CancelSpellCasts();
+
+        /// <summary>
         /// Cancel an <see cref="ISpell"/> based on its casting id.
         /// </summary>
         /// <param name="castingId">Casting ID of the spell to cancel</param>

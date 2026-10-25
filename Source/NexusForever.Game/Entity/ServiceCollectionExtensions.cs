@@ -46,6 +46,7 @@ namespace NexusForever.Game.Entity
             sc.AddTransient<ITriggerEntity, TriggerEntity>();
             sc.AddTransient<IGhostEntity, GhostEntity>();
             sc.AddTransient<IPetEntity, PetEntity>();
+            sc.AddTransient<ICombatPetEntity, CombatPetEntity>();
             sc.AddTransient<IEsperPetEntity, EsperPetEntity>();
             sc.AddTransient<IWorldUnitEntity, WorldUnitEntity>();
             sc.AddTransient<IScannerUnitEntity, ScannerUnitEntity>();

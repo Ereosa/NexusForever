@@ -463,6 +463,25 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Finish all active <see cref="ISpell"/>'s that match the supplied predicate.
+        /// </summary>
+        public void FinishSpells(Func<ISpell, bool> predicate)
+        {
+            foreach (ISpell spell in spells.Values.Concat(pendingSpells).Where(predicate).ToList())
+                spell.Finish();
+        }
+
+        /// <summary>
+        /// Cancel all <see cref="ISpell"/>'s that are currently casting.
+        /// </summary>
+        public void CancelSpellCasts()
+        {
+            foreach (ISpell spell in spells.Values)
+                if (spell.IsCasting)
+                    spell.CancelCast(CastResult.SpellCancelled);
+        }
+
+        /// <summary>
         /// Cancel an <see cref="ISpell"/> based on its casting id.
         /// </summary>
         /// <param name="castingId">Casting ID of the spell to cancel</param>
@@ -526,7 +545,7 @@ namespace NexusForever.Game.Entity
         public virtual bool IsValidAttackTarget(IUnitEntity attacker)
         {
             // TODO: Expand on this. There's bound to be flags or states that should prevent an entity from being attacked.
-            return (this is IPlayer or INonPlayerEntity);
+            return (this is IPlayer or INonPlayerEntity or ICombatPetEntity);
         }
 
         /// <summary>
@@ -591,6 +610,10 @@ namespace NexusForever.Game.Entity
         {
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
                 Map.PublicEventManager.UpdateObjective(PublicEventObjectiveType.KillTargetGroup, targetGroupId, 1);
+
+            // kills by combat pets are credited to their owner
+            if (killer is ICombatPetEntity pet)
+                killer = GetVisible<IUnitEntity>(pet.OwnerGuid) ?? killer;
 
             // reward public event kill stat to player that landed the killing blow
             if (killer is IPlayer killerPlayer)

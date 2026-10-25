@@ -84,6 +84,7 @@ namespace NexusForever.Game.Abstract.Entity
         ISpellManager SpellManager { get; }
         ICostumeManager CostumeManager { get; }
         IPetCustomisationManager PetCustomisationManager { get; }
+        ICombatPetManager CombatPetManager { get; }
         ICharacterKeybindingManager KeybindingManager { get; }
         IDatacubeManager DatacubeManager { get; }
         IMailManager MailManager { get; }

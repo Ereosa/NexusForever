@@ -1,4 +1,6 @@
 ﻿using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
+using NexusForever.Game.Abstract.Combat;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database;
 using NexusForever.Database.Auth;
@@ -267,6 +269,7 @@ namespace NexusForever.Game.Entity
         public ILogoutManager LogoutManager { get; private set; }
         public IAppearanceManager AppearanceManager { get; private set; }
         public IResurrectionManager ResurrectionManager { get; private set; }
+        public ICombatPetManager CombatPetManager { get; private set; }
 
         public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
 
@@ -382,6 +385,8 @@ namespace NexusForever.Game.Entity
             TitleManager            = new TitleManager(this, model);
             SpellManager            = new SpellManager(this, model);
             PetCustomisationManager = new PetCustomisationManager(this, model);
+            CombatPetManager        = new CombatPetManager(this, entityFactory, creatureInfoManager,
+                LegacyServiceProvider.Provider.GetService<Abstract.Spell.Info.ISpellInfoManager>(), GameTableManager.Instance);
             KeybindingManager       = new CharacterKeybindingManager(this, model);
             DatacubeManager         = new DatacubeManager(this, model);
             MailManager             = new MailManager(this, model);
@@ -692,6 +697,9 @@ namespace NexusForever.Game.Entity
 
             SendPacketsAfterAddToMap();
 
+            // bots stay summoned through teleports
+            CombatPetManager.OnAddToMap();
+
             if (!IsAlive)
             {
                 if (pendingTeleport.Resurrect)
@@ -822,6 +830,7 @@ namespace NexusForever.Game.Entity
                 }
 
                 playerCreate.SpecIndex = SpellManager.ActiveActionSet;
+                CombatPetManager.AddToPlayerCreate(playerCreate);
                 Session.EnqueueMessageEncrypted(playerCreate);
             }
 
@@ -1215,6 +1224,8 @@ namespace NexusForever.Game.Entity
                 pet?.RelocateOnMap(position);
             }
 
+            CombatPetManager.OnRelocate(position);
+
             pendingLocalTeleport = false;
         }
 
@@ -1414,7 +1425,8 @@ namespace NexusForever.Game.Entity
             PathScientistManager.DismissScanbot();
             PathSoldierManager.Cancel();
 
-            // TODO: Remove pets
+            // combat pets are summoned again if the player is added to another map
+            CombatPetManager.OnRemoveFromMap();
         }
 
         private void RemoveControlUnit()
@@ -1655,11 +1667,24 @@ namespace NexusForever.Game.Entity
 
             Dismount();
             RemoveControlUnit();
+            CombatPetManager.OnDeath();
 
             UpdateRangeChecks();
 
             Map.PublicEventManager.UpdateStat(this, PublicEventStat.Deaths, 1);
             Map.OnDeath(this);
+        }
+
+        /// <summary>
+        /// Invoked when a new <see cref="IHostileEntity"/> is added to the threat list.
+        /// </summary>
+        public override void OnThreatAddTarget(IHostileEntity hostile)
+        {
+            base.OnThreatAddTarget(hostile);
+
+            IUnitEntity unit = GetVisible<IUnitEntity>(hostile.HatedUnitId);
+            if (unit != null)
+                CombatPetManager.OnOwnerThreatAdd(unit);
         }
 
         protected override void RewardKiller(IPlayer player)
