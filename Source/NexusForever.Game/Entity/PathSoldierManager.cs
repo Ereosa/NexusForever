@@ -219,6 +219,7 @@ namespace NexusForever.Game.Entity
                 yield break;
 
             float distance = spawn.Distance > 0f ? spawn.Distance : defaultDistance;
+            List<uint> defendGuids = hostile ? holdout.DefendUnits.ToList() : [];
             for (int i = 0; i < Math.Max(1, (int)spawn.Count); i++)
             {
                 float angle = Random.Shared.NextSingle() * MathF.PI * 2f;
@@ -236,7 +237,15 @@ namespace NexusForever.Game.Entity
                         return;
 
                     IUnitEntity summoned = map.GetEntity<IUnitEntity>(guid);
-                    summoned?.ThreatManager.UpdateThreat(player, 1);
+                    if (summoned == null)
+                        return;
+
+                    summoned.ThreatManager.UpdateThreat(player, 1);
+
+                    // in defend events the waves go for the units being defended first
+                    IUnitEntity defend = defendGuids.Count > 0 ? map.GetEntity<IUnitEntity>(defendGuids[Random.Shared.Next(defendGuids.Count)]) : null;
+                    if (defend != null)
+                        summoned.ThreatManager.UpdateThreat(defend, 2);
                 });
 
                 if (unit != null)
