@@ -77,6 +77,18 @@ namespace NexusForever.Game.Entity
 
         private TimeSpan attackInterval;
         private UpdateTimer attackTimer;
+        private uint[] attackSpell4BaseIds = [];
+        private readonly List<(CombatPetSpecialAttack Attack, UpdateTimer Timer)> specialAttacks = [];
+
+        /// <summary>
+        /// Delay between death and removal so the death is seen.
+        /// </summary>
+        private UpdateTimer despawnTimer;
+
+        /// <summary>
+        /// Stance the pet behaves as, summons without stances (eg: Geist, Stalker clone) assist and defend their owner.
+        /// </summary>
+        private PetStance BehaviourStance => ValidStances != PetStance.None ? Stance : PetStance.Assist;
         private int attackIndex;
         private float attackRange = 5f;
 
@@ -139,11 +151,19 @@ namespace NexusForever.Game.Entity
             this.followSlot  = followSlot;
 
             abilityInfo  = CombatPetAbilityInfo.Get(summonSpell.BaseInfo.Entry.Id);
-            ValidStances = abilityInfo != null ? PetStance.All : PetStance.None;
+            ValidStances = abilityInfo?.IsBot == true ? PetStance.All : PetStance.None;
             Stance       = (ValidStances & stance) != 0 ? stance : PetStance.None;
 
-            attackInterval = data.AttackInterval > TimeSpan.Zero ? data.AttackInterval : TimeSpan.FromSeconds(2d);
+            attackInterval = data.AttackInterval > TimeSpan.Zero ? data.AttackInterval : abilityInfo?.AttackInterval ?? TimeSpan.FromSeconds(1.5d);
             attackTimer    = new UpdateTimer(attackInterval);
+
+            if (abilityInfo != null)
+            {
+                (uint[] attacks, CombatPetSpecialAttack[] specials) = abilityInfo.GetAttacks(creatureInfo.Entry.Id);
+                attackSpell4BaseIds = attacks;
+                foreach (CombatPetSpecialAttack special in specials)
+                    specialAttacks.Add((special, new UpdateTimer(special.Interval)));
+            }
 
             // pets are the owner's level and fight for the owner's faction
             Initialise(creatureInfo);
@@ -165,10 +185,10 @@ namespace NexusForever.Game.Entity
 
         private void InitialiseAttackRange()
         {
-            if (abilityInfo == null || abilityInfo.AttackSpell4BaseIds.Length == 0)
+            if (attackSpell4BaseIds.Length == 0)
                 return;
 
-            ISpellInfo spellInfo = GetTierSpellInfo(abilityInfo.AttackSpell4BaseIds[0]);
+            ISpellInfo spellInfo = GetTierSpellInfo(attackSpell4BaseIds[0]);
             if (spellInfo != null && spellInfo.Entry.TargetMaxRange > 0f)
                 attackRange = spellInfo.Entry.TargetMaxRange;
         }
@@ -409,9 +429,10 @@ namespace NexusForever.Game.Entity
                 return;
 
             // defensive pets protect their owner, aggressive pets attack anything, assisting pets only attack the owner's target
-            if (Stance is PetStance.Defensive or PetStance.Aggressive or PetStance.Stay)
+            PetStance behaviour = BehaviourStance;
+            if (behaviour is PetStance.Defensive or PetStance.Aggressive or PetStance.Stay || ValidStances == PetStance.None)
                 TryEngage(hostile);
-            else if (Stance == PetStance.Assist && GetOwner()?.TargetGuid == hostile.Guid)
+            else if (behaviour == PetStance.Assist && GetOwner()?.TargetGuid == hostile.Guid)
                 TryEngage(hostile);
         }
 
@@ -419,8 +440,22 @@ namespace NexusForever.Game.Entity
         {
             base.Update(lastTick);
 
-            if (!IsAlive || Map == null)
+            if (Map == null)
                 return;
+
+            if (!IsAlive)
+            {
+                despawnTimer?.Update(lastTick);
+                if (despawnTimer?.HasElapsed == true)
+                {
+                    despawnTimer = null;
+                    RemoveFromMap();
+                }
+                return;
+            }
+
+            foreach ((CombatPetSpecialAttack _, UpdateTimer timer) in specialAttacks)
+                timer.Update(lastTick);
 
             if (pendingCast.HasValue)
             {
@@ -479,7 +514,7 @@ namespace NexusForever.Game.Entity
                 target = SelectTarget(owner);
 
                 // pets holding a position only pick fights they can reach from there
-                if (target != null && (Stance == PetStance.Stay || holdPosition.HasValue)
+                if (target != null && (BehaviourStance == PetStance.Stay || holdPosition.HasValue || abilityInfo.Stationary)
                     && Vector3.Distance(Position, target.Position) - target.HitRadius > attackRange)
                     target = null;
             }
@@ -496,7 +531,7 @@ namespace NexusForever.Game.Entity
                 return;
             }
 
-            if (Stance == PetStance.Stay)
+            if (BehaviourStance == PetStance.Stay || abilityInfo?.Stationary == true)
                 return;
 
             Vector3 followPosition = GetFollowPosition(owner);
@@ -536,7 +571,8 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private IUnitEntity SelectTarget(IPlayer owner)
         {
-            if (stopped || Stance is PetStance.Passive or PetStance.None)
+            PetStance behaviour = BehaviourStance;
+            if (stopped || behaviour is PetStance.Passive or PetStance.None)
                 return null;
 
             // anything fighting the pet
@@ -544,16 +580,17 @@ namespace NexusForever.Game.Entity
             if (target != null)
                 return target;
 
-            switch (Stance)
+            switch (behaviour)
             {
                 case PetStance.Assist:
                 {
                     // the owner's target, once the owner is fighting it
-                    if (owner.TargetGuid == null || !owner.InCombat)
-                        return null;
+                    IUnitEntity ownerTarget = owner.TargetGuid != null && owner.InCombat ? GetVisible<IUnitEntity>(owner.TargetGuid.Value) : null;
+                    if (ownerTarget != null && ownerTarget.IsAlive && CanAttack(ownerTarget))
+                        return ownerTarget;
 
-                    IUnitEntity ownerTarget = GetVisible<IUnitEntity>(owner.TargetGuid.Value);
-                    return ownerTarget != null && ownerTarget.IsAlive && CanAttack(ownerTarget) ? ownerTarget : null;
+                    // summons without stances also defend their owner
+                    return ValidStances == PetStance.None ? GetTopHostile(owner) : null;
                 }
                 case PetStance.Defensive:
                 case PetStance.Stay:
@@ -624,8 +661,11 @@ namespace NexusForever.Game.Entity
             float distance = Vector3.Distance(Position, target.Position) - target.HitRadius;
             if (distance > attackRange)
             {
+                if (TryCastSpecialAttack(target, true))
+                    return;
+
                 // stay and go to only fight what is in range
-                if (Stance == PetStance.Stay || holdPosition.HasValue)
+                if (BehaviourStance == PetStance.Stay || holdPosition.HasValue || abilityInfo?.Stationary == true)
                 {
                     if (commandTargetGuid != target.Guid)
                         DropTarget();
@@ -644,6 +684,9 @@ namespace NexusForever.Game.Entity
 
             MovementManager.SetRotationFaceUnit(target.Guid);
 
+            if (TryCastSpecialAttack(target, false))
+                return;
+
             if (!attackTimer.HasElapsed)
                 return;
 
@@ -651,13 +694,43 @@ namespace NexusForever.Game.Entity
             attackTimer.Reset();
         }
 
+        /// <summary>
+        /// Cast the first ready special attack for the supplied range state.
+        /// </summary>
+        private bool TryCastSpecialAttack(IUnitEntity target, bool outOfRange)
+        {
+            foreach ((CombatPetSpecialAttack attack, UpdateTimer timer) in specialAttacks)
+            {
+                if (attack.OutOfRange != outOfRange || !timer.HasElapsed)
+                    continue;
+
+                ISpellInfo spellInfo = GetTierSpellInfo(attack.Spell4BaseId);
+                if (spellInfo == null)
+                    continue;
+
+                if (outOfRange && spellInfo.Entry.TargetMaxRange > 0f && Vector3.Distance(Position, target.Position) - target.HitRadius > spellInfo.Entry.TargetMaxRange)
+                    continue;
+
+                timer.Reset();
+                CastSpell(new SpellParameters
+                {
+                    SpellInfo              = spellInfo,
+                    PrimaryTargetId        = target.Guid,
+                    UserInitiatedSpellCast = false
+                });
+                return true;
+            }
+
+            return false;
+        }
+
         private void DoAttack(IUnitEntity target)
         {
-            if (abilityInfo == null || abilityInfo.AttackSpell4BaseIds.Length == 0)
+            if (attackSpell4BaseIds.Length == 0)
                 return;
 
-            uint spell4BaseId = abilityInfo.AttackSpell4BaseIds[attackIndex];
-            attackIndex = (attackIndex + 1) % abilityInfo.AttackSpell4BaseIds.Length;
+            uint spell4BaseId = attackSpell4BaseIds[attackIndex];
+            attackIndex = (attackIndex + 1) % attackSpell4BaseIds.Length;
 
             ISpellInfo spellInfo = GetTierSpellInfo(spell4BaseId);
             if (spellInfo == null)
@@ -716,7 +789,7 @@ namespace NexusForever.Game.Entity
                 owner.ThreatManager.UpdateThreat(unit, 1);
 
             // pets defend themselves unless told otherwise
-            if (abilityInfo != null && TargetGuid == null && !stopped && Stance != PetStance.Passive)
+            if (abilityInfo != null && TargetGuid == null && !stopped && BehaviourStance != PetStance.Passive)
                 TryEngage(unit);
         }
 
@@ -763,7 +836,8 @@ namespace NexusForever.Game.Entity
         {
             base.OnDeath(killer);
 
-            pendingCast = null;
+            pendingCast  = null;
+            despawnTimer = new UpdateTimer(TimeSpan.FromSeconds(2d));
             GetOwner()?.CombatPetManager.OnPetDeath(this);
         }
 

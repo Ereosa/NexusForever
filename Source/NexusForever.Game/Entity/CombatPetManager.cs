@@ -40,6 +40,9 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         private const uint LimiterSpell4BaseId = 36129;
 
+        private const uint BotDeathAmpSpell4Id    = 57468;
+        private const uint BotDeathDamageSpell4Id = 57470;
+
         private const uint ShortcutTypeSpell       = 6;
         private const uint ShortcutTypeSpell2      = 7;
         private const uint ShortcutTypeUnitCommand = 11;
@@ -135,16 +138,16 @@ namespace NexusForever.Game.Entity
             }
 
             uint spell4BaseId = spell.Parameters.SpellInfo.BaseInfo.Entry.Id;
-            bool isBot = CombatPetAbilityInfo.Get(spell4BaseId) != null;
-
-            // a summon spell only has one pet at a time
-            foreach (CombatPetSummon existing in summons
-                .Where(s => s.Spell != spell && s.Spell.Parameters.SpellInfo.BaseInfo.Entry.Id == spell4BaseId)
-                .ToList())
-                Dismiss(existing);
+            bool isBot = CombatPetAbilityInfo.Get(spell4BaseId)?.IsBot == true;
 
             if (isBot)
             {
+                // a bot summon spell only has one bot at a time, other summons can have several (eg: 3 Spectral Swarm phantoms)
+                foreach (CombatPetSummon existing in summons
+                    .Where(s => s.Spell != spell && s.Spell.Parameters.SpellInfo.BaseInfo.Entry.Id == spell4BaseId)
+                    .ToList())
+                    Dismiss(existing);
+
                 List<CombatPetSummon> bots = summons
                     .Where(s => s.IsBot)
                     .ToList();
@@ -217,8 +220,9 @@ namespace NexusForever.Game.Entity
             if (summon.Guid == null)
                 return;
 
+            // dead pets remove themselves after their death is seen
             ICombatPetEntity pet = owner.Map?.GetEntity<ICombatPetEntity>(summon.Guid.Value);
-            if (pet != null && pet.InWorld)
+            if (pet != null && pet.InWorld && pet.IsAlive)
                 pet.RemoveFromMap();
 
             if (!owner.IsLoading)
@@ -241,7 +245,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void OnPetAddToMap(ICombatPetEntity pet)
         {
-            CombatPetSummon summon = summons.FirstOrDefault(s => s.Guid == null && s.Spell.Spell4Id == pet.SummonSpell4Id);
+            CombatPetSummon summon = summons.FirstOrDefault(s => s.Guid == null && s.Spell.Spell4Id == pet.SummonSpell4Id && s.CreatureInfo.Entry.Id == pet.CreatureId);
             if (summon == null)
             {
                 // the summon was removed before the pet was added to the map
@@ -290,8 +294,40 @@ namespace NexusForever.Game.Entity
         public void OnPetDeath(ICombatPetEntity pet)
         {
             CombatPetSummon summon = summons.FirstOrDefault(s => s.Guid == pet.Guid);
-            if (summon != null)
-                Dismiss(summon);
+            if (summon == null)
+                return;
+
+            if (summon.IsBot)
+                CastBotDeathAmp(pet);
+
+            Dismiss(summon);
+        }
+
+        /// <summary>
+        /// 57468 Engineer - Damage - C2 - T2 - Inlaid: "Taking damage that kills your bot deals damage to 5 foes within 10m of the bot."
+        /// </summary>
+        /// <remarks>
+        /// The amp is a passive fluff with no link to the damage spell, 57470 shares its name and matches the tooltip. AMP passives aren't cast by the server so the amp is checked on the active action set.
+        /// </remarks>
+        private void CastBotDeathAmp(ICombatPetEntity pet)
+        {
+            IActionSet actionSet = owner.SpellManager.GetActionSet(owner.SpellManager.ActiveActionSet);
+            if (actionSet == null || !actionSet.Amps.Any(a => a.Entry.Spell4IdAugment == BotDeathAmpSpell4Id))
+                return;
+
+            Spell4Entry entry = gameTableManager.Spell4.GetEntry(BotDeathDamageSpell4Id);
+            ISpellInfo spellInfo = entry != null ? spellInfoManager.GetSpellBaseInfo(entry.Spell4BaseIdBaseSpell)?.GetSpellInfo((byte)entry.TierIndex) : null;
+            if (spellInfo == null)
+                return;
+
+            // centred on the bot, which stays on the map for a moment after dying
+            owner.CastSpell(new SpellParameters
+            {
+                SpellInfo              = spellInfo,
+                PositionalUnitId       = pet.Guid,
+                UserInitiatedSpellCast = false,
+                IsProxy                = true
+            });
         }
 
         /// <summary>
