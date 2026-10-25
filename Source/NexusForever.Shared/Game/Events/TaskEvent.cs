@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using NLog;
 
 namespace NexusForever.Shared.Game.Events
 {
@@ -8,6 +9,8 @@ namespace NexusForever.Shared.Game.Events
     /// </summary>
     public class TaskEvent : IEvent
     {
+        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
+
         private readonly Task task;
         private readonly Action callback;
 
@@ -30,6 +33,10 @@ namespace NexusForever.Shared.Game.Events
         /// </summary>
         public void Execute()
         {
+            // a failed task (eg: a character save) used to vanish silently, losing everything the save contained
+            if (task.IsFaulted)
+                log.Error(task.Exception, "Task event failed!");
+
             callback?.Invoke();
         }
     }

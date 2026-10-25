@@ -104,6 +104,11 @@ namespace NexusForever.Game.Quest
 
         private QuestSaveMask saveMask;
 
+        /// <summary>
+        /// The quest has a row in the database (loaded from it or created by a save).
+        /// </summary>
+        private bool persisted;
+
         private IPlayer player;
         private readonly List<IQuestObjective> objectives = [];
         private bool serverObjectivesChecked;
@@ -141,6 +146,7 @@ namespace NexusForever.Game.Quest
             flags  = (QuestStateFlags)model.Flags;
             timer  = model.Timer;
             reset  = model.Reset;
+            persisted = true;
 
             if (timer != null)
                 questTimer = new UpdateTimer(timer.Value);
@@ -175,7 +181,10 @@ namespace NexusForever.Game.Quest
 
             player.VisibilityUpdate();
 
-            saveMask = QuestSaveMask.Create;
+            // a quest re-added after being mentioned, abandoned or completed already has a row, inserting it again fails the whole character save
+            saveMask = persisted
+                ? (saveMask & ~(QuestSaveMask.Create | QuestSaveMask.Delete)) | QuestSaveMask.State | QuestSaveMask.Flags | QuestSaveMask.Timer | QuestSaveMask.Reset
+                : QuestSaveMask.Create;
 
             scriptCollection = scriptManager.InitialiseOwnedCollection<IQuest>(this);
             scriptManager.InitialiseOwnedScripts<IQuest>(scriptCollection, info.Entry.Id);
@@ -218,6 +227,7 @@ namespace NexusForever.Game.Quest
             {
                 if ((saveMask & QuestSaveMask.Create) != 0)
                 {
+                    persisted = true;
                     context.Add(new CharacterQuestModel
                     {
                         Id      = player.CharacterId,
@@ -230,6 +240,7 @@ namespace NexusForever.Game.Quest
                 }
                 else if ((saveMask & QuestSaveMask.Delete) != 0)
                 {
+                    persisted = false;
                     var model = new CharacterQuestModel
                     {
                         Id      = player.CharacterId,
