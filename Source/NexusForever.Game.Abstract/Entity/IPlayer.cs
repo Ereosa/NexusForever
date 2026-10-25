@@ -80,6 +80,7 @@ namespace NexusForever.Game.Abstract.Entity
         IPathScientistManager PathScientistManager { get; }
         IPathSoldierManager PathSoldierManager { get; }
         IPathSettlerManager PathSettlerManager { get; }
+        IPathExplorerManager PathExplorerManager { get; }
         ITitleManager TitleManager { get; }
         ISpellManager SpellManager { get; }
         ICostumeManager CostumeManager { get; }

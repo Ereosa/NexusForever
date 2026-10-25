@@ -49,7 +49,8 @@ namespace NexusForever.Game.Entity
             PathMissionType.ExplorerScavengerHunt,
             PathMissionType.ExplorerDoor,
             PathMissionType.SettlerMayor,
-            PathMissionType.ScientistSpecimenSurvey
+            PathMissionType.ScientistSpecimenSurvey,
+            PathMissionType.ExplorerPowerMap
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }

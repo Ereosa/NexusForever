@@ -100,6 +100,7 @@ namespace NexusForever.Game.Entity
 
             player.PathScientistManager.DismissScanbot();
             player.PathSoldierManager.Cancel();
+            player.PathExplorerManager.Cancel();
             player.PathMissionManager.OnPathChanged();
         }
 
