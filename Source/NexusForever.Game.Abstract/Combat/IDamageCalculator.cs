@@ -13,5 +13,13 @@ namespace NexusForever.Game.Abstract.Combat
         /// TODO: This should probably return an instance of a Class which describes all the damage done to both entities. Attackers can have reflected damage from this, etc.
         /// </remarks>
         void CalculateDamage(ISpellExecutionContext executionContext, IUnitEntity victim, ISpellTargetEffectInfo info);
+
+        /// <summary>
+        /// Returns the calculated heal and updates the referenced <see cref="ISpellTargetEffectInfo"/> appropriately.
+        /// </summary>
+        /// <remarks>
+        /// Heals use the same base formula as damage but can't be deflected and aren't reduced by armor or shields.
+        /// </remarks>
+        void CalculateHeal(ISpellExecutionContext executionContext, IUnitEntity target, ISpellTargetEffectInfo info);
     }
 }
