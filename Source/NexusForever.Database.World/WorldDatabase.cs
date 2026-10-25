@@ -104,6 +104,12 @@ namespace NexusForever.Database.World
             return context.PathScientistCreature.ToImmutableList();
         }
 
+        public ImmutableList<PathSettlerStructureModel> GetPathSettlerStructures()
+        {
+            using var context = new WorldContext(config);
+            return context.PathSettlerStructure.ToImmutableList();
+        }
+
         public ImmutableList<PathSoldierHoldoutSpawnModel> GetPathSoldierHoldoutSpawns()
         {
             using var context = new WorldContext(config);

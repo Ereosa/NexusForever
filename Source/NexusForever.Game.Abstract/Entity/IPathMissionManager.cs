@@ -32,6 +32,11 @@ namespace NexusForever.Game.Abstract.Entity
         IPathMission GetMission(uint missionId);
 
         /// <summary>
+        /// Return the mission, unlocking it first if the player meets its requirements, e.g. when the player uses the mission's object directly.
+        /// </summary>
+        IPathMission GetOrUnlockMission(uint missionId);
+
+        /// <summary>
         /// Unlock the supplied mission for the player, optionally playing the communicator unlock message.
         /// </summary>
         IPathMission UnlockMission(PathMissionEntry entry, bool notify = true);

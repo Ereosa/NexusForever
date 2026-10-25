@@ -980,6 +980,32 @@ namespace NexusForever.Database.World.Migrations
                     b.ToTable("path_scientist_creature", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.World.Model.PathSettlerStructureModel", b =>
+                {
+                    b.Property<uint>("CreatureId")
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<uint>("BuiltCreatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("builtCreatureId");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varchar(200)")
+                        .HasDefaultValue("")
+                        .HasColumnName("comment");
+
+                    b.HasKey("CreatureId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("path_settler_structure", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.World.Model.PathSoldierHoldoutSpawnModel", b =>
                 {
                     b.Property<ushort>("PathSoldierEventId")

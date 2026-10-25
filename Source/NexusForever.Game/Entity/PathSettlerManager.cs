@@ -1,5 +1,9 @@
 using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
+using NexusForever.Game.Abstract.Map;
+using NexusForever.Shared;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Spell;
@@ -35,7 +39,7 @@ namespace NexusForever.Game.Entity
             public bool IsActive => Tier >= 0 && DateTime.UtcNow < Expires;
         }
 
-        private const float DepotInteractDistance = 15f;
+        private const float DepotInteractDistance = 30f;
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
         private static readonly Dictionary<(uint WorldId, uint GroupId), ImprovementState> improvements = new();
@@ -196,31 +200,37 @@ namespace NexusForever.Game.Entity
             improvement  = null;
             contribution = false;
 
-            if (player.Path != Path.Settler || group == null)
+            SettlerBuildResult Fail(string reason)
+            {
+                log.Debug($"Player {player.CharacterId} can't build settler improvement group {group?.Id} tier {tier}: {reason}.");
                 return SettlerBuildResult.Failed;
+            }
+
+            if (player.Path != Path.Settler || group == null)
+                return Fail("player is not a settler or the improvement group doesn't exist");
 
             IWorldEntity depot = player.GetVisible<IWorldEntity>(depotGuid);
             if (depot == null || depot.CreatureId != group.Creature2IdDepot
                 || Vector3.Distance(player.Position, depot.Position) > DepotInteractDistance)
-                return SettlerBuildResult.Failed;
+                return Fail("the player isn't at the improvement group's depot");
 
             uint improvementId = GetTierImprovementId(group, tier);
             improvement = GameTableManager.Instance.PathSettlerImprovement.GetEntry(improvementId);
             if (improvement == null)
-                return SettlerBuildResult.Failed;
+                return Fail("the improvement tier doesn't exist");
 
             // an outpost improvement has to be built before the improvements that depend on it
             if (group.PathSettlerImprovementGroupIdOutpostRequired != 0u && !GetState(group.PathSettlerImprovementGroupIdOutpostRequired).IsActive)
-                return SettlerBuildResult.Failed;
+                return Fail("the required outpost isn't built");
 
             ImprovementState state = GetState(group.Id);
             contribution = state.IsActive && state.Tier == (int)tier;
             if (state.IsActive && state.Tier > (int)tier)
-                return SettlerBuildResult.Failed;
+                return Fail("a higher tier is already active");
 
             PathSettlerHubEntry hub = GameTableManager.Instance.PathSettlerHub.GetEntry(group.PathSettlerHubId);
             if (hub == null)
-                return SettlerBuildResult.Failed;
+                return Fail("the improvement group has no hub");
 
             uint[] resources = [hub.Item2IdResource00, hub.Item2IdResource01, hub.Item2IdResource02];
             uint[] counts = contribution
@@ -228,7 +238,7 @@ namespace NexusForever.Game.Entity
                 : [improvement.CountResource00, improvement.CountResource01, improvement.CountResource02];
             for (int i = 0; i < resources.Length; i++)
                 if (resources[i] != 0u && counts[i] != 0u && !player.Inventory.HasItemCount(resources[i], counts[i]))
-                    return SettlerBuildResult.Failed;
+                    return Fail("the player doesn't have the resources");
 
             return SettlerBuildResult.Ok;
         }
@@ -410,8 +420,8 @@ namespace NexusForever.Game.Entity
                 // building a settler structure (minfrastructure) is worth a path mission reward
                 case AffiliationSettlerStructure:
                 {
-                    player.PathManager.AddXp(GameTableManager.Instance.GameFormula.GetEntry(378)?.Dataint0 ?? 50u);
-                    entity.DespawnWithRespawn(SettlerObjectRespawnDelay);
+                    if (BuildStructure(entity))
+                        player.PathManager.AddXp(GameTableManager.Instance.GameFormula.GetEntry(378)?.Dataint0 ?? 50u);
                     break;
                 }
             }
@@ -437,6 +447,45 @@ namespace NexusForever.Game.Entity
                         player.CastSpell(spells[i], new SpellParameters());
                 }
             }
+        }
+
+        /// <summary>
+        /// Time a settler structure stays built before it falls back into disrepair.
+        /// </summary>
+        /// <remarks>
+        /// Retail values are unknown, the client data has no durations for settler structures.
+        /// </remarks>
+        private static readonly TimeSpan SettlerStructureBuiltTime = TimeSpan.FromMinutes(15d);
+
+        /// <summary>
+        /// A broken or unbuilt settler structure is replaced by its built version for a while, e.g. a broken banner becomes an Exile banner.
+        /// </summary>
+        private bool BuildStructure(IWorldEntity structure)
+        {
+            uint builtCreatureId = AssetManager.Instance.GetBuiltSettlerStructure(structure.CreatureId);
+            if (builtCreatureId == 0u)
+                return false;
+
+            ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(builtCreatureId);
+            if (creatureInfo == null)
+                return false;
+
+            // built banners use creation type 20 in the client data, their world spawns are simple collidable units
+            EntityType type = creatureInfo.Entry.CreationTypeEnum == EntityType.Player ? EntityType.SimpleCollidable : creatureInfo.Entry.CreationTypeEnum;
+            IWorldEntity built = LegacyServiceProvider.Provider.GetService<IEntityFactory>().CreateWorldEntity(type);
+            if (built == null)
+                return false;
+
+            IBaseMap map = structure.Map;
+            Vector3 position = structure.Position;
+            built.Initialise(creatureInfo);
+            built.Rotation = structure.Rotation;
+
+            structure.DespawnWithRespawn(SettlerStructureBuiltTime);
+            built.AddToMap(map, position, (m, guid, vector) => m.ScheduleDespawn(guid, SettlerStructureBuiltTime));
+
+            log.Trace($"Player {player.CharacterId} built settler structure {structure.CreatureId} into {builtCreatureId}.");
+            return true;
         }
 
         public void OnEntityInteract(IWorldEntity entity)

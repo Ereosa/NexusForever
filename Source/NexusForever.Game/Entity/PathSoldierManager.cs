@@ -114,7 +114,7 @@ namespace NexusForever.Game.Entity
                 if (Vector3.Distance(player.Position, entity.Position) > ProximityStartDistance)
                     continue;
 
-                if (TryStart(entity))
+                if (TryStart(entity, false))
                     return;
             }
         }
@@ -127,17 +127,22 @@ namespace NexusForever.Game.Entity
             if (entity.CreatureInfo?.Entry?.PathMissionIdSoldier is not > 0u)
                 return;
 
-            TryStart(entity);
+            TryStart(entity, true);
         }
 
-        private bool TryStart(IWorldEntity controlPoint)
+        private bool TryStart(IWorldEntity controlPoint, bool activated)
         {
             if (player.Path != Path.Soldier)
                 return false;
 
-            IPathMission mission = player.PathMissionManager.GetMission(controlPoint.CreatureInfo.Entry.PathMissionIdSoldier);
+            // using the control point also gives its mission, in case the player missed the area unlock
+            IPathMission mission = player.PathMissionManager.GetOrUnlockMission(controlPoint.CreatureInfo.Entry.PathMissionIdSoldier);
             if (mission == null || mission.Completed || mission.Type != PathMissionType.SoldierHoldout)
+            {
+                if (activated)
+                    log.Debug($"Player {player.CharacterId} can't start the holdout of control point {controlPoint.CreatureId}: mission {controlPoint.CreatureInfo.Entry.PathMissionIdSoldier} is {(mission == null ? "not available" : "completed")}.");
                 return false;
+            }
 
             PathSoldierEventEntry entry = GameTableManager.Instance.PathSoldierEvent.GetEntry(mission.Entry.ObjectId);
             if (entry == null)
