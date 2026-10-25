@@ -7,6 +7,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
@@ -23,6 +24,7 @@ using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Achievement;
 using NexusForever.Game.Character;
 using NexusForever.Game.Chat;
+using NexusForever.Game.Crafting;
 using NexusForever.Game.Configuration.Model;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
@@ -250,6 +252,7 @@ namespace NexusForever.Game.Entity
         public IQuestManager QuestManager { get; private set; }
         public ICharacterAchievementManager AchievementManager { get; private set; }
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
+        public ITradeskillManager TradeskillManager { get; private set; }
         public IXpManager XpManager { get; private set; }
         public IReputationManager ReputationManager { get; private set; }
         public IGuildManager GuildManager { get; }
@@ -381,6 +384,7 @@ namespace NexusForever.Game.Entity
             QuestManager.Initialise(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
+            TradeskillManager       = new TradeskillManager(this, model);
             XpManager               = new XpManager(this, model);
             ReputationManager       = new ReputationManager(this, model);
             GuildManager.Initialise(this, model);
@@ -618,6 +622,7 @@ namespace NexusForever.Game.Entity
             QuestManager.Save(context);
             AchievementManager.Save(context);
             SupplySatchelManager.Save(context);
+            TradeskillManager.Save(context);
             XpManager.Save(context);
             ReputationManager.Save(context);
             GuildManager.Save(context);
@@ -814,6 +819,7 @@ namespace NexusForever.Game.Entity
             Account.ItemManager.SendInitialPackets();
             QuestManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);
+            TradeskillManager.SendInitialPackets();
             Account.RewardPropertyManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
 
