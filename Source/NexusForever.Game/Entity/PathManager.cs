@@ -97,6 +97,8 @@ namespace NexusForever.Game.Entity
             SendServerPathActivateResult(GenericError.Ok);
             SendSetUnitPathTypePacket();
             SendPathLogPacket();
+
+            player.PathMissionManager.OnPathChanged();
         }
 
         /// <summary>
@@ -191,12 +193,14 @@ namespace NexusForever.Game.Entity
         /// <param name="level">The level to grant the reward for</param>
         private void GrantLevelUpReward(Path path, uint level)
         {
-            // TODO: look at this in more in depth, might be a better way to handle
-            uint baseRewardObjectId = (uint)path * MaxPathLevel + 7u; // 7 is the base offset
-            uint pathRewardObjectId = baseRewardObjectId + Math.Clamp(level - 2, 0, 29); // level - 2 is used because the objectIDs start at level 2 and a -2 offset was needed
+            // level rewards reference the PathLevel entry of the level reached
+            PathLevelEntry pathLevelEntry = GameTableManager.Instance.PathLevel.Entries
+                .FirstOrDefault(x => x.PathTypeEnum == (uint)path && x.PathLevel == level);
+            if (pathLevelEntry == null)
+                return;
 
             IEnumerable<PathRewardEntry> pathRewardEntries = GameTableManager.Instance.PathReward.Entries
-                .Where(x => x.ObjectId == pathRewardObjectId);
+                .Where(x => x.PathRewardTypeEnum == 0u && x.ObjectId == pathLevelEntry.Id);
             foreach (PathRewardEntry pathRewardEntry in pathRewardEntries)
             {
                 if (pathRewardEntry.PathRewardFlags > 0)
@@ -222,14 +226,20 @@ namespace NexusForever.Game.Entity
         /// Grant the <see cref="IPlayer"/> rewards from the <see cref="PathRewardEntry"/>
         /// </summary>
         /// <param name="pathRewardEntry">The entry containing items, spells, or titles, to be rewarded"/></param>
-        private void GrantPathReward(PathRewardEntry pathRewardEntry)
+        public void GrantPathReward(PathRewardEntry pathRewardEntry)
         {
             if (pathRewardEntry == null)
                 throw new ArgumentNullException();
 
             // TODO: Check if there's bag space. Otherwise queue? Or is there an overflow inventory?
+            if (pathRewardEntry.PrerequisiteId > 0 && !PrerequisiteManager.Instance.Meets(player, pathRewardEntry.PrerequisiteId))
+                return;
+
             if (pathRewardEntry.Item2Id > 0)
-                player.Inventory.ItemCreate(InventoryLocation.Inventory, pathRewardEntry.Item2Id, 1, ItemUpdateReason.PathReward);
+                player.Inventory.ItemCreate(InventoryLocation.Inventory, pathRewardEntry.Item2Id, Math.Max(pathRewardEntry.Count, 1u), ItemUpdateReason.PathReward);
+
+            if (pathRewardEntry.Quest2Id > 0)
+                player.QuestManager.QuestAdd((ushort)pathRewardEntry.Quest2Id);
 
             if (pathRewardEntry.Spell4Id > 0)
             {

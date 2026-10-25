@@ -44,6 +44,11 @@ namespace NexusForever.Game.Map
             }
         }
 
+        public IZoneMap GetZoneMap(uint mapZoneId)
+        {
+            return zoneMaps.TryGetValue((ushort)mapZoneId, out IZoneMap zoneMap) ? zoneMap : null;
+        }
+
         public void Save(CharacterContext context)
         {
             foreach (IZoneMap zoneMap in zoneMaps.Values)
@@ -103,8 +108,11 @@ namespace NexusForever.Game.Map
                 zoneMap?.AddHexGroup((ushort)mapZoneHexGroup.Id);
             }
 
-            if (zoneMap.IsComplete)
+            if (zoneMap != null && zoneMap.IsComplete)
+            {
                 player.AchievementManager.CheckAchievements(player, AchievementType.MapComplete, currentZoneMap);
+                player.PathMissionManager.OnZoneMapUpdate(currentZoneMap, true);
+            }
         }
 
         private static ZoneMapCoordinate Points2ZoneMapCoordinate(Vector3 position)

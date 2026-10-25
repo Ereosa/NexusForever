@@ -1,6 +1,8 @@
 ﻿using NexusForever.Database.Character;
 using NexusForever.Network.World.Message.Static;
 
+using NexusForever.GameTable.Model;
+
 namespace NexusForever.Game.Abstract.Entity
 {
     public interface IPathManager : IDatabaseCharacter, IEnumerable<IPathEntry>
@@ -29,6 +31,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// Add XP to the current <see cref="Static.PlayerPath.Path"/>.
         /// </summary>
         void AddXp(uint xp);
+
+        /// <summary>
+        /// Grant the items, spells, quests or titles from a <see cref="PathRewardEntry"/>.
+        /// </summary>
+        void GrantPathReward(PathRewardEntry pathRewardEntry);
 
         void SendInitialPackets();
         void SendSetUnitPathTypePacket();
