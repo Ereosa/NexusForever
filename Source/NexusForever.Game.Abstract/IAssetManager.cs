@@ -2,6 +2,8 @@
 using NexusForever.Game.Static;
 using NexusForever.GameTable.Model;
 
+using NexusForever.Database.World.Model;
+
 namespace NexusForever.Game.Abstract
 {
     public interface IAssetManager
@@ -37,6 +39,11 @@ namespace NexusForever.Game.Abstract
         /// Returns the PathScientistCreatureInfo ids a creature can be scanned for.
         /// </summary>
         ImmutableList<uint> GetScientistCreatureInfoIds(uint creatureId);
+
+        /// <summary>
+        /// Returns the creatures spawned for a soldier holdout event.
+        /// </summary>
+        ImmutableList<PathSoldierHoldoutSpawnModel> GetHoldoutSpawns(uint pathSoldierEventId);
 
         /// <summary>
         /// Returns an <see cref="ImmutableList{T}"/> containing all <see cref="RewardPropertyPremiumModifierEntry"/> for the given <see cref="AccountTier"/>.

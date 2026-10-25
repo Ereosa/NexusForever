@@ -36,6 +36,7 @@ namespace NexusForever.Game
         private ImmutableDictionary</*creatureId*/uint, /*virtualItemIds*/ImmutableList<uint>> creatureVirtualCollectItems;
         private ImmutableDictionary</*targetGroupId*/uint, /*targetGroupIds*/ImmutableList<uint>> questObjectiveTargets;
         private ImmutableDictionary</*creatureId*/uint, /*pathScientistCreatureInfoIds*/ImmutableList<uint>> scientistCreatureInfos;
+        private ImmutableDictionary</*pathSoldierEventId*/uint, ImmutableList<PathSoldierHoldoutSpawnModel>> holdoutSpawns;
 
         private ImmutableDictionary<AccountTier, ImmutableList<RewardPropertyPremiumModifierEntry>> rewardPropertiesByTier;
 
@@ -49,6 +50,7 @@ namespace NexusForever.Game
             CacheCreatureTargetGroups();
             CacheCreatureVirtualCollectItems();
             CacheScientistCreatureInfos();
+            CacheHoldoutSpawns();
             CacheRewardPropertiesByTier();
         }
 
@@ -101,6 +103,18 @@ namespace NexusForever.Game
             scientistCreatureInfos = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathScientistCreatures()
                 .GroupBy(m => m.CreatureId)
                 .ToImmutableDictionary(g => g.Key, g => g.Select(m => (uint)m.PathScientistCreatureInfoId).ToImmutableList());
+        }
+
+        private void CacheHoldoutSpawns()
+        {
+            holdoutSpawns = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathSoldierHoldoutSpawns()
+                .GroupBy(m => (uint)m.PathSoldierEventId)
+                .ToImmutableDictionary(g => g.Key, g => g.ToImmutableList());
+        }
+
+        public ImmutableList<PathSoldierHoldoutSpawnModel> GetHoldoutSpawns(uint pathSoldierEventId)
+        {
+            return holdoutSpawns.TryGetValue(pathSoldierEventId, out ImmutableList<PathSoldierHoldoutSpawnModel> spawns) ? spawns : ImmutableList<PathSoldierHoldoutSpawnModel>.Empty;
         }
 
         public ImmutableList<uint> GetScientistCreatureInfoIds(uint creatureId)

@@ -610,6 +610,9 @@ namespace NexusForever.Game.Entity
                 foreach (uint virtualItemId in AssetManager.Instance.GetVirtualCollectItemsForCreatureId(CreatureInfo.Entry.Id))
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
 
+                if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
+                    activator.PathSoldierManager.OnActivate(this);
+
                 foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureInfo.Entry.Id))
                 {
                     // target group objectives are checklists, each entity sets its own bit

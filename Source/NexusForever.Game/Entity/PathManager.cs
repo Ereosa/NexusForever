@@ -99,6 +99,7 @@ namespace NexusForever.Game.Entity
             SendPathLogPacket();
 
             player.PathScientistManager.DismissScanbot();
+            player.PathSoldierManager.Cancel();
             player.PathMissionManager.OnPathChanged();
         }
 
