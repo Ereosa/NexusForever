@@ -205,6 +205,11 @@ namespace NexusForever.Game.Abstract.Entity
         void HideActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId);
 
         /// <summary>
+        /// Return the action bar shown on <paramref name="shortcutSet"/> with <see cref="ShowActionBar"/>.
+        /// </summary>
+        ushort? GetShownActionBar(ShortcutSet shortcutSet);
+
+        /// <summary>
         /// Cast the spell of a button on an action bar shown with <see cref="ShowActionBar"/>, returns false if no such bar is shown.
         /// </summary>
         bool CastActionBarShortcut(ShortcutSet shortcutSet, uint slot, uint targetUnitId, Vector3 position);
