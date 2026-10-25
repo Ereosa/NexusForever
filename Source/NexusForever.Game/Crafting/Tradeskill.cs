@@ -29,8 +29,8 @@ namespace NexusForever.Game.Crafting
         {
             Hobby              = 0x01,
             Harvesting         = 0x02,
-            CoordinateCrafting = 0x04,
-            SimpleCrafting     = 0x08,
+            CircuitCrafting    = 0x04,
+            CoordinateCrafting = 0x08,
             AutoLearn          = 0x10
         }
 

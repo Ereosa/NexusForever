@@ -253,6 +253,7 @@ namespace NexusForever.Game.Entity
         public ICharacterAchievementManager AchievementManager { get; private set; }
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
         public ITradeskillManager TradeskillManager { get; private set; }
+        public ICraftingManager CraftingManager { get; private set; }
         public IXpManager XpManager { get; private set; }
         public IReputationManager ReputationManager { get; private set; }
         public IGuildManager GuildManager { get; }
@@ -385,6 +386,7 @@ namespace NexusForever.Game.Entity
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             TradeskillManager       = new TradeskillManager(this, model);
+            CraftingManager         = new CraftingManager(this);
             XpManager               = new XpManager(this, model);
             ReputationManager       = new ReputationManager(this, model);
             GuildManager.Initialise(this, model);

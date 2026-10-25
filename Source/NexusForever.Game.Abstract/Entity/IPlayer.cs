@@ -88,6 +88,7 @@ namespace NexusForever.Game.Abstract.Entity
         ICharacterAchievementManager AchievementManager { get; }
         ISupplySatchelManager SupplySatchelManager { get; }
         ITradeskillManager TradeskillManager { get; }
+        ICraftingManager CraftingManager { get; }
         IXpManager XpManager { get; }
         IReputationManager ReputationManager { get; }
         IGuildManager GuildManager { get; }
