@@ -11,18 +11,22 @@ using NexusForever.Shared.Game;
 namespace NexusForever.Script.Main.Tutorial.Script.Part2
 {
     /// <summary>
-    /// Dominion turrets in The Face of the Enemy.
+    /// Dominion turrets (Exile simulation) and Exile turrets (Dominion simulation) in The Face of the Enemy.
     /// </summary>
     /// <remarks>
     /// The turret is immune to damage and charges an 8 second shot at the player. Interrupting the charge gives a
     /// 15 second Moment of Opportunity where the immunity is removed and the turret can be destroyed.
     /// </remarks>
-    [ScriptFilterCreatureId(73494)]
+    [ScriptFilterCreatureId(DominionTurret, ExileTurret)]
     public class TurretEntityScript : IUnitScript, IOwnedScript<ICreatureEntity>
     {
+        private const uint DominionTurret = 73494;
+        private const uint ExileTurret    = 74862;
+
         private enum SpellId
         {
             Charging            = 85469,
+            ChargingExile       = 86978,
             MomentOfOpportunity = 85472,
             TurretImmune        = 85474
         }
@@ -57,7 +61,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         public void OnLoad(ICreatureEntity owner)
         {
             this.owner = owner;
-            TutorialFaction.MakeHostile(owner);
+            TutorialFaction.MakeHostile(owner, owner.CreatureId == ExileTurret ? Faction.Dominion : Faction.Exile);
         }
 
         /// <summary>
@@ -117,8 +121,9 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
                 return;
 
             owner.MovementManager.SetRotationFaceUnit(target.Guid);
-            Cast(SpellId.Charging, target.Guid);
-            if (owner.HasSpell(s => s.Spell4Id == (uint)SpellId.Charging && s.IsCasting, out ISpell spell))
+            SpellId charging = owner.CreatureId == ExileTurret ? SpellId.ChargingExile : SpellId.Charging;
+            Cast(charging, target.Guid);
+            if (owner.HasSpell(s => s.Spell4Id == (uint)charging && s.IsCasting, out ISpell spell))
             {
                 charge = spell;
                 chargeTimer.Restart();
