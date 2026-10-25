@@ -35,7 +35,7 @@ namespace NexusForever.Game.Entity
             public bool IsActive => Tier >= 0 && DateTime.UtcNow < Expires;
         }
 
-        private const float DepotInteractDistance = 15f;
+        private const float DepotInteractDistance = 30f;
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
         private static readonly Dictionary<(uint WorldId, uint GroupId), ImprovementState> improvements = new();
@@ -196,31 +196,37 @@ namespace NexusForever.Game.Entity
             improvement  = null;
             contribution = false;
 
-            if (player.Path != Path.Settler || group == null)
+            SettlerBuildResult Fail(string reason)
+            {
+                log.Debug($"Player {player.CharacterId} can't build settler improvement group {group?.Id} tier {tier}: {reason}.");
                 return SettlerBuildResult.Failed;
+            }
+
+            if (player.Path != Path.Settler || group == null)
+                return Fail("player is not a settler or the improvement group doesn't exist");
 
             IWorldEntity depot = player.GetVisible<IWorldEntity>(depotGuid);
             if (depot == null || depot.CreatureId != group.Creature2IdDepot
                 || Vector3.Distance(player.Position, depot.Position) > DepotInteractDistance)
-                return SettlerBuildResult.Failed;
+                return Fail("the player isn't at the improvement group's depot");
 
             uint improvementId = GetTierImprovementId(group, tier);
             improvement = GameTableManager.Instance.PathSettlerImprovement.GetEntry(improvementId);
             if (improvement == null)
-                return SettlerBuildResult.Failed;
+                return Fail("the improvement tier doesn't exist");
 
             // an outpost improvement has to be built before the improvements that depend on it
             if (group.PathSettlerImprovementGroupIdOutpostRequired != 0u && !GetState(group.PathSettlerImprovementGroupIdOutpostRequired).IsActive)
-                return SettlerBuildResult.Failed;
+                return Fail("the required outpost isn't built");
 
             ImprovementState state = GetState(group.Id);
             contribution = state.IsActive && state.Tier == (int)tier;
             if (state.IsActive && state.Tier > (int)tier)
-                return SettlerBuildResult.Failed;
+                return Fail("a higher tier is already active");
 
             PathSettlerHubEntry hub = GameTableManager.Instance.PathSettlerHub.GetEntry(group.PathSettlerHubId);
             if (hub == null)
-                return SettlerBuildResult.Failed;
+                return Fail("the improvement group has no hub");
 
             uint[] resources = [hub.Item2IdResource00, hub.Item2IdResource01, hub.Item2IdResource02];
             uint[] counts = contribution
@@ -228,7 +234,7 @@ namespace NexusForever.Game.Entity
                 : [improvement.CountResource00, improvement.CountResource01, improvement.CountResource02];
             for (int i = 0; i < resources.Length; i++)
                 if (resources[i] != 0u && counts[i] != 0u && !player.Inventory.HasItemCount(resources[i], counts[i]))
-                    return SettlerBuildResult.Failed;
+                    return Fail("the player doesn't have the resources");
 
             return SettlerBuildResult.Ok;
         }
