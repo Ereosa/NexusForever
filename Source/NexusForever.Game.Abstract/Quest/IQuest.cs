@@ -77,6 +77,12 @@ namespace NexusForever.Game.Abstract.Quest
         void ObjectiveUpdate(QuestObjectiveType type, uint data, uint progress);
 
         /// <summary>
+        /// Update any <see cref="IQuestObjective"/>'s with supplied <see cref="QuestObjectiveType"/> that have no target of their own
+        /// and list their targets in the supplied reward pane target group instead.
+        /// </summary>
+        void ObjectiveUpdateRewardPane(QuestObjectiveType type, uint targetGroupId, uint progress);
+
+        /// <summary>
         /// Update any <see cref="IQuestObjective"/>'s with supplied ID with progress.
         /// </summary>
         void ObjectiveUpdate(uint id, uint progress);

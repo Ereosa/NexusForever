@@ -125,17 +125,68 @@ namespace NexusForever.Game
         private void CacheCreatureTargetGroups()
         {
             var entries = ImmutableDictionary.CreateBuilder<uint, List<uint>>();
+            var factionGroups = new Dictionary<uint, List<uint>>();
+            var raceGroups = new Dictionary<uint, List<uint>>();
             foreach (TargetGroupEntry entry in GameTableManager.Instance.TargetGroup.Entries)
             {
-                if ((TargetGroupType)entry.Type != TargetGroupType.CreatureIdGroup)
-                    continue;
-
-                foreach (uint creatureId in entry.DataEntries)
+                switch ((TargetGroupType)entry.Type)
                 {
-                    if (!entries.ContainsKey(creatureId))
-                        entries.Add(creatureId, new List<uint>());
+                    // type 9 lists creature ids the same way (inferred from the data, eg: kill objective groups of creature variants)
+                    case TargetGroupType.CreatureIdGroup:
+                    case TargetGroupType.Unknown9:
+                    {
+                        foreach (uint creatureId in entry.DataEntries.Where(d => d != 0u))
+                        {
+                            if (!entries.ContainsKey(creatureId))
+                                entries.Add(creatureId, new List<uint>());
 
-                    entries[creatureId].Add(entry.Id);
+                            entries[creatureId].Add(entry.Id);
+                        }
+                        break;
+                    }
+                    case TargetGroupType.FactionIdGroup:
+                    {
+                        foreach (uint factionId in entry.DataEntries.Where(d => d != 0u))
+                        {
+                            if (!factionGroups.ContainsKey(factionId))
+                                factionGroups.Add(factionId, new List<uint>());
+
+                            factionGroups[factionId].Add(entry.Id);
+                        }
+                        break;
+                    }
+                    case TargetGroupType.CreatureRaceIdGroup:
+                    {
+                        foreach (uint raceId in entry.DataEntries.Where(d => d != 0u))
+                        {
+                            if (!raceGroups.ContainsKey(raceId))
+                                raceGroups.Add(raceId, new List<uint>());
+
+                            raceGroups[raceId].Add(entry.Id);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // groups by faction or creature race (eg: "kill any Dominion", "kill any Skeech") apply to every creature of that faction or race
+            if (factionGroups.Count > 0 || raceGroups.Count > 0)
+            {
+                foreach (Creature2Entry creature in GameTableManager.Instance.Creature2.Entries)
+                {
+                    IEnumerable<uint> groups = Enumerable.Empty<uint>();
+                    if (factionGroups.TryGetValue((uint)creature.FactionId, out List<uint> factionGroupIds))
+                        groups = groups.Concat(factionGroupIds);
+                    if (raceGroups.TryGetValue(creature.UnitRaceId, out List<uint> raceGroupIds))
+                        groups = groups.Concat(raceGroupIds);
+
+                    foreach (uint targetGroupId in groups)
+                    {
+                        if (!entries.ContainsKey(creature.Id))
+                            entries.Add(creature.Id, new List<uint>());
+
+                        entries[creature.Id].Add(targetGroupId);
+                    }
                 }
             }
 
@@ -229,6 +280,7 @@ namespace NexusForever.Game
             switch ((TargetGroupType)entry.Type)
             {
                 case TargetGroupType.CreatureIdGroup:
+                case TargetGroupType.Unknown9:
                     targetIds.AddRange(entry.DataEntries.Where(d => d != 0u));
                     break;
                 case TargetGroupType.OtherTargetGroup:

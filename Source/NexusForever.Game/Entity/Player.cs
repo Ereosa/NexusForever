@@ -803,6 +803,7 @@ namespace NexusForever.Game.Entity
 
             ZoneMapManager.OnRelocate(vector);
             PathMissionManager.OnRelocate(vector);
+            QuestManager.OnRelocate(vector);
 
             if (!relocationTimer.IsTicking)
                 relocationTimer.Resume();
@@ -833,6 +834,7 @@ namespace NexusForever.Game.Entity
             }
 
             ZoneMapManager.OnZoneUpdate();
+            QuestManager.CheckCommunicatorMessages();
             PathMissionManager.OnZoneUpdate();
             PathSettlerManager.OnZoneUpdate();
 

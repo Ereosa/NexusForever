@@ -211,6 +211,14 @@ namespace NexusForever.Game.Quest
         }
 
         /// <summary>
+        /// Return every <see cref="ICommunicatorMessage"/> that starts a quest.
+        /// </summary>
+        public IEnumerable<ICommunicatorMessage> GetQuestCommunicatorMessages()
+        {
+            return communicatorQuestStore.Values.SelectMany(m => m);
+        }
+
+        /// <summary>
         /// Return a collection of <see cref="ICommunicatorMessage"/>'s that are triggered when a quest hits a certain state.
         /// </summary>
         public IEnumerable<ICommunicatorMessage> GetQuestCommunicatorQuestStateTriggers(ushort questId, QuestState state)

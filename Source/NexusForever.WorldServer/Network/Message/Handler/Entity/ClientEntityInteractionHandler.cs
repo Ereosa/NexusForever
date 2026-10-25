@@ -53,6 +53,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
                 {
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, targetGroupId, entity.QuestChecklistMask);
+                    // objectives without a target list the creatures in their reward pane target group (eg: listening to a speech)
+                    session.Player.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.ActivateEntity, targetGroupId, 1u);
+                    session.Player.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.TalkTo, targetGroupId, 1u);
                     entity.Map.PublicEventManager.UpdateObjective(session.Player, PublicEventObjectiveType.TalkTo, targetGroupId, 1);
                 }
             }

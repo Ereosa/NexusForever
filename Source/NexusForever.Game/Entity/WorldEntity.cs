@@ -654,6 +654,12 @@ namespace NexusForever.Game.Entity
                     // counted activations of a target group (eg: Shellshock! overloading the Dominion cannons)
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, targetGroupId, 1u);
 
+                    // objectives without a target list the objects in their reward pane target group (eg: detonating Marauder Mines)
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.ActivateEntity, targetGroupId, 1u);
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.ActivateEntity2, targetGroupId, 1u);
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.SucceedCSI, targetGroupId, 1u);
+                    activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.Unknown10, targetGroupId, 1u);
+
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroup, targetGroupId, 1);
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistIdx);
                 }
