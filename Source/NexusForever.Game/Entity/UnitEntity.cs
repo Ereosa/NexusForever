@@ -9,6 +9,7 @@ using NexusForever.Game.Abstract.Spell.Proc;
 using NexusForever.Game.Abstract.Spell.Target;
 using NexusForever.Game.Combat;
 using NexusForever.Game.Combat.CrowdControl;
+using NexusForever.Game.Spell.Proc;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.PublicEvent;
@@ -596,6 +597,7 @@ namespace NexusForever.Game.Entity
             }
 
             GenerateRewards(killer);
+            ProcTrigger.OnKill(killer, this);
             // TODO: schedule respawn
 
             ThreatManager.ClearThreatList();
@@ -754,7 +756,10 @@ namespace NexusForever.Game.Entity
             InCombat = ThreatManager.IsThreatened;
 
             if (!previousCombatState && InCombat)
+            {
                 scriptCollection?.Invoke<IUnitScript>(s => s.OnEnterCombat());
+                ProcTrigger.OnEnterCombat(this);
+            }
             else if (previousCombatState && !InCombat)
                 scriptCollection?.Invoke<IUnitScript>(s => s.OnLeaveCombat());
 

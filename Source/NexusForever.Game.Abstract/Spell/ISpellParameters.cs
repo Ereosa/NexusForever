@@ -18,6 +18,11 @@ namespace NexusForever.Game.Abstract.Spell
         ulong SpellCost { get; set; }
         uint ThresholdValue { get; set; }
         bool IsProxy { get; set; }
+
+        /// <summary>
+        /// Spell was cast by a proc, it doesn't trigger damage and heal procs itself.
+        /// </summary>
+        bool IsProcTriggered { get; set; }
         bool ForceCancelOnly { get; set; }
         IClientSideInteraction ClientSideInteraction { get; set; }
         Action<ISpellParameters> CompleteAction { get; set; }

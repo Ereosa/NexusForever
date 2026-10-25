@@ -8,6 +8,8 @@ using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Spell.Effect;
 using NexusForever.Shared;
 
+using NexusForever.Game.Spell.Proc;
+
 namespace NexusForever.Game.Spell.Effect.Handler
 {
     [SpellEffectHandler(SpellEffectType.Heal)]
@@ -40,6 +42,7 @@ namespace NexusForever.Game.Spell.Effect.Handler
                 return SpellEffectExecutionResult.Ok;
 
             target.ModifyHealth(info.Damage.AdjustedDamage, DamageType.Heal, caster);
+            ProcTrigger.OnHeal(caster, target, executionContext.Spell.Parameters.SpellInfo, info.Damage, executionContext.Spell.Parameters.IsProcTriggered);
             return SpellEffectExecutionResult.Ok;
         }
     }

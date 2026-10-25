@@ -29,6 +29,7 @@ namespace NexusForever.Game.Spell
                 RootSpellInfo = parameters.RootSpellInfo,
                 PrimaryTargetId = Target.Guid,
                 UserInitiatedSpellCast = parameters.UserInitiatedSpellCast,
+                IsProcTriggered = parameters.IsProcTriggered,
                 IsProxy = true
             };
         }

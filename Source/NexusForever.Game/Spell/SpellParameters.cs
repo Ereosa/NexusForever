@@ -19,6 +19,7 @@ namespace NexusForever.Game.Spell
         public ulong SpellCost { get; set; }
         public uint ThresholdValue { get; set; }
         public bool IsProxy { get; set; }
+        public bool IsProcTriggered { get; set; }
         public bool ForceCancelOnly { get; set; }
         public IClientSideInteraction ClientSideInteraction { get; set; }
         public Action<ISpellParameters> CompleteAction { get; set; }

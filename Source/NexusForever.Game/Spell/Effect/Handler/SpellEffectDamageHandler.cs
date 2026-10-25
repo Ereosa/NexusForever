@@ -5,6 +5,7 @@ using NexusForever.Game.Abstract.Spell.Effect;
 using NexusForever.Game.Abstract.Spell.Effect.Data;
 using NexusForever.Game.Abstract.Spell.Proc;
 using NexusForever.Game.Abstract.Spell.Target;
+using NexusForever.Game.Spell.Proc;
 using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Spell.Effect;
@@ -45,17 +46,15 @@ namespace NexusForever.Game.Spell.Effect.Handler
             IDamageCalculator damageCalculator = damageCalculatorFactory.Resolve();
             damageCalculator.CalculateDamage(executionContext, target, info);
 
+            // deflected attacks have no damage
             if (info.Damage == null)
-                return SpellEffectExecutionResult.Ok;
-
-            if (info.Damage.CombatResult == CombatResult.Critical)
             {
-                IProcParameters parameters = procParameterFactory.Resolve();
-                parameters.Target = target;
-                executionContext.Spell.Caster.ProcManager.TriggerProc(ProcType.CriticalDamage, parameters);
+                ProcTrigger.OnDeflect(executionContext.Spell.Caster, target, executionContext.Spell.Parameters.SpellInfo, executionContext.Spell.Parameters.IsProcTriggered);
+                return SpellEffectExecutionResult.Ok;
             }
 
             target.TakeDamage(executionContext.Spell.Caster, info.Damage);
+            ProcTrigger.OnDamage(executionContext.Spell.Caster, target, executionContext.Spell.Parameters.SpellInfo, info.Damage, executionContext.Spell.Parameters.IsProcTriggered);
 
             if (executionContext.Spell.Caster is IPlayer player)
                 player.Map.PublicEventManager.UpdateStat(player, PublicEventStat.Damage, info.Damage.AdjustedDamage);
