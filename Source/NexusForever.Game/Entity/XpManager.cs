@@ -2,6 +2,7 @@
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Static.Reward;
 using NexusForever.GameTable;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Static;
@@ -61,6 +62,31 @@ namespace NexusForever.Game.Entity
             entity.Property(p => p.RestBonusXp).IsModified = true;
 
             isDirty = false;
+        }
+
+        /// <summary>
+        /// Add the supplied number of levels worth of rest XP to the pool, returns false if the pool is already full.
+        /// </summary>
+        public bool AddRestXp(float levels)
+        {
+            uint maximumBonusXp = GetMaximumRestXp();
+            if (levels <= 0f || RestBonusXp >= maximumBonusXp)
+                return false;
+
+            uint xpForLevel     = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level).MinXpForLevel;
+            uint xpForNextLevel = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level + 1)?.MinXpForLevel ?? xpForLevel;
+            RestBonusXp = (uint)Math.Min(RestBonusXp + (xpForNextLevel - xpForLevel) * levels, maximumBonusXp);
+            return true;
+        }
+
+        private uint GetMaximumRestXp()
+        {
+            if (player.Level >= 50)
+                return 0u; // TODO: Calculate Elder Gem Rest Bonus XP
+
+            float xpForLevel     = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level).MinXpForLevel;
+            float xpForNextLevel = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level + 1).MinXpForLevel;
+            return (uint)((xpForNextLevel - xpForLevel) * 1.5f);
         }
 
         private void CalculateRestXpAtLogin(CharacterModel model)
@@ -129,10 +155,18 @@ namespace NexusForever.Game.Entity
             if (player.SignatureEnabled)
                 signatureXp = (uint)(earnedXp * 0.25f); // TODO: Make rate configurable.
 
-            // Calculate Rest XP Bonus
+            // Calculate Rest XP Bonus, kills earn 50% more while the rest pool lasts
             uint restXp = 0u;
             if (reason == ExpReason.KillCreature)
-                restXp = (uint)(earnedXp * 0.5f);
+            {
+                restXp = Math.Min((uint)(earnedXp * 0.5f), RestBonusXp);
+                RestBonusXp -= restXp;
+            }
+
+            // XP boosts (eg: Flask of Advancement) add to the XP reward property while their spell lasts
+            float boost = player.Account.RewardPropertyManager.GetRewardProperty(RewardPropertyType.XP)?.GetValue(0u) ?? 0f;
+            uint boostXp = boost > 0f ? (uint)(earnedXp * boost) : 0u;
+            earnedXp += boostXp;
 
             player.Session.EnqueueMessageEncrypted(new ServerExperienceGained
             {

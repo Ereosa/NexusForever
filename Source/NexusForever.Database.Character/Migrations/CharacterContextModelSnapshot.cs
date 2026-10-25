@@ -1178,6 +1178,18 @@ namespace NexusForever.Database.Character.Migrations
                         .HasColumnType("datetime")
                         .HasColumnName("tradeskillRelearnCooldown");
 
+                    b.Property<byte>("BonusAbilityPoints")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("bonusAbilityPoints");
+
+                    b.Property<byte>("BonusAmpPower")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("bonusAmpPower");
+
                     b.Property<ushort>("WorldId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("smallint(5) unsigned")

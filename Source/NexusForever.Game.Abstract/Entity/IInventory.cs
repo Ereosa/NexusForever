@@ -45,6 +45,11 @@ namespace NexusForever.Game.Abstract.Entity
         uint GetItemCount(uint itemId);
 
         /// <summary>
+        /// Returns the number of items with supplied id in the supplied <see cref="InventoryLocation"/>'s.
+        /// </summary>
+        uint GetItemCount(uint itemId, params InventoryLocation[] locations);
+
+        /// <summary>
         /// Return <see cref="IItem"/> at supplied <see cref="ItemLocation"/>.
         /// </summary>
         IItem GetItem(ItemLocation itemLocation);

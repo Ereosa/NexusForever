@@ -12,6 +12,7 @@ using NexusForever.Game.Abstract.Achievement;
 using NexusForever.Game.Abstract.Challenges;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Account.Entitlement;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Entity.Stat;
@@ -934,6 +935,7 @@ namespace NexusForever.Game.Entity
             PathMissionManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             Account.ItemManager.SendInitialPackets();
+            EntitlementEffects.ApplyAll(this);
             Account.DailyLoginManager.OnLogin();
             QuestManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);

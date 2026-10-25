@@ -40,6 +40,8 @@ namespace NexusForever.Database.Character.Model
         public uint Flags { get; set; }
         public bool IsOnline { get; set; }
         public DateTime? TradeskillRelearnCooldown { get; set; }
+        public byte BonusAbilityPoints { get; set; }
+        public byte BonusAmpPower { get; set; }
 
         public ResidenceModel Residence { get; set; }
         public ICollection<CharacterAchievementModel> Achievement { get; set; } = new HashSet<CharacterAchievementModel>();

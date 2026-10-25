@@ -59,10 +59,10 @@ namespace NexusForever.Game.Account.Reward
                 if (entitlementFlags.HasFlag(EntitlementFlags.Disabled))
                     return 0f;
 
-                if (entitlementFlags.HasFlag(EntitlementFlags.Character))
-                    return player?.EntitlementManager.GetEntitlement((EntitlementType)modifierEntry.EntitlementIdModifierCount)?.Amount ?? 0u;
-
-                return account.EntitlementManager.GetEntitlement((EntitlementType)modifierEntry.EntitlementIdModifierCount)?.Amount ?? 0u;
+                // character scoped claims (eg: Extra Bank Slot) store an account entitlement on the character
+                var type = (EntitlementType)modifierEntry.EntitlementIdModifierCount;
+                return (account.EntitlementManager.GetEntitlement(type)?.Amount ?? 0u)
+                    + (player?.EntitlementManager.GetEntitlement(type)?.Amount ?? 0u);
             }
             
             return (RewardModifierValueType)entry.RewardModifierValueTypeEnum switch

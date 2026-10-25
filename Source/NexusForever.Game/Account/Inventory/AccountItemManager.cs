@@ -5,6 +5,7 @@ using NexusForever.Database.Auth.Model;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Account.Inventory;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Account.Entitlement;
 using NexusForever.Game.Static.AccountInventory;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Static.Entity;
@@ -28,6 +29,16 @@ namespace NexusForever.Game.Account.Inventory
         private readonly List<IAccountItem> deletedItems = [];
         private ulong nextId = 1;
 
+        // AccountItemCooldownGroup has no duration in the client data, retail Boom Boxes could be claimed once a day
+        private static readonly TimeSpan cooldownDuration = TimeSpan.FromDays(1);
+        private readonly Dictionary<uint, DateTime> cooldowns = [];
+        private readonly HashSet<uint> savedCooldowns = [];
+        private readonly HashSet<uint> changedCooldowns = [];
+
+        // multi-redeem account items stay in the account inventory and can be claimed once by each character
+        private readonly Dictionary<ulong, HashSet<ulong>> claims = [];
+        private readonly List<(ulong ItemId, ulong CharacterId)> newClaims = [];
+
         /// <summary>
         /// Create a new <see cref="IAccountItemManager"/> from an existing database model.
         /// </summary>
@@ -44,6 +55,19 @@ namespace NexusForever.Game.Account.Inventory
                 items.Add(item.Id, item);
                 nextId = Math.Max(nextId, item.Id + 1);
             }
+
+            foreach (AccountItemCooldownModel cooldownModel in model.AccountItemCooldown)
+            {
+                cooldowns[cooldownModel.CooldownGroupId] = cooldownModel.Expiry;
+                savedCooldowns.Add(cooldownModel.CooldownGroupId);
+            }
+
+            foreach (AccountItemClaimModel claimModel in model.AccountItemClaim)
+            {
+                if (!claims.TryGetValue(claimModel.ItemId, out HashSet<ulong> characters))
+                    claims.Add(claimModel.ItemId, characters = []);
+                characters.Add(claimModel.CharacterId);
+            }
         }
 
         public void Save(AuthContext context)
@@ -54,6 +78,33 @@ namespace NexusForever.Game.Account.Inventory
 
             foreach (IAccountItem item in items.Values)
                 item.Save(context);
+
+            foreach (uint group in changedCooldowns)
+            {
+                var model = new AccountItemCooldownModel
+                {
+                    Id              = account.Id,
+                    CooldownGroupId = group,
+                    Expiry          = cooldowns[group]
+                };
+
+                if (savedCooldowns.Add(group))
+                    context.Add(model);
+                else
+                    context.Update(model);
+            }
+            changedCooldowns.Clear();
+
+            foreach ((ulong itemId, ulong characterId) in newClaims)
+            {
+                context.Add(new AccountItemClaimModel
+                {
+                    Id          = account.Id,
+                    ItemId      = itemId,
+                    CharacterId = characterId
+                });
+            }
+            newClaims.Clear();
         }
 
         /// <summary>
@@ -92,6 +143,10 @@ namespace NexusForever.Game.Account.Inventory
             if (result != AccountOperationResult.Ok)
                 return result;
 
+            bool multiRedeem = IsMultiRedeem(entry);
+            if (multiRedeem && claims.TryGetValue(id, out HashSet<ulong> claimedBy) && claimedBy.Contains(player.CharacterId))
+                return AccountOperationResult.AlreadyClaimedMultiRedeem;
+
             if (entry.Item2Id != 0u)
                 player.Inventory.ItemCreate(InventoryLocation.Inventory, entry.Item2Id, 1u);
 
@@ -102,10 +157,19 @@ namespace NexusForever.Game.Account.Inventory
             {
                 EntitlementEntry entitlementEntry = GameTableManager.Instance.Entitlement.GetEntry(entry.EntitlementId);
                 int count = (int)Math.Max(entry.EntitlementCount, 1u);
-                if (IsCharacterEntitlement(entitlementEntry))
+                if (IsCharacterClaim(entry, entitlementEntry))
                     player.EntitlementManager.UpdateEntitlement((EntitlementType)entitlementEntry.Id, count);
                 else
                     account.EntitlementManager.UpdateEntitlement((EntitlementType)entitlementEntry.Id, count);
+
+                if (player != null)
+                    EntitlementEffects.Apply(player, entitlementEntry);
+
+                if (!AccountFeatureSupport.Entitlements.ContainsKey((EntitlementType)entitlementEntry.Id)
+                    && !AssetManager.Instance.GetRewardPropertiesForTier(account.AccountTier).Any(m => m.EntitlementIdModifierCount == entitlementEntry.Id)
+                    && entitlementEntry.CharacterTitleId == 0u
+                    && entitlementEntry.Spell4IdPersistentBuff == 0u)
+                    log.LogError($"Account item {entry.Id} granted entitlement {entitlementEntry.Id} which nothing on the server reads, run NexusForever.AccountAudit.");
             }
 
             if (entry.GenericUnlockSetId != 0u)
@@ -120,6 +184,21 @@ namespace NexusForever.Game.Account.Inventory
                     account.GenericUnlockManager.Unlock((ushort)unlockId);
             }
 
+            if (entry.InstantEventEnum != 0u)
+                log.LogError($"Account item {entry.Id} has unhandled instant event {entry.InstantEventEnum}!");
+
+            if (entry.AccountItemCooldownGroupId != 0u)
+                SetCooldown(entry.AccountItemCooldownGroupId);
+
+            if (multiRedeem)
+            {
+                if (!claims.TryGetValue(id, out HashSet<ulong> characters))
+                    claims.Add(id, characters = []);
+                characters.Add(player.CharacterId);
+                newClaims.Add((id, player.CharacterId));
+                return AccountOperationResult.Ok;
+            }
+
             items.Remove(id);
             item.Delete();
             deletedItems.Add(item);
@@ -132,13 +211,58 @@ namespace NexusForever.Game.Account.Inventory
             return AccountOperationResult.Ok;
         }
 
+        /// <summary>
+        /// Multi-redeem account items (eg: store dyes and the Deluxe Edition Pack) can be claimed once by every character on the account.
+        /// </summary>
+        private static bool IsMultiRedeem(AccountItemEntry entry)
+        {
+            return (entry.Flags & 0x2u) != 0u;
+        }
+
+        /// <summary>
+        /// Returns if the entitlement is claimed to the character rather than the account (eg: "This purchase can only be claimed by a single character").
+        /// </summary>
+        private static bool IsCharacterClaim(AccountItemEntry entry, EntitlementEntry entitlementEntry)
+        {
+            return entry.EntitlementScopeEnum == 1u || IsCharacterEntitlement(entitlementEntry);
+        }
+
+        private bool IsOnCooldown(uint group)
+        {
+            return cooldowns.TryGetValue(group, out DateTime expiry) && expiry > DateTime.UtcNow;
+        }
+
+        private void SetCooldown(uint group)
+        {
+            cooldowns[group] = DateTime.UtcNow.Add(cooldownDuration);
+            changedCooldowns.Add(group);
+
+            account.Session.EnqueueMessageEncrypted(new ServerAccountItemCooldownSet
+            {
+                Cooldown = BuildCooldown(group)
+            });
+        }
+
+        private AccountItemCooldown BuildCooldown(uint group)
+        {
+            return new AccountItemCooldown
+            {
+                AccountItemCooldownGroup = group,
+                CooldownInSeconds        = (uint)Math.Max(0d, Math.Ceiling((cooldowns[group] - DateTime.UtcNow).TotalSeconds))
+            };
+        }
+
         private AccountOperationResult CanTakeItem(IPlayer player, AccountItemEntry entry)
         {
             EntitlementEntry entitlementEntry = entry.EntitlementId != 0u ? GameTableManager.Instance.Entitlement.GetEntry(entry.EntitlementId) : null;
             if (entry.EntitlementId != 0u && entitlementEntry == null)
                 return AccountOperationResult.InvalidAccountItem;
 
+            if (entry.AccountItemCooldownGroupId != 0u && IsOnCooldown(entry.AccountItemCooldownGroupId))
+                return AccountOperationResult.Cooldown;
+
             bool needsCharacter = entry.Item2Id != 0u
+                || IsMultiRedeem(entry)
                 || entry.EntitlementScopeEnum == 1u
                 || IsCharacterEntitlement(entitlementEntry)
                 || (entry.PrerequisiteId != 0u && !IsAccountPrerequisite(entry.PrerequisiteId));
@@ -147,8 +271,8 @@ namespace NexusForever.Game.Account.Inventory
 
             if (entry.Item2Id == 0u && entry.AccountCurrencyEnum == 0u && entitlementEntry == null && entry.GenericUnlockSetId == 0u)
             {
-                // TODO: instant events
-                log.LogWarning($"Unhandled contents for account item {entry.Id}, leaving it in the account inventory.");
+                // the only account item with nothing else is a test instant event
+                log.LogError($"Unhandled contents for account item {entry.Id} (instant event {entry.InstantEventEnum}), leaving it in the account inventory.");
                 return AccountOperationResult.InvalidAccountItem;
             }
 
@@ -164,7 +288,7 @@ namespace NexusForever.Game.Account.Inventory
 
             if (entitlementEntry != null)
             {
-                uint current = IsCharacterEntitlement(entitlementEntry)
+                uint current = IsCharacterClaim(entry, entitlementEntry)
                     ? player.EntitlementManager.GetEntitlement((EntitlementType)entitlementEntry.Id)?.Amount ?? 0u
                     : account.EntitlementManager.GetEntitlement((EntitlementType)entitlementEntry.Id)?.Amount ?? 0u;
                 if (current + Math.Max(entry.EntitlementCount, 1u) > entitlementEntry.MaxCount)
@@ -266,6 +390,14 @@ namespace NexusForever.Game.Account.Inventory
             account.Session.EnqueueMessageEncrypted(new ServerAccountItems
             {
                 AccountItems = items.Values.Select(i => i.Build()).ToList()
+            });
+
+            account.Session.EnqueueMessageEncrypted(new ServerAccountItemCooldowns
+            {
+                AccountItemCooldowns = cooldowns.Keys
+                    .Where(IsOnCooldown)
+                    .Select(BuildCooldown)
+                    .ToList()
             });
         }
     }

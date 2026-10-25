@@ -14,6 +14,8 @@ namespace NexusForever.Database.Auth
         public DbSet<AccountGenericUnlockModel> AccountGenericUnlock { get; set; }
         public DbSet<AccountDailyLoginModel> AccountDailyLogin { get; set; }
         public DbSet<AccountItemModel> AccountItem { get; set; }
+        public DbSet<AccountItemClaimModel> AccountItemClaim { get; set; }
+        public DbSet<AccountItemCooldownModel> AccountItemCooldown { get; set; }
         public DbSet<AccountKeybindingModel> AccountKeybinding { get; set; }
         public DbSet<AccountPermissionModel> AccountPermission { get; set; }
         public DbSet<AccountRoleModel> AccountRole { get; set; }
@@ -304,6 +306,61 @@ namespace NexusForever.Database.Auth
                     .WithMany(p => p.AccountGenericUnlock)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__account_generic_unlock_id__account_id");
+            });
+
+            modelBuilder.Entity<AccountItemClaimModel>(entity =>
+            {
+                entity.HasKey(e => new { e.Id, e.ItemId, e.CharacterId })
+                    .HasName("PRIMARY");
+
+                entity.ToTable("account_item_claim");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ItemId)
+                    .HasColumnName("itemId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CharacterId)
+                    .HasColumnName("characterId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Account)
+                    .WithMany(p => p.AccountItemClaim)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__account_item_claim_id__account_id");
+            });
+
+            modelBuilder.Entity<AccountItemCooldownModel>(entity =>
+            {
+                entity.HasKey(e => new { e.Id, e.CooldownGroupId })
+                    .HasName("PRIMARY");
+
+                entity.ToTable("account_item_cooldown");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CooldownGroupId)
+                    .HasColumnName("cooldownGroupId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Expiry)
+                    .HasColumnName("expiry")
+                    .HasColumnType("datetime");
+
+                entity.HasOne(d => d.Account)
+                    .WithMany(p => p.AccountItemCooldown)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__account_item_cooldown_id__account_id");
             });
 
             modelBuilder.Entity<AccountKeybindingModel>(entity =>

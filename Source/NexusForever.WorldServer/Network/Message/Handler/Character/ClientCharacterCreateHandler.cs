@@ -77,6 +77,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                 if (creationEntry == null)
                     return CharacterModifyResult.CreateFailed_Internal;
 
+                // Chua Warrior and Aurin Engineer are store unlocks ("Creation Unlock" entitlements 61 and 62)
+                if (creationEntry.EntitlementIdRequired != 0u
+                    && (session.Account.EntitlementManager.GetEntitlement((EntitlementType)creationEntry.EntitlementIdRequired)?.Amount ?? 0u) == 0u)
+                    return CharacterModifyResult.CreateFailed;
+
                 if (creationEntry.CharacterCreationStartEnum == CharacterCreationStart.Level50
                     && !session.Account.CurrencyManager.CanAfford(AccountCurrencyType.PromotionToken, 1ul))
                     return CharacterModifyResult.CreateFailed_InsufficientFunds;
@@ -108,11 +113,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                 CharacterCreationEntry creationEntry = gameTableManager.CharacterCreation.GetEntry(characterCreate.CharacterCreationId);
                 if (creationEntry == null)
                     throw new InvalidPacketValueException();
-
-                if (creationEntry.EntitlementIdRequired != 0u)
-                {
-                    // TODO: Aurin engineer has this
-                }
 
                 var character = new CharacterModel
                 {

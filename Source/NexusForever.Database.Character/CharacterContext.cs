@@ -149,6 +149,16 @@ namespace NexusForever.Database.Character
                     .HasColumnName("tradeskillRelearnCooldown")
                     .HasColumnType("datetime");
 
+                entity.Property(e => e.BonusAbilityPoints)
+                    .HasColumnName("bonusAbilityPoints")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.BonusAmpPower)
+                    .HasColumnName("bonusAmpPower")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
                 entity.Property(e => e.LastOnline)
                     .HasColumnName("lastOnline")
                     .HasColumnType("datetime");

@@ -16,6 +16,11 @@ namespace NexusForever.Game.Abstract.Entity
         void GrantXp(uint earnedXp, ExpReason reason = ExpReason.Cheat);
 
         /// <summary>
+        /// Add the supplied number of levels worth of rest XP to the pool, returns false if the pool is already full.
+        /// </summary>
+        bool AddRestXp(float levels);
+
+        /// <summary>
         /// Sets <see cref="IPlayer"/> to the supplied level and adjusts XP accordingly. Mainly for use with GM commands.
         /// </summary>
         /// <param name="newLevel">New level to be set</param>

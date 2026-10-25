@@ -65,6 +65,14 @@ namespace NexusForever.Game.Account.Currency
         }
 
         /// <summary>
+        /// Returns the amount of the supplied <see cref="AccountCurrencyType"/> the account has.
+        /// </summary>
+        public ulong GetAmount(AccountCurrencyType currencyType)
+        {
+            return currencies.TryGetValue(currencyType, out IAccountCurrency accountCurrency) ? accountCurrency.Amount : 0ul;
+        }
+
+        /// <summary>
         /// Add a supplied amount to an <see cref="IAccountCurrency"/>.
         /// </summary>
         public void CurrencyAddAmount(AccountCurrencyType currencyType, ulong amount, ulong reason = 0)

@@ -5,6 +5,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Reward;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable.Model;
 using NexusForever.Network;
@@ -167,6 +168,25 @@ namespace NexusForever.Game.Entity
             uint count = 0u;
             foreach (IItem item in bag.Where(i => i.Id == itemId))
                 count += item.StackCount;
+            return count;
+        }
+
+        /// <summary>
+        /// Returns the number of items with supplied id in the supplied <see cref="InventoryLocation"/>'s.
+        /// </summary>
+        public uint GetItemCount(uint itemId, params InventoryLocation[] locations)
+        {
+            uint count = 0u;
+            foreach (InventoryLocation location in locations)
+            {
+                IBag bag = GetBag(location);
+                if (bag == null)
+                    continue;
+
+                foreach (IItem item in bag.Where(i => i.Id == itemId))
+                    count += Math.Max(item.StackCount, 1u);
+            }
+
             return count;
         }
 
@@ -339,6 +359,15 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Returns the number of bank bag slots the character can use.
+        /// </summary>
+        private uint GetUnlockedBankBagSlots()
+        {
+            float? slots = player?.Account.RewardPropertyManager.GetRewardProperty(RewardPropertyType.BankSlots)?.GetValue(0u);
+            return slots == null ? 2u : (uint)slots.Value;
+        }
+
+        /// <summary>
         /// Returns if <see cref="IItem"/> can be moved to supplied <see cref="ItemLocation"/>.
         /// </summary>
         public GenericError? CanMoveItem(IItem item, ItemLocation location)
@@ -383,6 +412,10 @@ namespace NexusForever.Game.Entity
             }
             else if (location == InventoryLocation.Equipped)
             {
+                // bank bag slots unlock with the BankSlots reward property (2, plus Extra Bank Slot licenses)
+                if (IsEquippableBankBagSlot(location, bagIndex) && bagIndex - (uint)EquippedItem.BankBag0 >= GetUnlockedBankBagSlots())
+                    return GenericError.ItemNotValidForSlot;
+
                 if (!item.Info.IsEquippable())
                     return GenericError.ItemNotValidForSlot;
 
