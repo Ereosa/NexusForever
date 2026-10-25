@@ -33,6 +33,7 @@ namespace NexusForever.Game
 
         private ImmutableDictionary</*zoneId*/uint, /*tutorialId*/uint> zoneTutorials;
         private ImmutableDictionary</*creatureId*/uint, /*targetGroupIds*/ImmutableList<uint>> creatureAssociatedTargetGroups;
+        private ImmutableDictionary</*creatureId*/uint, /*virtualItemIds*/ImmutableList<uint>> creatureVirtualCollectItems;
         private ImmutableDictionary</*targetGroupId*/uint, /*targetGroupIds*/ImmutableList<uint>> questObjectiveTargets;
 
         private ImmutableDictionary<AccountTier, ImmutableList<RewardPropertyPremiumModifierEntry>> rewardPropertiesByTier;
@@ -45,6 +46,7 @@ namespace NexusForever.Game
             CacheItemDisplaySourceEntries();
             CacheTutorials();
             CacheCreatureTargetGroups();
+            CacheCreatureVirtualCollectItems();
             CacheRewardPropertiesByTier();
         }
 
@@ -109,7 +111,69 @@ namespace NexusForever.Game
                 }
             }
 
+            // target groups can contain other target groups (eg: kill objectives covering several creature families),
+            // a creature also belongs to every group above its own
+            var parents = new Dictionary<uint, List<uint>>();
+            foreach (TargetGroupEntry entry in GameTableManager.Instance.TargetGroup.Entries)
+            {
+                if ((TargetGroupType)entry.Type is not (TargetGroupType.OtherTargetGroup or TargetGroupType.OtherTargetGroupCreatures))
+                    continue;
+
+                foreach (uint childId in entry.DataEntries.Where(d => d != 0u))
+                {
+                    if (!parents.ContainsKey(childId))
+                        parents.Add(childId, new List<uint>());
+
+                    parents[childId].Add(entry.Id);
+                }
+            }
+
+            foreach (List<uint> targetGroupIds in entries.Values)
+            {
+                var pending = new Queue<uint>(targetGroupIds);
+                var seen    = new HashSet<uint>(targetGroupIds);
+                while (pending.TryDequeue(out uint targetGroupId))
+                {
+                    if (!parents.TryGetValue(targetGroupId, out List<uint> parentIds))
+                        continue;
+
+                    foreach (uint parentId in parentIds)
+                    {
+                        if (!seen.Add(parentId))
+                            continue;
+
+                        targetGroupIds.Add(parentId);
+                        pending.Enqueue(parentId);
+                    }
+                }
+            }
+
             creatureAssociatedTargetGroups = entries.ToImmutableDictionary(e => e.Key, e => e.Value.ToImmutableList());
+        }
+
+        private void CacheCreatureVirtualCollectItems()
+        {
+            // the reward pane target group of a virtual collect objective lists the creatures the item is gathered from
+            var entries = new Dictionary<uint, HashSet<uint>>();
+            foreach (QuestObjectiveEntry objective in GameTableManager.Instance.QuestObjective.Entries)
+            {
+                if ((QuestObjectiveType)objective.Type != QuestObjectiveType.VirtualCollect || objective.TargetGroupIdRewardPane == 0u)
+                    continue;
+
+                TargetGroupEntry targetGroup = GameTableManager.Instance.TargetGroup.GetEntry(objective.TargetGroupIdRewardPane);
+                if (targetGroup == null || (TargetGroupType)targetGroup.Type != TargetGroupType.CreatureIdGroup)
+                    continue;
+
+                foreach (uint creatureId in targetGroup.DataEntries.Where(d => d != 0u))
+                {
+                    if (!entries.ContainsKey(creatureId))
+                        entries.Add(creatureId, new HashSet<uint>());
+
+                    entries[creatureId].Add(objective.Data);
+                }
+            }
+
+            creatureVirtualCollectItems = entries.ToImmutableDictionary(e => e.Key, e => e.Value.ToImmutableList());
         }
 
         private void CacheRewardPropertiesByTier()
@@ -214,6 +278,14 @@ namespace NexusForever.Game
         public ImmutableList<uint> GetTargetGroupsForCreatureId(uint creatureId)
         {
             return creatureAssociatedTargetGroups.TryGetValue(creatureId, out ImmutableList<uint> entries) ? entries : [];
+        }
+
+        /// <summary>
+        /// Returns the virtual item ids that quest collect objectives say are gathered from the supplied creature id.
+        /// </summary>
+        public ImmutableList<uint> GetVirtualCollectItemsForCreatureId(uint creatureId)
+        {
+            return creatureVirtualCollectItems.TryGetValue(creatureId, out ImmutableList<uint> entries) ? entries : [];
         }
 
         /// <summary>

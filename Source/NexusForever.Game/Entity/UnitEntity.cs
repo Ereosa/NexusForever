@@ -615,6 +615,11 @@ namespace NexusForever.Game.Entity
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
             }
 
+            // quest items dropped by creatures, there is no drop data for these so they drop half the time
+            foreach (uint virtualItemId in AssetManager.Instance.GetVirtualCollectItemsForCreatureId(CreatureId))
+                if (Random.Shared.Next(2) == 0)
+                    player.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
+
             scriptCollection?.Invoke<IUnitScript>(s => s.OnRewardKiller(player));
 
             // TODO: Reward XP
