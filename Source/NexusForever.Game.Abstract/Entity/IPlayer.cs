@@ -75,6 +75,7 @@ namespace NexusForever.Game.Abstract.Entity
         IInventory Inventory { get; }
         ICurrencyManager CurrencyManager { get; }
         IPathManager PathManager { get; }
+        IPathMissionManager PathMissionManager { get; }
         ITitleManager TitleManager { get; }
         ISpellManager SpellManager { get; }
         ICostumeManager CostumeManager { get; }

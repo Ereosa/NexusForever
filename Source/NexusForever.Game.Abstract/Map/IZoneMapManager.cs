@@ -18,5 +18,10 @@ namespace NexusForever.Game.Abstract.Map
         /// Invoked when <see cref="IPlayer"/> moves to a new zone.
         /// </summary>
         void OnZoneUpdate();
+
+        /// <summary>
+        /// Return the discovered <see cref="IZoneMap"/> for the supplied map zone id, null if nothing has been discovered.
+        /// </summary>
+        IZoneMap GetZoneMap(uint mapZoneId);
     }
 }

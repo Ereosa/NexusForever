@@ -239,6 +239,7 @@ namespace NexusForever.Game.Entity
         public IInventory Inventory { get; private set; }
         public ICurrencyManager CurrencyManager { get; }
         public IPathManager PathManager { get; private set; }
+        public IPathMissionManager PathMissionManager { get; private set; }
         public ITitleManager TitleManager { get; private set; }
         public ISpellManager SpellManager { get; private set; }
         public ICostumeManager CostumeManager { get; private set; }
@@ -378,6 +379,7 @@ namespace NexusForever.Game.Entity
             DatacubeManager         = new DatacubeManager(this, model);
             MailManager             = new MailManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
+            PathMissionManager      = new PathMissionManager(this, model);
             QuestManager.Initialise(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
@@ -615,6 +617,7 @@ namespace NexusForever.Game.Entity
             DatacubeManager.Save(context);
             MailManager.Save(context);
             ZoneMapManager.Save(context);
+            PathMissionManager.Save(context);
             QuestManager.Save(context);
             AchievementManager.Save(context);
             SupplySatchelManager.Save(context);
@@ -701,6 +704,7 @@ namespace NexusForever.Game.Entity
             saveMask |= PlayerSaveMask.Location;
 
             ZoneMapManager.OnRelocate(vector);
+            PathMissionManager.OnRelocate(vector);
 
             if (!relocationTimer.IsTicking)
                 relocationTimer.Resume();
@@ -731,6 +735,7 @@ namespace NexusForever.Game.Entity
             }
 
             ZoneMapManager.OnZoneUpdate();
+            PathMissionManager.OnZoneUpdate();
 
             messagePublisher.PublishAsync(new PlayerWorldZoneUpdatedMessage
             {
@@ -810,6 +815,7 @@ namespace NexusForever.Game.Entity
             DatacubeManager.SendInitialPackets();
             MailManager.SendInitialPackets();
             ZoneMapManager.SendInitialPackets();
+            PathMissionManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             Account.ItemManager.SendInitialPackets();
             QuestManager.SendInitialPackets();
