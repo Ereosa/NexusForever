@@ -61,6 +61,10 @@ namespace NexusForever.Game.Account
             CostumeManager        = new AccountCostumeManager(this, model);
             RewardPropertyManager = new RewardPropertyManager(this);
             KeybindingManager     = new AccountKeybindingManager(model);
+
+            // account wide reward properties (eg: character slots) are needed at character select before a character is loaded,
+            // they are calculated again with the character's entitlements when one enters the world
+            RewardPropertyManager.Initialise(null);
         }
 
         public void Save(AuthContext context)
