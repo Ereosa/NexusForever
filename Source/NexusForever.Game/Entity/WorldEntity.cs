@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Chat;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Entity.Movement.Command;
@@ -607,6 +608,18 @@ namespace NexusForever.Game.Entity
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity2, CreatureInfo.Entry.Id, 1u);
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, CreatureInfo.Entry.Id, 1u);
 
+                // some quest objects name the quest objective they advance directly (eg: rescuing captives from cages),
+                // only used for objective types that have no other way to match the object
+                if (CreatureInfo.Entry.QuestAnimStateId != 0u)
+                {
+                    IQuestObjective objective = activator.QuestManager
+                        .GetActiveQuest((ushort)CreatureInfo.Entry.QuestAnimStateId)?
+                        .GetQuestObjectiveByIndex((byte)CreatureInfo.Entry.QuestAnimObjectiveIndex);
+                    if (objective != null && !objective.IsComplete()
+                        && (QuestObjectiveType)objective.ObjectiveInfo.Entry.Type is QuestObjectiveType.Unknown28)
+                        activator.QuestManager.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                }
+
                 // collectables (supply crates, plants, etc.) hand over the quest's virtual item when used
                 foreach (uint virtualItemId in AssetManager.Instance.GetVirtualCollectItemsForCreatureId(CreatureInfo.Entry.Id))
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
@@ -621,6 +634,8 @@ namespace NexusForever.Game.Entity
                     // target group objectives are checklists, each entity sets its own bit
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, QuestChecklistMask);
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistMask);
+                    // counted activations of a target group (eg: Shellshock! overloading the Dominion cannons)
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, targetGroupId, 1u);
 
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroup, targetGroupId, 1);
                     Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistIdx);
