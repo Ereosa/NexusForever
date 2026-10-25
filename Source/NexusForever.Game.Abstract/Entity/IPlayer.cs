@@ -16,6 +16,7 @@ using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Option;
 using NexusForever.Game.Static.PVP;
 using NexusForever.Game.Static.Setting;
+using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Session;
 using NexusForever.Network.World.Message.Static;
@@ -192,6 +193,21 @@ namespace NexusForever.Game.Abstract.Entity
         void Unsit();
 
         void SendGenericError(GenericError error);
+
+        /// <summary>
+        /// Show the supplied action bar to the player, the buttons on it cast their spells through <see cref="CastActionBarShortcut"/>.
+        /// </summary>
+        void ShowActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId, uint associatedUnitId);
+
+        /// <summary>
+        /// Hide the supplied action bar if it is still the one shown on <paramref name="shortcutSet"/>.
+        /// </summary>
+        void HideActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId);
+
+        /// <summary>
+        /// Cast the spell of a button on an action bar shown with <see cref="ShowActionBar"/>, returns false if no such bar is shown.
+        /// </summary>
+        bool CastActionBarShortcut(ShortcutSet shortcutSet, uint slot, uint targetUnitId, Vector3 position);
         void SendSystemMessage(string text);
 
         /// <summary>
