@@ -731,6 +731,9 @@ namespace NexusForever.Game.Entity
             // the client UI initialises the Holomark checkboxes during OnDocumentReady
             SendCharacterFlagsUpdated();
 
+            // the area grid gives the zone until the client reports the zone it is in on the new map
+            clientZoneReported = false;
+
             base.OnAddToMap(map, guid, vector);
 
             // resummon vanity pet if it existed before teleport
@@ -767,6 +770,27 @@ namespace NexusForever.Game.Entity
                 Identity    = Identity.ToInternalIdentity(),
                 WorldId     = Map.Entry.Id
             }).FireAndForgetAsync();
+        }
+
+        private bool clientZoneReported;
+
+        /// <remarks>
+        /// The map area grid is 2D and can't tell sub zones stacked on top of each other apart (eg: an Exo-Lab underneath a village),
+        /// the client resolves its zone from the full area data, so once it reports a zone that is used instead.
+        /// </remarks>
+        protected override bool HasExternalZone => clientZoneReported;
+
+        /// <summary>
+        /// Invoked when the client reports it has moved into a different zone.
+        /// </summary>
+        public void OnClientZoneChange(ushort zoneId)
+        {
+            WorldZoneEntry zone = GameTableManager.Instance.WorldZone.GetEntry(zoneId);
+            if (zone == null)
+                return;
+
+            clientZoneReported = true;
+            SetZone(zone);
         }
 
         /// <summary>
