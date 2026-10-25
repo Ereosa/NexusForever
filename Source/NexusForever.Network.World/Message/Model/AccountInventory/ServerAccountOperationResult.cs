@@ -11,8 +11,8 @@ namespace NexusForever.Network.World.Message.Model.AccountInventory
 
         public void Write(GamePacketWriter writer)
         {
-            writer.Write(Operation);
-            writer.Write(Result);
+            writer.Write(Operation, 32u);
+            writer.Write(Result, 32u);
         }
     }
 }
