@@ -408,13 +408,17 @@ namespace NexusForever.Game.Crafting
             player.TradeskillManager.AddXp(tradeskillId, xp);
 
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, crafted.Id, craft.Count);
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown20, crafted.Id, craft.Count);
             if (itemId != 0u)
             {
                 player.AchievementManager.CheckAchievements(player, AchievementType.CraftItem, itemId, count: craft.Count);
                 player.AchievementManager.CheckAchievements(player, AchievementType.CraftItemChecklist, itemId);
             }
             if (crafted.Id != craft.Schematic.Id)
+            {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, craft.Schematic.Id, craft.Count);
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown20, craft.Schematic.Id, craft.Count);
+            }
 
             player.Session.EnqueueMessageEncrypted(new ServerCraftingFinish
             {
