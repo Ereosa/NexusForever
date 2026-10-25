@@ -41,5 +41,10 @@ namespace NexusForever.Game.Abstract.Quest
         /// Return the creature a target-less "Listen to" objective names, 0 if it isn't one.
         /// </summary>
         uint GetListenCreatureId();
+
+        /// <summary>
+        /// Return the creature a target-less "Follow" objective names, 0 if it isn't one.
+        /// </summary>
+        uint GetFollowCreatureId();
     }
 }

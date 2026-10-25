@@ -57,7 +57,7 @@ namespace NexusForever.Game.Quest
         /// </summary>
         private static readonly string[] areaVerbs =
         [
-            "Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape"
+            "Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow"
         ];
 
         private bool? isAreaObjective;
@@ -98,6 +98,31 @@ namespace NexusForever.Game.Quest
             }
 
             return listenCreatureId.Value;
+        }
+
+        private uint? followCreatureId;
+
+        /// <summary>
+        /// Return the creature a target-less "Follow" objective names, 0 if it isn't one.
+        /// </summary>
+        /// <remarks>
+        /// Retail scripts summoned the creature and moved it to the objective's marker, the objective completes on arriving there (<see cref="IsAreaObjective"/>).
+        /// </remarks>
+        public uint GetFollowCreatureId()
+        {
+            if (followCreatureId == null)
+            {
+                followCreatureId = 0u;
+                string text = GetShortText();
+                if (IsAreaObjective() && text.StartsWith("Follow", StringComparison.OrdinalIgnoreCase))
+                {
+                    Match match = Regex.Match(text, @"\$\w*\(creature=(\d+)\)");
+                    if (match.Success)
+                        followCreatureId = uint.Parse(match.Groups[1].Value);
+                }
+            }
+
+            return followCreatureId.Value;
         }
 
         /// <remarks>
