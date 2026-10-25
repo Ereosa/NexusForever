@@ -29,6 +29,20 @@ namespace NexusForever.Script.Main.AI
         private float chaseDistance = 5f;
         private readonly UpdateTimer chaseDistanceTimer = new(TimeSpan.FromSeconds(1f));
 
+        /// <summary>
+        /// Distance from its spawn a creature will follow a target before giving up.
+        /// </summary>
+        /// <remarks>
+        /// The client data has no leash distance, this is a typical open world value.
+        /// </remarks>
+        private const float LeashDistance = 40f;
+
+        /// <summary>
+        /// While returning home after a leash the creature ignores everything around it.
+        /// </summary>
+        private bool evading;
+        private readonly UpdateTimer evadeTimer = new(TimeSpan.FromSeconds(8d));
+
         #region Dependency Injection
 
         private readonly IFactory<ISpellParameters> spellParametersFactory;
@@ -61,7 +75,18 @@ namespace NexusForever.Script.Main.AI
             if (!entity.IsAlive)
                 return;
 
+            if (evading)
+            {
+                evadeTimer.Update(lastTick);
+                if (evadeTimer.HasElapsed || entity.Position.GetDistance(entity.LeashPosition) < 2f)
+                    evading = false;
+                return;
+            }
+
             if (!entity.TargetGuid.HasValue)
+                return;
+
+            if (CheckLeash())
                 return;
 
             if (entity.IsCasting())
@@ -85,6 +110,20 @@ namespace NexusForever.Script.Main.AI
                 DoChase();
                 chaseDistanceTimer.Reset();
             }
+        }
+
+        /// <summary>
+        /// Give up the fight when pulled too far from home, the threat list clearing sends the creature back and heals it.
+        /// </summary>
+        private bool CheckLeash()
+        {
+            if (entity.Position.GetDistance(entity.LeashPosition) <= LeashDistance)
+                return false;
+
+            evading = true;
+            evadeTimer.Reset();
+            entity.ThreatManager.ClearThreatList();
+            return true;
         }
 
         private void DoAutoAttack()
@@ -178,7 +217,7 @@ namespace NexusForever.Script.Main.AI
             if (!entity.IsAlive)
                 return;
 
-            if (entity.InCombat)
+            if (entity.InCombat || evading)
                 return;
 
             if (source is not IUnitEntity unit)
