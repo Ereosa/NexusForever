@@ -33,6 +33,11 @@ namespace NexusForever.Game.Abstract.Entity
         void AddXp(uint xp);
 
         /// <summary>
+        /// Get the current level for the supplied <see cref="Static.PlayerPath.Path"/>.
+        /// </summary>
+        uint GetCurrentLevel(Static.PlayerPath.Path path);
+
+        /// <summary>
         /// Grant the items, spells, quests or titles from a <see cref="PathRewardEntry"/>.
         /// </summary>
         void GrantPathReward(PathRewardEntry pathRewardEntry);

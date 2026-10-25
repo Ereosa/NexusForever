@@ -35,6 +35,7 @@ namespace NexusForever.Game
         private ImmutableDictionary</*creatureId*/uint, /*targetGroupIds*/ImmutableList<uint>> creatureAssociatedTargetGroups;
         private ImmutableDictionary</*creatureId*/uint, /*virtualItemIds*/ImmutableList<uint>> creatureVirtualCollectItems;
         private ImmutableDictionary</*targetGroupId*/uint, /*targetGroupIds*/ImmutableList<uint>> questObjectiveTargets;
+        private ImmutableDictionary</*creatureId*/uint, /*pathScientistCreatureInfoIds*/ImmutableList<uint>> scientistCreatureInfos;
 
         private ImmutableDictionary<AccountTier, ImmutableList<RewardPropertyPremiumModifierEntry>> rewardPropertiesByTier;
 
@@ -47,6 +48,7 @@ namespace NexusForever.Game
             CacheTutorials();
             CacheCreatureTargetGroups();
             CacheCreatureVirtualCollectItems();
+            CacheScientistCreatureInfos();
             CacheRewardPropertiesByTier();
         }
 
@@ -92,6 +94,18 @@ namespace NexusForever.Game
             }
 
             zoneTutorials = zoneEntries.ToImmutable();
+        }
+
+        private void CacheScientistCreatureInfos()
+        {
+            scientistCreatureInfos = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathScientistCreatures()
+                .GroupBy(m => m.CreatureId)
+                .ToImmutableDictionary(g => g.Key, g => g.Select(m => (uint)m.PathScientistCreatureInfoId).ToImmutableList());
+        }
+
+        public ImmutableList<uint> GetScientistCreatureInfoIds(uint creatureId)
+        {
+            return scientistCreatureInfos.TryGetValue(creatureId, out ImmutableList<uint> infoIds) ? infoIds : ImmutableList<uint>.Empty;
         }
 
         private void CacheCreatureTargetGroups()
