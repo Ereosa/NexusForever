@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
+using NexusForever.Game.Abstract.Loot;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Map.Search;
@@ -42,6 +43,8 @@ namespace NexusForever.Game.Map
         public MapFile File { get; private set; }
 
         public IPublicEventManager PublicEventManager { get; }
+        public IPlayerManager PlayerManager { get; }
+        public ILootManager LootManager { get; }
 
         private readonly IMapGrid[] grids = new MapGrid[MapDefines.WorldGridCount * MapDefines.WorldGridCount];
         private readonly HashSet<(uint GridX, uint GridZ)> activeGrids = new();
@@ -60,10 +63,15 @@ namespace NexusForever.Game.Map
 
         public BaseMap(
             IEntityFactory entityFactory,
-            IPublicEventManager publicEventManager)
+            IPublicEventManager publicEventManager,
+            IPlayerManager playerManager,
+            ILootManager lootManager)
         {
             this.entityFactory = entityFactory;
+
             PublicEventManager = publicEventManager;
+            PlayerManager      = playerManager;
+            LootManager        = lootManager;
         }
 
         #endregion
@@ -78,6 +86,7 @@ namespace NexusForever.Game.Map
             entityCache = EntityCacheManager.Instance.GetEntityCache((ushort)Entry.Id);
 
             PublicEventManager.Initialise(this);
+            LootManager.Initialise(this);
 
             InitialiseScriptCollection();
         }
@@ -508,6 +517,9 @@ namespace NexusForever.Game.Map
 
             entityCounter.Enqueue(entity.Guid);
             entities.Remove(entity.Guid);
+
+            if (entity is IPlayer player)
+                PlayerManager.RemovePlayer(player);
 
             scriptCollection?.Invoke<IMapScript>(s => s.OnRemoveFromMap(entity));
             PublicEventManager.OnRemoveFromMap(entity);

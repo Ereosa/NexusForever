@@ -155,7 +155,7 @@ namespace NexusForever.Game.Quest
         }
 
         /// <summary>
-        /// Return if the objective has been completed.
+        /// Return if the <see cref="QuestObjective"/> has been completed.
         /// </summary>
         public bool IsComplete()
         {

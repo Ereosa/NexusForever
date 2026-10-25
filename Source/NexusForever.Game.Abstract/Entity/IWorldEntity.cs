@@ -4,6 +4,7 @@ using NexusForever.Game.Abstract.Chat;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Entity.Movement.Command;
+using NexusForever.Game.Abstract.Loot;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.GameTable.Model;

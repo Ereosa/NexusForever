@@ -587,7 +587,7 @@ namespace NexusForever.Game.Entity
             deathState = EntityDeathState.Dead;
         }
 
-        private void GenerateRewards(IUnitEntity killer)
+        protected virtual void GenerateRewards(IUnitEntity killer)
         {
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
                 Map.PublicEventManager.UpdateObjective(PublicEventObjectiveType.KillTargetGroup, targetGroupId, 1);

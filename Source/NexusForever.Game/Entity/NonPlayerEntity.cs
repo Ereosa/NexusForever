@@ -1,9 +1,11 @@
-using NexusForever.Database.World.Model;
+﻿using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Loot.Distribute;
 using NexusForever.Game.Abstract.Entity.Stat;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Abstract.Loot.Distribute;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
@@ -24,8 +26,9 @@ namespace NexusForever.Game.Entity
             IMovementManager movementManager,
             IEntitySummonFactory entitySummonFactory,
             IStatUpdateManager<IUnitEntity> statUpdateManager,
-            ISpellFactory spellFactory)
-            : base(movementManager, entitySummonFactory, statUpdateManager, spellFactory)
+            ISpellFactory spellFactory,
+            ILootDistributor lootDistributor)
+            : base(movementManager, entitySummonFactory, statUpdateManager, spellFactory, lootDistributor)
         {
             statUpdateManager.Initialise(this);
         }
