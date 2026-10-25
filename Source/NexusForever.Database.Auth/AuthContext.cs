@@ -12,6 +12,7 @@ namespace NexusForever.Database.Auth
         public DbSet<AccountEntitlementModel> AccountEntitlement { get; set; }
         public DbSet<AccountExternalReferenceModel> AccountExternalReference { get; set; }
         public DbSet<AccountGenericUnlockModel> AccountGenericUnlock { get; set; }
+        public DbSet<AccountDailyLoginModel> AccountDailyLogin { get; set; }
         public DbSet<AccountItemModel> AccountItem { get; set; }
         public DbSet<AccountKeybindingModel> AccountKeybinding { get; set; }
         public DbSet<AccountPermissionModel> AccountPermission { get; set; }
@@ -153,6 +154,42 @@ namespace NexusForever.Database.Auth
                     .WithMany(p => p.AccountCurrency)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__account_currency_id__account_id");
+            });
+
+            modelBuilder.Entity<AccountDailyLoginModel>(entity =>
+            {
+                entity.HasKey(e => e.Id)
+                    .HasName("PRIMARY");
+
+                entity.ToTable("account_daily_login");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.LoginDays)
+                    .HasColumnName("loginDays")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.RewardsClaimed)
+                    .HasColumnName("rewardsClaimed")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.LastLoginDay)
+                    .HasColumnName("lastLoginDay")
+                    .HasColumnType("datetime");
+
+                entity.Property(e => e.LastLockboxKey)
+                    .HasColumnName("lastLockboxKey")
+                    .HasColumnType("datetime");
+
+                entity.HasOne(d => d.Account)
+                    .WithMany(p => p.AccountDailyLogin)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__account_daily_login_id__account_id");
             });
 
             modelBuilder.Entity<AccountItemModel>(entity =>

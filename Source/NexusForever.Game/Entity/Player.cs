@@ -934,6 +934,7 @@ namespace NexusForever.Game.Entity
             PathMissionManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             Account.ItemManager.SendInitialPackets();
+            Account.DailyLoginManager.OnLogin();
             QuestManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);
             TradeskillManager.SendInitialPackets();
