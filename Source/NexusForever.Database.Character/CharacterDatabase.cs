@@ -142,7 +142,9 @@ namespace NexusForever.Database.Character
                     .ThenInclude(c => c.QuestObjective)
                 .Include(c => c.Entitlement)
                 .Include(c => c.Achievement)
+                .Include(c => c.Tradeskill)
                 .Include(c => c.TradeskillMaterials)
+                .Include(c => c.TradeskillSchematic)
                 .Include(c => c.Reputation)
                 .ToListAsync();
         }
