@@ -15,13 +15,13 @@ using NexusForever.Shared.Game;
 namespace NexusForever.Script.Main.Tutorial.Script.Part2
 {
     /// <summary>
-    /// Virtual Battle Beasts in The Face of the Enemy.
+    /// Virtual Battle Beasts and Legionnaires in The Face of the Enemy.
     /// </summary>
     /// <remarks>
     /// The creature is flagged NoAI in the game tables so the generic combat AI skips it.
     /// It wanders around its spawn point and fights back when attacked, returning home when combat ends.
     /// </remarks>
-    [ScriptFilterCreatureId(73464)]
+    [ScriptFilterCreatureId(73464, 73492, 73567)]
     public class BattleBeastEntityScript : IUnitScript, IOwnedScript<ICreatureEntity>
     {
         private const float WanderRadius  = 6f;
