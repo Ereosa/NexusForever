@@ -4,12 +4,14 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Challenges;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Reputation;
+using NexusForever.Game.Abstract.Reward;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Option;
 using NexusForever.Game.Static.PVP;
@@ -94,6 +96,8 @@ namespace NexusForever.Game.Abstract.Entity
         ICharacterAchievementManager AchievementManager { get; }
         ISupplySatchelManager SupplySatchelManager { get; }
         ITradeskillManager TradeskillManager { get; }
+        IChallengeManager ChallengeManager { get; }
+        IRewardTrackManager RewardTrackManager { get; }
         ICraftingManager CraftingManager { get; }
         IXpManager XpManager { get; }
         IReputationManager ReputationManager { get; }

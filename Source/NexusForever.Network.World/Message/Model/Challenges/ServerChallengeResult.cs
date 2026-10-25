@@ -13,7 +13,7 @@ namespace NexusForever.Network.World.Message.Model.Challenges
         public void Write(GamePacketWriter writer)
         {
             writer.Write(ChallengeId, 14u);
-            writer.Write(Result);
+            writer.Write(Result, 5u);
             writer.Write(Data);
         }
     }

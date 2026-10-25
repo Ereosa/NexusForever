@@ -71,6 +71,11 @@ namespace NexusForever.Game.Spell
 
         private readonly Dictionary<Spell4EffectsEntry, UpdateTimer> delayedEffects = [];
 
+        /// <summary>
+        /// Units this cast has already been credited for in the caster's challenges, each unit counts once per cast.
+        /// </summary>
+        private readonly HashSet<uint> challengeCreditedUnits = [];
+
         private IScriptCollection scriptCollection;
 
         #region Dependency Injection
@@ -650,6 +655,10 @@ namespace NexusForever.Game.Spell
                     // Track the number of times this effect has fired.
                     // Some spell effects have a limited trigger count per spell cast.
                     executionContext.IncrementEffectTriggerCount(spell4EffectsEntry.Id);
+
+                    // Ability challenges count the units their T-spell lands on
+                    if (Caster is IPlayer player && spellTarget.Entity != Caster && challengeCreditedUnits.Add(spellTarget.Entity.Guid))
+                        player.ChallengeManager.OnSpellEffectHit(Parameters.RootSpellInfo?.Entry.Id ?? Spell4Id, spellTarget.Entity);
                 }
             }
         }

@@ -265,7 +265,10 @@ namespace NexusForever.Game.Entity
 
             // quest collect objectives count items as they arrive in the inventory
             if (player != null && location == InventoryLocation.Inventory && count > 0u)
+            {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CollectItem, info.Id, count);
+                player.ChallengeManager.OnItemAdded(info.Id, count);
+            }
 
             // looted tradeskill materials go straight into the supply satchel, anything that doesn't fit goes into the inventory
             if (player != null && location == InventoryLocation.Inventory && reason == ItemUpdateReason.Loot)

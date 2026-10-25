@@ -13,6 +13,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterActionSetShortcutModel> CharacterActionSetShortcut { get; set; }
         public DbSet<CharacterAppearanceModel> CharacterAppearance { get; set; }
         public DbSet<CharacterBoneModel> CharacterBone { get; set; }
+        public DbSet<CharacterChallengeModel> CharacterChallenge { get; set; }
         public DbSet<CharacterCostumeModel> CharacterCostume { get; set; }
         public DbSet<CharacterCostumeItemModel> CharacterCostumeItem { get; set; }
         public DbSet<CharacterCreateModel> CharacterCreate { get; set; }
@@ -31,6 +32,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterQuestModel> CharacterQuest { get; set; }
         public DbSet<CharacterQuestObjectiveModel> CharacterQuestObjective { get; set; }
         public DbSet<CharacterReputation> CharacterReputation { get; set; }
+        public DbSet<CharacterRewardTrackModel> CharacterRewardTrack { get; set; }
         public DbSet<CharacterSpellModel> CharacterSpell { get; set; }
         public DbSet<CharacterStatModel> CharacterStat { get; set; }
         public DbSet<CharacterTitleModel> CharacterTitle { get; set; }
@@ -411,6 +413,82 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.Bone)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK_character_bone_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterChallengeModel>(entity =>
+            {
+                entity.ToTable("character_challenge");
+
+                entity.HasKey(e => new { e.Id, e.ChallengeId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ChallengeId)
+                    .HasColumnName("challengeId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CompletionCount)
+                    .HasColumnName("completionCount")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.LastRewardTier)
+                    .HasColumnName("lastRewardTier")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CooldownRemaining)
+                    .HasColumnName("cooldownRemaining")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.Challenge)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_challenge_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterRewardTrackModel>(entity =>
+            {
+                entity.ToTable("character_reward_track");
+
+                entity.HasKey(e => new { e.Id, e.RewardTrackId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.RewardTrackId)
+                    .HasColumnName("rewardTrackId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Points)
+                    .HasColumnName("points")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ClaimedRewards)
+                    .HasColumnName("claimedRewards")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Iteration)
+                    .HasColumnName("iteration")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.RewardTrack)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_reward_track_id__character_id");
             });
 
             modelBuilder.Entity<CharacterCostumeModel>(entity =>

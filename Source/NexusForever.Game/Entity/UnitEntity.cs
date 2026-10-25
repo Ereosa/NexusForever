@@ -646,6 +646,7 @@ namespace NexusForever.Game.Entity
                     player.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
 
             player.PathMissionManager.OnCreatureKilled(this);
+            player.ChallengeManager.OnKill(this);
 
             scriptCollection?.Invoke<IUnitScript>(s => s.OnRewardKiller(player));
 
