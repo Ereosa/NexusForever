@@ -1,6 +1,7 @@
 using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Quest;
+using NexusForever.Game.Static.Reputation;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
@@ -20,8 +21,14 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             { 73741, new(new Vector3(1373.29f, -494.3044f, 153.853f), 4965) },
             // Mission Projector -> Mission Simulation, next to Dorian Walker
             { 73743, new(new Vector3(606.0665f, -399.62097f, 283.1857f), 4964) },
-            // Cryo Projector -> Arkship, wake from cryosleep
+            // Cryo Projector -> Exile Arkship, wake from cryosleep
             { 73745, new(new Vector3(-4329.78f, -446.27277f, -4104.64f), 5998) }
+        };
+
+        private static readonly Dictionary<uint, Destination> dominionDestinations = new()
+        {
+            // Cryo Projector -> Dominion Arkship, wake from cryosleep (WorldLocation2 51657, the Dominion counterpart of the Exile arrival)
+            { 73745, new(new Vector3(-3689.68f, -436.79f, -4356.0f), 5999) }
         };
 
         private IWorldEntity owner;
@@ -39,7 +46,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         /// </summary>
         public void OnActivateSuccess(IPlayer activator)
         {
-            if (!destinations.TryGetValue(owner.CreatureId, out Destination destination))
+            if ((activator.Faction2 != Faction.Dominion || !dominionDestinations.TryGetValue(owner.CreatureId, out Destination destination))
+                && !destinations.TryGetValue(owner.CreatureId, out destination))
                 return;
 
             // the arrival point isn't always inside the zone the objective expects

@@ -13,14 +13,37 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         protected override uint? FinalObjectiveId => 21382;
     }
 
-    [ScriptFilterOwnerId(10540)]
-    public class LotsInStoreExileQuestScript : TutorialQuestScript, IQuestScript
+    [ScriptFilterOwnerId(10526)]
+    public class AClaimToStakeDominionQuestScript : TutorialQuestScript
     {
-        private const uint SmartShopperObjectiveId = 21371;
+        public override QuestId? NextQuestId => QuestId.LotsInStoreDominion;
+        // Find Phineas T. Rotostar
+        protected override uint? FinalObjectiveId => 21383;
+    }
+
+    [ScriptFilterOwnerId(10540)]
+    public class LotsInStoreExileQuestScript : LotsInStoreQuestScript
+    {
+        protected override uint SmartShopperObjectiveId => 21371;
 
         public override QuestId? NextQuestId => QuestId.ServicingCircuitryExile;
         // Continue to the Mission Simulation, the store objectives are optional
         protected override uint? FinalObjectiveId => 21373;
+    }
+
+    [ScriptFilterOwnerId(10541)]
+    public class LotsInStoreDominionQuestScript : LotsInStoreQuestScript
+    {
+        protected override uint SmartShopperObjectiveId => 21375;
+
+        public override QuestId? NextQuestId => QuestId.ServicingCircuitryDominion;
+        // Continue to the Mission Simulation, the store objectives are optional
+        protected override uint? FinalObjectiveId => 21376;
+    }
+
+    public abstract class LotsInStoreQuestScript : TutorialQuestScript, IQuestScript
+    {
+        protected abstract uint SmartShopperObjectiveId { get; }
 
         /// <summary>
         /// Invoked each world tick with the delta since the previous tick occurred.
@@ -111,5 +134,27 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         public override QuestId? NextQuestId => null;
         // Travel to Nexus, the alternative routes are optional
         protected override uint? FinalObjectiveId => 21327;
+    }
+
+    [ScriptFilterOwnerId(10522)]
+    public class ServicingCircuitryDominionQuestScript : TutorialQuestScript
+    {
+        public override QuestId? NextQuestId => QuestId.DeconstructTheConstructDominion;
+    }
+
+    [ScriptFilterOwnerId(10523)]
+    public class DeconstructTheConstructDominionQuestScript : TutorialQuestScript
+    {
+        public override QuestId? NextQuestId => QuestId.BonVoyageDominion;
+        // Wake from cryosleep
+        protected override uint? FinalObjectiveId => 21311;
+    }
+
+    [ScriptFilterOwnerId(10530)]
+    public class BonVoyageDominionQuestScript : TutorialQuestScript
+    {
+        public override QuestId? NextQuestId => null;
+        // Travel to Nexus, the alternative routes are optional
+        protected override uint? FinalObjectiveId => 21348;
     }
 }
