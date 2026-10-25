@@ -74,7 +74,7 @@ namespace NexusForever.Game.Loot.Generate
         public bool CanGenerateLoot()
         {
             double roll = Random.Shared.NextDouble() * 100d;
-            return Probability <= roll;
+            return roll < Probability;
         }
 
         /// <summary>

@@ -46,7 +46,7 @@ namespace NexusForever.Game.Loot.Generate
         public bool CanGenerateLoot()
         {
             double roll = Random.Shared.NextDouble() * 100d;
-            return Probability <= roll;
+            return roll < Probability;
         }
 
         /// <summary>
@@ -56,7 +56,7 @@ namespace NexusForever.Game.Loot.Generate
         /// <param name="players">The players eligible to receive the generated loot.</param>
         public void GenerateLoot(ILootBuilder lootBuilder, IEnumerable<IPlayer> players)
         {
-            uint count = (uint)Random.Shared.Next((int)MinCount, (int)MaxCount);
+            uint count = (uint)Random.Shared.Next((int)MinCount, (int)Math.Max(MinCount, MaxCount) + 1);
 
             List<Identity> looters = players
                 .Select(p => p.Identity)
