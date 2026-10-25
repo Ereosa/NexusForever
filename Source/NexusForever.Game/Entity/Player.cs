@@ -1022,6 +1022,7 @@ namespace NexusForever.Game.Entity
                     control.ControllerGuid = null;
             }
 
+            bool hadControl = ControlGuid != null;
             ControlGuid = entity?.Guid;
 
             if (ControlGuid != null)
@@ -1035,7 +1036,7 @@ namespace NexusForever.Game.Entity
                     UnitId    = ControlGuid.Value
                 });
             }
-            else
+            else if (hadControl)
                 Session.EnqueueMessageEncrypted(new ServerMovementControlRemove());
         }
 

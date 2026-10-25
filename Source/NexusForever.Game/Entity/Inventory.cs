@@ -292,7 +292,9 @@ namespace NexusForever.Game.Entity
 
                     uint newStackCount = Math.Min(item.StackCount + count, info.Entry.MaxStackCount);
                     count -= newStackCount - item.StackCount;
-                    ItemStackCountUpdate(item, newStackCount, reason);
+                    // the client resolves the source unit for loot stack updates and crashes when that unit (eg: a corpse) is gone,
+                    // the loot notification has already been shown so the update is sent without a reason
+                    ItemStackCountUpdate(item, newStackCount, reason == ItemUpdateReason.Loot ? ItemUpdateReason.NoReason : reason);
                 }
             }
 

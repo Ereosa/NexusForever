@@ -1,5 +1,6 @@
 ﻿using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Entity.Movement.Command.Mode;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Script.Template;
@@ -33,6 +34,10 @@ namespace NexusForever.Script.Main.AI
 
             owner.MovementManager.SetMode(ModeType.Walk);
             owner.MovementManager.LaunchSpline(owner.Spline.SplineId, owner.Spline.Mode, owner.Spline.Speed, false);
+
+            // platforms (lifts, elevators) keep their placed rotation so players can stand on them, other units face along their path
+            if (owner.Type == EntityType.Platform)
+                owner.MovementManager.SetRotation(owner.Rotation, false);
         }
     }
 }
