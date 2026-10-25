@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
@@ -7,6 +8,7 @@ using NexusForever.Game.Static.AccountInventory;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Static;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Vendor
 {
@@ -79,10 +81,31 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Vendor
             }
 
             if (!vendorItemPurchaseCost.CanAfford(session.Player))
+            {
+                session.Player.SendGenericError(GenericError.VendorNotEnoughCash);
                 return;
+            }
+
+            // don't take payment for items that won't fit
+            uint count = vendorPurchase.VendorItemQty * info.Entry.BuyFromVendorStackCount;
+            uint stackSize = Math.Max(info.Entry.MaxStackCount, 1u);
+            uint stackRoom = stackSize > 1u
+                ? (uint)session.Player.Inventory
+                    .Where(b => b.Location == InventoryLocation.Inventory)
+                    .SelectMany(b => b)
+                    .Where(i => i.Info.Id == info.Id)
+                    .Sum(i => (long)(stackSize - Math.Min(i.StackCount, stackSize)))
+                : 0u;
+            uint remaining = count > stackRoom ? count - stackRoom : 0u;
+            uint slotsNeeded = (remaining + stackSize - 1u) / stackSize;
+            if (session.Player.Inventory.GetInventorySlotsRemaining(InventoryLocation.Inventory) < slotsNeeded)
+            {
+                session.Player.SendGenericError(GenericError.ItemInventoryFull);
+                return;
+            }
 
             vendorItemPurchaseCost.Charge(session.Player);
-            session.Player.Inventory.ItemCreate(InventoryLocation.Inventory, info.Id, vendorPurchase.VendorItemQty * info.Entry.BuyFromVendorStackCount);
+            session.Player.Inventory.ItemCreate(InventoryLocation.Inventory, info.Id, count, ItemUpdateReason.Vendor);
         }
     }
 }

@@ -41,7 +41,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Vendor
             foreach ((CurrencyType currencyTypeId, ulong currencyAmount) in buybackItem.CurrencyChange)
                 session.Player.CurrencyManager.CurrencySubtractAmount(currencyTypeId, currencyAmount);
 
-            session.Player.Inventory.AddItem(buybackItem.Item, InventoryLocation.Inventory);
+            // the sold item was deleted from the inventory and may already be deleted from the database, buy back a new copy
+            session.Player.Inventory.ItemCreate(InventoryLocation.Inventory, buybackItem.Item.Info, buybackItem.Quantity, ItemUpdateReason.Vendor, buybackItem.Item.Charges);
             buybackManager.RemoveItem(session.Player, buybackItem);
         }
     }

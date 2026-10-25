@@ -587,6 +587,29 @@ namespace NexusForever.Game.Entity
             return ItemDelete(srcBag, srcItem, reason);
         }
 
+        /// <summary>
+        /// Take the supplied count from the <see cref="IItem"/> at <see cref="ItemLocation"/>, splitting the stack if only part of it is taken.
+        /// </summary>
+        /// <returns>
+        /// The item that was taken, which is no longer in the inventory.
+        /// </returns>
+        public IItem ItemTake(ItemLocation from, uint count, ItemUpdateReason reason)
+        {
+            IBag srcBag = GetBag(from.Location);
+            if (srcBag == null)
+                throw new InvalidPacketValueException();
+
+            IItem srcItem = srcBag.GetItem(from.BagIndex);
+            if (srcItem == null)
+                throw new InvalidPacketValueException();
+
+            if (count == 0u || count >= srcItem.StackCount)
+                return ItemDelete(srcBag, srcItem, reason);
+
+            ItemStackCountUpdate(srcItem, srcItem.StackCount - count, reason);
+            return new Item(characterId, srcItem.Info, count, srcItem.Charges);
+        }
+
         private IItem ItemDelete(IBag bag, IItem item, ItemUpdateReason reason)
         {
             bag.RemoveItem(item);
