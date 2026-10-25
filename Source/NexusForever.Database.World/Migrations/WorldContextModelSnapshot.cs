@@ -980,6 +980,38 @@ namespace NexusForever.Database.World.Migrations
                     b.ToTable("path_scientist_creature", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.World.Model.PathExplorerSwitchModel", b =>
+                {
+                    b.Property<uint>("CreatureId")
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varchar(200)")
+                        .HasDefaultValue("")
+                        .HasColumnName("comment");
+
+                    b.Property<ushort>("PathMissionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("pathMissionId");
+
+                    b.Property<uint>("PlatformCreatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("platformCreatureId");
+
+                    b.HasKey("CreatureId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("path_explorer_switch", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.World.Model.PathSettlerStructureModel", b =>
                 {
                     b.Property<uint>("CreatureId")
