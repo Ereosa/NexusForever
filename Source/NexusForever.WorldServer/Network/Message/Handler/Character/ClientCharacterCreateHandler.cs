@@ -21,6 +21,7 @@ using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Pregame;
 using NexusForever.Network.World.Message.Static;
 using NexusForever.Shared.Game.Events;
+using NLog;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Character
 {
@@ -33,6 +34,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
         private readonly IGameTableManager gameTableManager;
         private readonly ICustomisationManager customisationManager;
         private readonly ICharacterManager characterManager;
+
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
         public ClientCharacterCreateHandler(
             ITextFilterManager textFilterManager,
@@ -93,6 +96,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                 CharacterModifyResult? result = GetResult();
                 if (result.HasValue)
                 {
+                    log.Warn($"Account {session.Account.Id} failed to create character {characterCreate.Name} with creation entry {characterCreate.CharacterCreationId}: {result.Value}.");
                     session.EnqueueMessageEncrypted(new ServerCharacterCreate
                     {
                         Result = result.Value
