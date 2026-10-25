@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Entity;
 using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Matching.Match;
@@ -498,7 +499,7 @@ namespace NexusForever.Game.PublicEvent
 
                     // quests that ask for the event to be completed (eg: defend the memorial service)
                     if (publicEventTeam.Team == winnerTeam)
-                        playerManager.GetPlayer(publicEventTeamMember.CharacterId)?.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, Id, 1u);
+                        PlayerManager.Instance.GetPlayer(publicEventTeamMember.CharacterId)?.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, Id, 1u);
                 }
             }
 
