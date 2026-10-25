@@ -41,6 +41,7 @@ namespace NexusForever.GameTable
         public GameTable<AchievementSubGroupEntry> AchievementSubGroup { get; private set; }
 
         public GameTable<AchievementTextEntry> AchievementText { get; private set; }
+        [GameData]
         public GameTable<ActionBarShortcutSetEntry> ActionBarShortcutSet { get; private set; }
         public GameTable<ActionSlotPrereqEntry> ActionSlotPrereq { get; private set; }
         public GameTable<ArchiveArticleEntry> ArchiveArticle { get; private set; }

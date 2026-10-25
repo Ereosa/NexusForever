@@ -30,7 +30,7 @@ namespace NexusForever.Game.Quest
         /// </summary>
         public bool Meets(IPlayer player)
         {
-            if (entry.WorldId != 0u && entry.WorldId != player.Map.Entry.Id)
+            if (entry.WorldId != 0u && entry.WorldId != player.Map?.Entry.Id)
                 return false;
 
             // TODO: Skip this check until we have better WorldZoneId tracking

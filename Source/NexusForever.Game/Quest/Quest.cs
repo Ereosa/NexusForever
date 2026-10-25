@@ -135,7 +135,9 @@ namespace NexusForever.Game.Quest
         {
             player = owner;
             Info   = info;
-            State  = (QuestState)model.State;
+            // set the field directly: loading a saved state is not a state change, and the
+            // player has no map yet for communicator triggers to check against
+            state  = (QuestState)model.State;
             flags  = (QuestStateFlags)model.Flags;
             timer  = model.Timer;
             reset  = model.Reset;
