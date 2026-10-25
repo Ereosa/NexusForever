@@ -226,6 +226,14 @@ namespace NexusForever.Game.Spell
 
         private byte CalculateTierCost(byte tier)
         {
+            return GetTierCost(tier);
+        }
+
+        /// <summary>
+        /// Returns the ability points needed to raise a spell from tier 1 to supplied tier, tiers 5 and 9 cost 5 points and the others 1.
+        /// </summary>
+        public static byte GetTierCost(byte tier)
+        {
             if (tier > MaxTier)
                 throw new ArgumentOutOfRangeException();
                 

@@ -878,11 +878,55 @@ namespace NexusForever.Game.Entity
 
         public void SendServerAbilityPoints()
         {
+            uint total = GetAbilityPoints();
+            uint spent = GetSpentAbilityPoints(ActiveActionSet);
+
             player.Session.EnqueueMessageEncrypted(new ServerAbilityPoints
             {
-                AbilityPoints      = actionSets[ActiveActionSet].TierPoints,
-                TotalAbilityPoints = ActionSet.MaxTierPoints
+                AbilityPoints      = total > spent ? total - spent : 0u,
+                TotalAbilityPoints = total
             });
+        }
+
+        /// <summary>
+        /// Returns the total ability tier points for the player's level.
+        /// </summary>
+        /// <remarks>
+        /// XpPerLevel grants 1 point a level from level 10, 41 at level 50.
+        /// </remarks>
+        public uint GetAbilityPoints()
+        {
+            uint points = 0u;
+            for (uint level = 1u; level <= player.Level; level++)
+                points += GameTableManager.Instance.XpPerLevel.GetEntry(level)?.AbilityPointsPerLevel ?? 0u;
+
+            return points;
+        }
+
+        private uint GetSpentAbilityPoints(byte actionSetIndex)
+        {
+            return (uint)(ActionSet.MaxTierPoints - actionSets[actionSetIndex].TierPoints);
+        }
+
+        /// <summary>
+        /// Returns if the supplied spell can be set to the supplied tier in the <see cref="IActionSet"/>, checking the tier level requirement and available ability points.
+        /// </summary>
+        public bool CanSetSpellTier(byte actionSetIndex, uint spell4BaseId, byte tier)
+        {
+            if (actionSetIndex >= ActionSet.MaxActionSets || tier < 1 || tier > ActionSet.MaxTier)
+                return false;
+
+            // Spell4TierRequirements: tier 2 at level 10, tier 3 at level 15 ... tier 9 at level 45
+            Spell4TierRequirementsEntry requirement = GameTableManager.Instance.Spell4TierRequirements.Entries
+                .FirstOrDefault(e => e != null && e.TierIndex == tier);
+            if (requirement != null && player.Level < requirement.LevelRequirement)
+                return false;
+
+            IActionSetShortcut shortcut = actionSets[actionSetIndex].GetShortcut(ShortcutType.SpellbookItem, spell4BaseId);
+            int currentCost = shortcut != null ? ActionSet.GetTierCost(shortcut.Tier) : 0;
+            int cost = ActionSet.GetTierCost(tier) - currentCost;
+
+            return GetSpentAbilityPoints(actionSetIndex) + cost <= GetAbilityPoints();
         }
 
         private void SendServerActionSets()

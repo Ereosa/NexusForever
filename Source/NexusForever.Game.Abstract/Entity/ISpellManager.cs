@@ -104,6 +104,16 @@ namespace NexusForever.Game.Abstract.Entity
         uint GetAmpPower();
 
         /// <summary>
+        /// Returns the total ability tier points for the player's level.
+        /// </summary>
+        uint GetAbilityPoints();
+
+        /// <summary>
+        /// Returns if the supplied spell can be set to the supplied tier in the <see cref="IActionSet"/>, checking the tier level requirement and available ability points.
+        /// </summary>
+        bool CanSetSpellTier(byte actionSetIndex, uint spell4BaseId, byte tier);
+
+        /// <summary>
         /// Add the supplied AMPs to the <see cref="IActionSet"/>, AMPs already in the action set are ignored.
         /// </summary>
         LimitedActionSetResult AddAmps(byte actionSetIndex, IEnumerable<ushort> ampIds);

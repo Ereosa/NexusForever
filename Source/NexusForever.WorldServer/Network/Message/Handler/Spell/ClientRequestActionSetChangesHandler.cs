@@ -31,8 +31,10 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
                 }
             }
 
+            // tiers need the level for the tier and enough ability points
             foreach (ClientRequestActionSetChanges.ActionTier actionTier in requestActionSetChanges.ActionTiers)
-                session.Player.SpellManager.UpdateSpell(actionTier.Action, actionTier.Tier, requestActionSetChanges.ActionSetIndex);
+                if (session.Player.SpellManager.CanSetSpellTier(requestActionSetChanges.ActionSetIndex, actionTier.Action, actionTier.Tier))
+                    session.Player.SpellManager.UpdateSpell(actionTier.Action, actionTier.Tier, requestActionSetChanges.ActionSetIndex);
 
             session.EnqueueMessageEncrypted(actionSet.BuildServerActionSet());
             if (requestActionSetChanges.ActionTiers.Count > 0)
