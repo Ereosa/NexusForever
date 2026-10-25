@@ -14,6 +14,13 @@ namespace NexusForever.Script.Template
         }
 
         /// <summary>
+        /// Invoked when <see cref="IPlayer"/> talks to <see cref="IWorldEntity"/>.
+        /// </summary>
+        void OnTalkTo(IPlayer player)
+        {
+        }
+
+        /// <summary>
         /// Invoked when <see cref="IWorldEntity"/> is unsuccessfully activated by <see cref="IPlayer"/>.
         /// </summary>
         void OnActivateFail(IPlayer activator)

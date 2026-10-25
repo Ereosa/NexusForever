@@ -8,6 +8,7 @@ using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Script.Template;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 {
@@ -52,6 +53,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                     {
                         DialogUnitId = entityInteraction.UnitId
                     });
+
+                    entity?.InvokeScriptCollection<IWorldEntityScript>(s => s.OnTalkTo(session.Player));
                     break;
                 }
                 case InteractionType.Vendor: // Handle Vendor
