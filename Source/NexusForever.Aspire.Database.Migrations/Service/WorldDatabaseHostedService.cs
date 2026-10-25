@@ -45,6 +45,9 @@ namespace NexusForever.Aspire.Database.Migrations.Service
                 return;
             }
 
+            // large data files (eg: vendor stock matching entities with subqueries) take longer than the default 30 seconds
+            _context.Database.SetCommandTimeout(TimeSpan.FromMinutes(30));
+
             foreach (string filePath in Directory.GetFiles(_options.Path, "*.sql", SearchOption.AllDirectories))
             {
                 string fileName    = Path.GetFileName(filePath);
