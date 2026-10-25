@@ -1,9 +1,13 @@
 ﻿using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Quest;
+using NexusForever.Game.Static.Entity.Movement.Spline;
+using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Quest;
 using NexusForever.Game.Static;
@@ -830,6 +834,83 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Speed of a summoned "Follow the ..." guide, a walking pace the player can keep up with.
+        /// </summary>
+        private const float FollowGuideSpeed = 3.5f;
+
+        private readonly Dictionary<uint /*objective id*/, uint /*guid*/> followGuides = [];
+
+        /// <summary>
+        /// Summon the creature a "Follow the ..." objective names once the objective is the current step, it walks to the objective's marker.
+        /// </summary>
+        /// <remarks>
+        /// Retail scripts summoned these (eg: the Spatial Anomaly), the client data only names the creature and the destination.
+        /// </remarks>
+        private void StartFollowGuide(IQuest quest, IQuestObjective objective)
+        {
+            if (followGuides.TryGetValue(objective.ObjectiveInfo.Id, out uint existing))
+            {
+                if (player.Map.GetEntity<IWorldEntity>(existing) != null)
+                    return;
+                followGuides.Remove(objective.ObjectiveInfo.Id);
+            }
+
+            // only the current step of the quest
+            if (quest.Any(o => o.Index < objective.Index && !o.ObjectiveInfo.IsOptional() && !o.IsComplete()))
+                return;
+
+            ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(objective.ObjectiveInfo.GetFollowCreatureId());
+            if (creatureInfo == null)
+                return;
+
+            List<Vector3> destinations = objective.ObjectiveInfo.GetAreaLocations()
+                .Where(l => l.WorldId == player.Map.Entry.Id)
+                .Select(l => new Vector3(l.Position0, l.Position1, l.Position2))
+                .ToList();
+            if (destinations.Count == 0)
+                return;
+
+            Vector3 direction = Vector3.Normalize(new Vector3(destinations[0].X - player.Position.X, 0f, destinations[0].Z - player.Position.Z));
+            if (float.IsNaN(direction.X))
+                direction = Vector3.UnitX;
+            Vector3 start = player.Position + direction * 4f;
+            start.Y = player.Map.GetTerrainHeight(start.X, start.Z) ?? player.Position.Y;
+
+            var nodes = new List<Vector3> { start };
+            nodes.AddRange(destinations);
+
+            void OnAdd(IBaseMap map, uint guid, Vector3 vector)
+            {
+                map.GetEntity<IWorldEntity>(guid)?.MovementManager.LaunchSpline(nodes, SplineType.Linear, SplineMode.OneShot, FollowGuideSpeed);
+            }
+
+            IWorldEntity guide = creatureInfo.Entry.CreationTypeEnum == EntityType.NonPlayer
+                ? player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, start, Vector3.Zero, OnAdd)
+                : player.SummonFactory.Summon<ISimpleEntity>(creatureInfo, start, Vector3.Zero, OnAdd);
+            followGuides[objective.ObjectiveInfo.Id] = guide.Guid;
+        }
+
+        /// <summary>
+        /// Remove guides of follow objectives that are done or no longer in the quest log.
+        /// </summary>
+        private void CleanupFollowGuides()
+        {
+            if (followGuides.Count == 0)
+                return;
+
+            foreach ((uint objectiveId, uint guid) in followGuides.ToList())
+            {
+                bool active = activeQuests.Values.Any(q => q.State == QuestState.Accepted
+                    && q.Any(o => o.ObjectiveInfo.Id == objectiveId && !o.IsComplete()));
+                if (active)
+                    continue;
+
+                player.Map?.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+                followGuides.Remove(objectiveId);
+            }
+        }
+
+        /// <summary>
         /// Distance from an enter area objective's location the objective completes at.
         /// </summary>
         /// <remarks>
@@ -850,6 +931,8 @@ namespace NexusForever.Game.Entity
             if (player.Map == null)
                 return;
 
+            CleanupFollowGuides();
+
             foreach (IQuest quest in activeQuests.Values.ToList())
             {
                 if (quest.State != QuestState.Accepted)
@@ -865,6 +948,8 @@ namespace NexusForever.Game.Entity
                             .Any(l => l.WorldId == player.Map.Entry.Id
                                 && Vector3.Distance(position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(l.Radius, EnterAreaMinimumRadius)))
                             quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                        else if (objective.ObjectiveInfo.GetFollowCreatureId() != 0u)
+                            StartFollowGuide(quest, objective);
                     }
                     else
                     {
