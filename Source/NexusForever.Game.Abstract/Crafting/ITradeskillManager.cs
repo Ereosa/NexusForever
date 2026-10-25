@@ -24,6 +24,11 @@ namespace NexusForever.Game.Abstract.Crafting
         bool IsTradeskillActive(TradeskillType tradeskillId);
 
         /// <summary>
+        /// Return progress through the supplied TradeskillTier: 0 when not reached, 1 when it is the current tier and 2 when a higher tier has been reached.
+        /// </summary>
+        uint GetTierProgress(uint tradeskillTierId);
+
+        /// <summary>
         /// Learn supplied <see cref="TradeskillType"/> at a tradeskill trainer, optionally swapping out an active tradeskill.
         /// </summary>
         void LearnTradeskill(TradeskillType learnTradeskillId, TradeskillType dropTradeskillId);

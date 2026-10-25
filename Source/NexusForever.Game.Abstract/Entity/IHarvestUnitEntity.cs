@@ -1,6 +1,6 @@
-﻿namespace NexusForever.Game.Abstract.Entity
+namespace NexusForever.Game.Abstract.Entity
 {
-    public interface IHarvestUnitEntity : IWorldEntity
+    public interface IHarvestUnitEntity : ICreatureEntity
     {
     }
 }

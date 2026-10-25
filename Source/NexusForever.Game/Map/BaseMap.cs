@@ -55,6 +55,16 @@ namespace NexusForever.Game.Map
         protected readonly Dictionary<uint /*guid*/, IGridEntity> entities = new();
         private IEntityCache entityCache;
 
+        private sealed class PendingRespawn
+        {
+            public ICreatureInfo CreatureInfo { get; init; }
+            public EntityModel Model { get; init; }
+            public double Timer { get; set; }
+        }
+
+        private readonly List<PendingRespawn> pendingRespawns = [];
+        private readonly HashSet<EntityModel> respawningModels = [];
+
         protected IScriptCollection scriptCollection;
 
         #region Dependency Injection
@@ -104,6 +114,7 @@ namespace NexusForever.Game.Map
         {
             ProcessGridActions();
             UpdateGrids(lastTick);
+            UpdateRespawns(lastTick);
 
             scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
 
@@ -462,13 +473,63 @@ namespace NexusForever.Game.Map
 
             foreach (EntityModel model in entityCache.GetEntities(gridX, gridZ))
             {
+                // entity will be spawned when the pending respawn completes
+                if (respawningModels.Contains(model))
+                    continue;
+
                 ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(model.Creature);
                 if (creatureInfo == null)
                     continue;
 
-                IWorldEntity entity = entityFactory.CreateWorldEntity(model.Type);
-                entity.Initialise(creatureInfo, model);
-                entity.AddToMap(this, new Vector3(model.X, model.Y, model.Z));
+                SpawnEntity(creatureInfo, model);
+            }
+        }
+
+        private void SpawnEntity(ICreatureInfo creatureInfo, EntityModel model)
+        {
+            IWorldEntity entity = entityFactory.CreateWorldEntity(model.Type);
+            entity.Initialise(creatureInfo, model);
+            entity.AddToMap(this, new Vector3(model.X, model.Y, model.Z));
+        }
+
+        /// <summary>
+        /// Spawn a new entity from the supplied <see cref="EntityModel"/> after a delay, used for entities that respawn after being removed (eg: harvesting nodes).
+        /// </summary>
+        /// <remarks>
+        /// The entity isn't spawned with its grid while the respawn is pending.
+        /// </remarks>
+        public void ScheduleRespawn(ICreatureInfo creatureInfo, EntityModel model, TimeSpan delay)
+        {
+            if (!respawningModels.Add(model))
+                return;
+
+            pendingRespawns.Add(new PendingRespawn
+            {
+                CreatureInfo = creatureInfo,
+                Model        = model,
+                Timer        = delay.TotalSeconds
+            });
+        }
+
+        private void UpdateRespawns(double lastTick)
+        {
+            for (int i = pendingRespawns.Count - 1; i >= 0; i--)
+            {
+                PendingRespawn respawn = pendingRespawns[i];
+                respawn.Timer -= lastTick;
+                if (respawn.Timer > 0d)
+                    continue;
+
+                pendingRespawns.RemoveAt(i);
+                respawningModels.Remove(respawn.Model);
+
+                // if the grid isn't active the entity will be spawned with the grid when it next activates
+                var position = new Vector3(respawn.Model.X, respawn.Model.Y, respawn.Model.Z);
+                IMapGrid grid = GetGrid(position);
+                if (grid == null || grid.UnloadStatus.HasValue)
+                    continue;
+
+                SpawnEntity(respawn.CreatureInfo, respawn.Model);
             }
         }
 

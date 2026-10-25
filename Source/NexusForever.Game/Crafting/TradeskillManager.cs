@@ -181,6 +181,23 @@ namespace NexusForever.Game.Crafting
             return GetTradeskill(tradeskillId)?.Active ?? false;
         }
 
+        public uint GetTierProgress(uint tradeskillTierId)
+        {
+            TradeskillTierEntry tierEntry = GameTableManager.Instance.TradeskillTier.GetEntry(tradeskillTierId);
+            if (tierEntry == null)
+                return 0u;
+
+            ITradeskill tradeskill = GetTradeskill((TradeskillType)tierEntry.TradeSkillId);
+            if (tradeskill?.Active != true)
+                return 0u;
+
+            uint currentTier = tradeskill.Tier?.Tier ?? 0u;
+            if (currentTier < tierEntry.Tier)
+                return 0u;
+
+            return currentTier == tierEntry.Tier ? 1u : 2u;
+        }
+
         public void LearnTradeskill(TradeskillType learnTradeskillId, TradeskillType dropTradeskillId)
         {
             TradeskillEntry entry = GameTableManager.Instance.Tradeskill.GetEntry((ulong)learnTradeskillId);
