@@ -196,6 +196,7 @@ namespace NexusForever.GameTable
 
         [GameData]
         public GameTable<EldanAugmentationEntry> EldanAugmentation { get; private set; }
+        [GameData]
         public GameTable<EldanAugmentationCategoryEntry> EldanAugmentationCategory { get; private set; }
         public GameTable<EmoteSequenceTransitionEntry> EmoteSequenceTransition { get; private set; }
 
@@ -391,41 +392,64 @@ namespace NexusForever.GameTable
         public GameTable<ModelSequenceByWeaponEntry> ModelSequenceByWeapon { get; private set; }
         public GameTable<ModelSequenceTransitionEntry> ModelSequenceTransition { get; private set; }
         public GameTable<ModelSkinFXEntry> ModelSkinFX { get; private set; }
+        [GameData]
         public GameTable<PathEpisodeEntry> PathEpisode { get; private set; }
+        [GameData]
         public GameTable<PathExplorerActivateEntry> PathExplorerActivate { get; private set; }
         public GameTable<PathExplorerAreaEntry> PathExplorerArea { get; private set; }
+        [GameData]
         public GameTable<PathExplorerDoorEntry> PathExplorerDoor { get; private set; }
         public GameTable<PathExplorerDoorEntranceEntry> PathExplorerDoorEntrance { get; private set; }
+        [GameData]
         public GameTable<PathExplorerNodeEntry> PathExplorerNode { get; private set; }
+        [GameData]
         public GameTable<PathExplorerPowerMapEntry> PathExplorerPowerMap { get; private set; }
+        [GameData]
         public GameTable<PathExplorerScavengerClueEntry> PathExplorerScavengerClue { get; private set; }
+        [GameData]
         public GameTable<PathExplorerScavengerHuntEntry> PathExplorerScavengerHunt { get; private set; }
 
         [GameData]
         public GameTable<PathLevelEntry> PathLevel { get; private set; }
 
+        [GameData]
         public GameTable<PathMissionEntry> PathMission { get; private set; }
 
         [GameData]
         public GameTable<PathRewardEntry> PathReward { get; private set; }
 
+        [GameData]
         public GameTable<PathScientistCreatureInfoEntry> PathScientistCreatureInfo { get; private set; }
+        [GameData]
         public GameTable<PathScientistDatacubeDiscoveryEntry> PathScientistDatacubeDiscovery { get; private set; }
         public GameTable<PathScientistExperimentationEntry> PathScientistExperimentation { get; private set; }
         public GameTable<PathScientistExperimentationPatternEntry> PathScientistExperimentationPattern { get; private set; }
         public GameTable<PathScientistFieldStudyEntry> PathScientistFieldStudy { get; private set; }
+        [GameData]
         public GameTable<PathScientistScanBotProfileEntry> PathScientistScanBotProfile { get; private set; }
+        [GameData]
         public GameTable<PathScientistSpecimenSurveyEntry> PathScientistSpecimenSurvey { get; private set; }
+        [GameData]
         public GameTable<PathSettlerHubEntry> PathSettlerHub { get; private set; }
+        [GameData]
         public GameTable<PathSettlerImprovementEntry> PathSettlerImprovement { get; private set; }
+        [GameData]
         public GameTable<PathSettlerImprovementGroupEntry> PathSettlerImprovementGroup { get; private set; }
+        [GameData]
         public GameTable<PathSettlerInfrastructureEntry> PathSettlerInfrastructure { get; private set; }
+        [GameData]
         public GameTable<PathSettlerMayorEntry> PathSettlerMayor { get; private set; }
+        [GameData]
         public GameTable<PathSettlerSheriffEntry> PathSettlerSheriff { get; private set; }
+        [GameData]
         public GameTable<PathSoldierActivateEntry> PathSoldierActivate { get; private set; }
+        [GameData]
         public GameTable<PathSoldierAssassinateEntry> PathSoldierAssassinate { get; private set; }
+        [GameData]
         public GameTable<PathSoldierEventEntry> PathSoldierEvent { get; private set; }
+        [GameData]
         public GameTable<PathSoldierEventWaveEntry> PathSoldierEventWave { get; private set; }
+        [GameData]
         public GameTable<PathSoldierSWATEntry> PathSoldierSWAT { get; private set; }
         public GameTable<PathSoldierTowerDefenseEntry> PathSoldierTowerDefense { get; private set; }
         public GameTable<PeriodicQuestGroupEntry> PeriodicQuestGroup { get; private set; }
@@ -645,13 +669,17 @@ namespace NexusForever.GameTable
         public GameTable<TicketCategoryEntry> TicketCategory { get; private set; }
         public GameTable<TicketSubCategoryEntry> TicketSubCategory { get; private set; }
         public GameTable<TrackingSlotEntry> TrackingSlot { get; private set; }
+        [GameData]
         public GameTable<TradeskillEntry> Tradeskill { get; private set; }
         public GameTable<TradeskillAchievementLayoutEntry> TradeskillAchievementLayout { get; private set; }
+        [GameData]
         public GameTable<TradeskillAchievementRewardEntry> TradeskillAchievementReward { get; private set; }
+        [GameData]
         public GameTable<TradeskillAdditiveEntry> TradeskillAdditive { get; private set; }
         public GameTable<TradeskillBonusEntry> TradeskillBonus { get; private set; }
         public GameTable<TradeskillCatalystEntry> TradeskillCatalyst { get; private set; }
         public GameTable<TradeskillCatalystOrderingEntry> TradeskillCatalystOrdering { get; private set; }
+        [GameData]
         public GameTable<TradeskillHarvestingInfoEntry> TradeskillHarvestingInfo { get; private set; }
 
         [GameData]
@@ -659,8 +687,10 @@ namespace NexusForever.GameTable
 
         public GameTable<TradeskillMaterialCategoryEntry> TradeskillMaterialCategory { get; private set; }
         public GameTable<TradeskillProficiencyEntry> TradeskillProficiency { get; private set; }
+        [GameData]
         public GameTable<TradeskillSchematic2Entry> TradeskillSchematic2 { get; private set; }
         public GameTable<TradeskillTalentTierEntry> TradeskillTalentTier { get; private set; }
+        [GameData]
         public GameTable<TradeskillTierEntry> TradeskillTier { get; private set; }
         public GameTable<TutorialEntry> Tutorial { get; private set; }
         public GameTable<TutorialAnchorEntry> TutorialAnchor { get; private set; }

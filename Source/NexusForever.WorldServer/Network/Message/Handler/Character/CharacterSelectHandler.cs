@@ -64,7 +64,16 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
             }
 
             session.Player = entityFactory.CreateEntity<IPlayer>();
-            session.Player.Initialise(session, session.Account, character);
+            try
+            {
+                session.Player.Initialise(session, session.Account, character);
+            }
+            catch
+            {
+                // a half initialised player breaks every following session update, drop it so only this login fails
+                session.Player = null;
+                throw;
+            }
 
             WorldEntry entry = gameTableManager.World.GetEntry(character.WorldId);
             if (entry == null)
