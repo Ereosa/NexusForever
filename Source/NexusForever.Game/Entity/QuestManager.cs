@@ -430,7 +430,11 @@ namespace NexusForever.Game.Entity
                 if (count > 0u)
                     quest.ObjectiveUpdate(QuestObjectiveType.CollectItem, objectiveInfo.Entry.Data, count);
             }
-            
+
+            // already standing in the zone an enter zone objective asks for
+            for (WorldZoneEntry zone = player.Zone; zone != null; zone = zone.ParentZoneId != 0u ? GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) : null)
+                quest.ObjectiveUpdate(QuestObjectiveType.EnterZone, zone.Id, 1u);
+
             log.LogTrace($"Accepted new quest {info.Entry.Id}.");
         }
 

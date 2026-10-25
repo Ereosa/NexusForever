@@ -460,18 +460,32 @@ namespace NexusForever.Game.Entity
             UpdateZone(vector);
         }
 
+        /// <summary>
+        /// Returns if the zone is set by something other than the map's area grid (eg: the client reporting its zone).
+        /// </summary>
+        protected virtual bool HasExternalZone => false;
+
         private void UpdateZone(Vector3 vector)
         {
+            if (HasExternalZone)
+                return;
+
             uint? worldAreaId = Map.File.GetWorldAreaId(vector);
             if (worldAreaId.HasValue && Zone?.Id != worldAreaId)
-            {
-                Zone = GameTableManager.Instance.WorldZone.GetEntry(worldAreaId.Value);
-                if (Zone != null)
-                {
-                    OnZoneUpdate();
-                    scriptCollection?.Invoke<IWorldEntityScript>(s => s.OnEnterZone(this, Zone.Id));
-                }
-            }
+                SetZone(GameTableManager.Instance.WorldZone.GetEntry(worldAreaId.Value));
+        }
+
+        /// <summary>
+        /// Set the current zone, invoking zone change events if it differs from the existing zone.
+        /// </summary>
+        protected void SetZone(WorldZoneEntry zone)
+        {
+            if (zone == null || Zone?.Id == zone.Id)
+                return;
+
+            Zone = zone;
+            OnZoneUpdate();
+            scriptCollection?.Invoke<IWorldEntityScript>(s => s.OnEnterZone(this, Zone.Id));
         }
 
         /// <summary>

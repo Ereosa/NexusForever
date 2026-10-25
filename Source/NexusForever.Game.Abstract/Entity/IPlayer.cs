@@ -201,6 +201,11 @@ namespace NexusForever.Game.Abstract.Entity
         void Dismount();
 
         /// <summary>
+        /// Invoked when the client reports it has moved into a different zone.
+        /// </summary>
+        void OnClientZoneChange(ushort zoneId);
+
+        /// <summary>
         /// Returns the time in seconds that has past since the last <see cref="IPlayer"/> save.
         /// </summary>
         double GetTimeSinceLastSave();

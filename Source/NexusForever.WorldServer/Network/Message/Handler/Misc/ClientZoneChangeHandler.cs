@@ -7,6 +7,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Misc
     {
         public void HandleMessage(IWorldSession session, ClientZoneChange zoneChange)
         {
+            session.Player?.OnClientZoneChange(zoneChange.NewZoneId);
         }
     }
 }
