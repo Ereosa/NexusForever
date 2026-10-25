@@ -97,6 +97,8 @@ namespace NexusForever.Game.Combat
 
             damageDescription.AdjustedDamage = damage;
 
+            log.LogTrace($"Damage from spell {executionContext.Spell.Parameters.SpellInfo.Entry.Id} to unit {victim.Guid} (creature {victim.CreatureId}, level {victim.Level}): raw {damageDescription.RawDamage}, shielded {damageDescription.ShieldAbsorbAmount}, adjusted {damage}, health {victim.Health}/{victim.MaxHealth}.");
+
             info.AddDamage(damageDescription);
 
             // TODO: Queue Proc Events*/
