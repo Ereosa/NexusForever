@@ -251,6 +251,14 @@ namespace NexusForever.Game.Account.Inventory
         }
 
         /// <summary>
+        /// Returns if the account inventory contains an item for the supplied account item id.
+        /// </summary>
+        public bool HasItem(uint accountItemId)
+        {
+            return items.Values.Any(i => i.Entry.Id == accountItemId);
+        }
+
+        /// <summary>
         /// Send the account inventory to the client.
         /// </summary>
         public void SendInitialPackets()
