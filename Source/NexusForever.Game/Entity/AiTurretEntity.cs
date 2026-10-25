@@ -1,12 +1,17 @@
 ﻿using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Entity.Stat;
+using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
 
 namespace NexusForever.Game.Entity
 {
-    public class AiTurretEntity : WorldEntity, IAiTurretEntity
+    /// <remarks>
+    /// Turrets are combat units (health, interrupt armour, can be killed for quest credit), they only differ from <see cref="NonPlayerEntity"/> by the network model.
+    /// </remarks>
+    public class AiTurretEntity : NonPlayerEntity, IAiTurretEntity
     {
         public override EntityType Type => EntityType.AiTurret;
 
@@ -14,8 +19,10 @@ namespace NexusForever.Game.Entity
 
         public AiTurretEntity(
             IMovementManager movementManager,
-            IEntitySummonFactory entitySummonFactory)
-            : base(movementManager, entitySummonFactory)
+            IEntitySummonFactory entitySummonFactory,
+            IStatUpdateManager<IUnitEntity> statUpdateManager,
+            ISpellFactory spellFactory)
+            : base(movementManager, entitySummonFactory, statUpdateManager, spellFactory)
         {
         }
 
@@ -26,7 +33,7 @@ namespace NexusForever.Game.Entity
             return new AiTurretEntityModel
             {
                 CreatureId        = CreatureId,
-                QuestChecklistIdx = 0
+                QuestChecklistIdx = QuestChecklistIdx
             };
         }
     }
