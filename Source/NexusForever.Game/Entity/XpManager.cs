@@ -192,6 +192,7 @@ namespace NexusForever.Game.Entity
 
             // Grant Rewards for level up
             player.SpellManager.GrantSpells();
+            player.SpellManager.SendServerAbilityPoints();
             player.TradeskillManager.LearnAutoTradeskills();
             // Unlock LAS slots
             // Unlock AMPs
