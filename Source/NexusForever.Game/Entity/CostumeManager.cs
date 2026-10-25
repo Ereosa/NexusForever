@@ -194,8 +194,7 @@ namespace NexusForever.Game.Entity
             }
 
             if (costumeSave.Index == CostumeIndex)
-                foreach (IItemVisual item in player.Inventory.GetItemVisuals())
-                    player.AddVisual(item);
+                UpdateVisuals();
 
             SendCostume(costume);
             SendCostumeSaveResult(CostumeSaveResult.Saved, costumeSave.Index, costumeSave.Type);
@@ -217,14 +216,40 @@ namespace NexusForever.Game.Entity
                 throw new InvalidOperationException();
 
             CostumeIndex = index >= 0 ? (byte)index : null;
-
-            foreach (IItemVisual item in player.Inventory.GetItemVisuals())
-                player.AddVisual(item);
+            UpdateVisuals();
 
             // 15 second cooldown for changing costumes, hardcoded in binary
             costumeSwapCooldown = CostumeSwapCooldown;
 
             log.Trace($"Set costume to index {index}");
+        }
+
+        /// <summary>
+        /// Update the player visuals for the costume slots and equipped items with the current costume.
+        /// </summary>
+        /// <remarks>
+        /// A costume item is shown even when nothing is equipped in its slot, and removing a costume shows the equipped item or nothing.
+        /// </remarks>
+        public void UpdateVisuals()
+        {
+            Dictionary<ItemSlot, IItemVisual> equipped = player.Inventory.GetItemVisuals()
+                .GroupBy(v => v.Slot)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var slots = new HashSet<ItemSlot>(equipped.Keys);
+            foreach (CostumeItemSlot costumeSlot in Enum.GetValues<CostumeItemSlot>())
+                slots.Add(CostumeItem.GetItemSlot(costumeSlot));
+
+            foreach (ItemSlot slot in slots)
+            {
+                IItemVisual costumeVisual = CostumeIndex.HasValue ? GetItemVisual(CostumeIndex.Value, slot) : null;
+                if (costumeVisual?.DisplayId != null)
+                    player.AddVisual(costumeVisual);
+                else if (equipped.TryGetValue(slot, out IItemVisual equippedVisual))
+                    player.AddVisual(equippedVisual);
+                else
+                    player.RemoveVisual(slot);
+            }
         }
 
         public void SendInitialPackets()
