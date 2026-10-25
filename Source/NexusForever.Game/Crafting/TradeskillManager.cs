@@ -374,6 +374,11 @@ namespace NexusForever.Game.Crafting
             return schematics.ContainsKey(schematicId);
         }
 
+        public ITradeskillSchematic GetSchematic(uint schematicId)
+        {
+            return schematics.TryGetValue(schematicId, out ITradeskillSchematic schematic) ? schematic : null;
+        }
+
         public void LearnSchematic(uint schematicId, Vector2? discoveryCoordinates = null)
         {
             TradeskillSchematic2Entry entry = GameTableManager.Instance.TradeskillSchematic2.GetEntry(schematicId);

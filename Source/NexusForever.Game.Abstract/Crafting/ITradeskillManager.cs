@@ -49,6 +49,11 @@ namespace NexusForever.Game.Abstract.Crafting
         bool IsSchematicKnown(uint schematicId);
 
         /// <summary>
+        /// Return the learned <see cref="ITradeskillSchematic"/> for the supplied schematic id, if known.
+        /// </summary>
+        ITradeskillSchematic GetSchematic(uint schematicId);
+
+        /// <summary>
         /// Learn supplied schematic.
         /// </summary>
         /// <param name="discoveryCoordinates">Coordinates on the discovery panel, when the schematic was discovered during a craft.</param>
