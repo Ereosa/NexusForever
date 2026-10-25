@@ -149,9 +149,11 @@ namespace NexusForever.Game.Quest
         /// </remarks>
         private bool IsChecklist()
         {
+            // type 10 too: captured objects for it carry distinct checklist indexes (eg: the four cannons of Shellshock!)
             return ObjectiveInfo.Type is QuestObjectiveType.ActivateTargetGroup
                 or QuestObjectiveType.ActivateTargetGroupChecklist
-                or QuestObjectiveType.TalkToTargetGroup;
+                or QuestObjectiveType.TalkToTargetGroup
+                or QuestObjectiveType.Unknown10;
         }
 
         /// <summary>
