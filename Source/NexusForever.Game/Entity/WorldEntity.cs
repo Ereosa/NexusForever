@@ -612,6 +612,7 @@ namespace NexusForever.Game.Entity
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
 
                 activator.PathMissionManager.OnEntityActivated(this);
+                activator.PathSettlerManager.OnEntityActivated(this);
 
                 if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
                     activator.PathSoldierManager.OnActivate(this);

@@ -16,5 +16,15 @@ namespace NexusForever.Game.Abstract.Entity
         /// Invoked when the player enters a new zone, sends the status of the settler hub for the zone.
         /// </summary>
         void OnZoneUpdate();
+
+        /// <summary>
+        /// Invoked when the player interacts with an entity, infrastructure builders accept resources.
+        /// </summary>
+        void OnEntityInteract(IWorldEntity entity);
+
+        /// <summary>
+        /// Invoked when the player activates an entity, infrastructure resources are picked up.
+        /// </summary>
+        void OnEntityActivated(IWorldEntity entity);
     }
 }

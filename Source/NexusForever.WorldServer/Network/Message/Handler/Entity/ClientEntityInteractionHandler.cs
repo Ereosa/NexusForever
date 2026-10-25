@@ -45,6 +45,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
             if (entity != null)
             {
                 session.Player.PathMissionManager.OnEntityInteract(entity);
+                session.Player.PathSettlerManager.OnEntityInteract(entity);
 
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);

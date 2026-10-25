@@ -1,5 +1,6 @@
 using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Spell;
 using NexusForever.Game.Static.PlayerPath;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -38,8 +39,28 @@ namespace NexusForever.Game.Entity
         private static readonly Dictionary<(uint WorldId, uint GroupId), ImprovementState> improvements = new();
         private static readonly object improvementLock = new();
 
+        /// <summary>
+        /// Shared progress of a settler infrastructure project on a world.
+        /// </summary>
+        private sealed class InfrastructureState
+        {
+            public uint Count;
+            public DateTime Started;
+            public DateTime BuiltUntil;
+
+            public bool IsBuilt => DateTime.UtcNow < BuiltUntil;
+        }
+
+        private const double InfrastructureContributeCooldown = 2d;
+
+        private static readonly Dictionary<(uint WorldId, uint InfrastructureId), InfrastructureState> infrastructure = new();
+
         private readonly IPlayer player;
         private uint depotGuid;
+
+        // infrastructure resources the player is carrying, by PathSettlerInfrastructure id and resource index
+        private readonly Dictionary<(uint InfrastructureId, int Index), uint> carried = new();
+        private DateTime lastContribution = DateTime.MinValue;
 
         public PathSettlerManager(IPlayer owner)
         {
@@ -299,6 +320,149 @@ namespace NexusForever.Game.Entity
                     });
                 }
             }
+        }
+
+        private static IEnumerable<(IPathMission Mission, PathSettlerInfrastructureEntry Entry)> GetInfrastructureMissions(IPlayer player)
+        {
+            foreach (IPathMission mission in player.PathMissionManager
+                .Where(m => !m.Completed && m.Type == PathMissionType.SettlerInfrastructure)
+                .ToList())
+            {
+                PathSettlerInfrastructureEntry entry = GameTableManager.Instance.PathSettlerInfrastructure.GetEntry(mission.Entry.ObjectId);
+                if (entry != null)
+                    yield return (mission, entry);
+            }
+        }
+
+        public void OnEntityActivated(IWorldEntity entity)
+        {
+            if (player.Path != Path.Settler)
+                return;
+
+            foreach ((IPathMission mission, PathSettlerInfrastructureEntry entry) in GetInfrastructureMissions(player))
+            {
+                uint[] resources = [entry.Creature2IdResource00, entry.Creature2IdResource01, entry.Creature2IdResource02];
+                uint[] spells    = [entry.Spell4IdResource00, entry.Spell4IdResource01, entry.Spell4IdResource02];
+                uint[] maxStacks = [entry.MaxStackCountResource00, entry.MaxStackCountResource01, entry.MaxStackCountResource02];
+                for (int i = 0; i < resources.Length; i++)
+                {
+                    if (resources[i] == 0u || resources[i] != entity.CreatureId)
+                        continue;
+
+                    carried.TryGetValue((entry.Id, i), out uint count);
+                    if (count >= Math.Max(1u, maxStacks[i]))
+                        continue;
+
+                    carried[(entry.Id, i)] = count + 1u;
+
+                    // the resource spell shows the carried stack
+                    if (spells[i] != 0u)
+                        player.CastSpell(spells[i], new SpellParameters());
+                }
+            }
+        }
+
+        public void OnEntityInteract(IWorldEntity entity)
+        {
+            if (player.Path != Path.Settler)
+                return;
+
+            foreach ((IPathMission mission, PathSettlerInfrastructureEntry entry) in GetInfrastructureMissions(player))
+            {
+                if (entry.Creature2IdDepot == 0u || entry.Creature2IdDepot != entity.CreatureId)
+                    continue;
+
+                if ((DateTime.UtcNow - lastContribution).TotalSeconds < InfrastructureContributeCooldown)
+                    return;
+
+                uint contribution = TakeInfrastructureResources(entry);
+                if (contribution == 0u)
+                    continue;
+
+                lastContribution = DateTime.UtcNow;
+                ContributeInfrastructure(mission, entry, contribution);
+            }
+        }
+
+        /// <summary>
+        /// Resources for a project are the carried resource creatures, projects without resource creatures take the hub resource item.
+        /// </summary>
+        private uint TakeInfrastructureResources(PathSettlerInfrastructureEntry entry)
+        {
+            uint[] resources = [entry.Creature2IdResource00, entry.Creature2IdResource01, entry.Creature2IdResource02];
+            if (resources.Any(r => r != 0u))
+            {
+                uint total = 0u;
+                for (int i = 0; i < resources.Length; i++)
+                {
+                    if (carried.Remove((entry.Id, i), out uint count))
+                        total += count;
+                }
+                return total;
+            }
+
+            PathSettlerHubEntry hub = GameTableManager.Instance.PathSettlerHub.GetEntry(entry.PathSettlerHubId00);
+            if (hub == null || hub.Item2IdResource00 == 0u)
+                return 1u;
+
+            if (!player.Inventory.HasItemCount(hub.Item2IdResource00, 1u))
+                return 0u;
+
+            player.Inventory.ItemDelete(hub.Item2IdResource00, 1u, ItemUpdateReason.SettlerImprovementConsumeResource);
+            return 1u;
+        }
+
+        private void ContributeInfrastructure(IPathMission mission, PathSettlerInfrastructureEntry entry, uint contribution)
+        {
+            InfrastructureState state;
+            bool started = false, built = false;
+            lock (improvementLock)
+            {
+                var key = (player.Map.Entry.Id, entry.Id);
+                if (!infrastructure.TryGetValue(key, out state))
+                {
+                    state = new InfrastructureState();
+                    infrastructure.Add(key, state);
+                }
+
+                // an unfinished project resets after its maximum time
+                if (!state.IsBuilt && state.Count > 0u && entry.MaxTime > 0u && DateTime.UtcNow > state.Started.AddMilliseconds(entry.MaxTime))
+                    state.Count = 0u;
+
+                if (!state.IsBuilt)
+                {
+                    if (state.Count == 0u)
+                    {
+                        state.Started = DateTime.UtcNow;
+                        started = true;
+                    }
+
+                    state.Count += contribution;
+                    if (entry.Count > 0u && state.Count >= entry.Count)
+                    {
+                        state.Count      = 0u;
+                        state.BuiltUntil = DateTime.UtcNow.AddMilliseconds(Math.Max(entry.MaxTime, 3600000u));
+                        built = true;
+                    }
+                }
+            }
+
+            if (started)
+                player.Session.EnqueueMessageEncrypted(new ServerPathSettlerInfrastructureStarted());
+
+            player.Session.EnqueueMessageEncrypted(new ServerPathSettlerInfrastructureUpdated
+            {
+                PathMissionId   = mission.Id,
+                State           = state.IsBuilt ? SettlerInfrastructureState.Built : SettlerInfrastructureState.Building,
+                PercentComplete = state.IsBuilt || entry.Count == 0u ? 1f : (float)state.Count / entry.Count
+            });
+
+            if (built)
+                player.Session.EnqueueMessageEncrypted(new ServerPathSettlerInfrastructureComplete());
+
+            // the mission needs the player's own contributions
+            uint progress = Math.Min(Math.Max(1u, entry.MissionCount), mission.Progress + contribution);
+            player.PathMissionManager.UpdateMission(mission, progress, mission.State);
         }
 
         public void OnZoneUpdate()

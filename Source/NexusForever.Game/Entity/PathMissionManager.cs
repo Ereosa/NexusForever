@@ -50,7 +50,8 @@ namespace NexusForever.Game.Entity
             PathMissionType.ExplorerDoor,
             PathMissionType.SettlerMayor,
             PathMissionType.ScientistSpecimenSurvey,
-            PathMissionType.ExplorerPowerMap
+            PathMissionType.ExplorerPowerMap,
+            PathMissionType.SettlerInfrastructure
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -369,6 +370,11 @@ namespace NexusForever.Game.Entity
                         survey.LocalizedTextIdObjective09
                     }.Count(id => id != 0u && !string.IsNullOrEmpty(text?.GetEntry(id)));
                     return needed > 0u && BitOperations.PopCount(mission.Progress) >= needed;
+                }
+                case PathMissionType.SettlerInfrastructure:
+                {
+                    PathSettlerInfrastructureEntry entry = GameTableManager.Instance.PathSettlerInfrastructure.GetEntry(mission.Entry.ObjectId);
+                    return entry != null && mission.Progress >= Math.Max(1u, entry.MissionCount);
                 }
                 case PathMissionType.SettlerMayor:
                 {
