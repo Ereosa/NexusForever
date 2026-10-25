@@ -1,5 +1,9 @@
 using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
+using NexusForever.Game.Abstract.Map;
+using NexusForever.Shared;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Spell;
@@ -416,8 +420,8 @@ namespace NexusForever.Game.Entity
                 // building a settler structure (minfrastructure) is worth a path mission reward
                 case AffiliationSettlerStructure:
                 {
-                    player.PathManager.AddXp(GameTableManager.Instance.GameFormula.GetEntry(378)?.Dataint0 ?? 50u);
-                    entity.DespawnWithRespawn(SettlerObjectRespawnDelay);
+                    if (BuildStructure(entity))
+                        player.PathManager.AddXp(GameTableManager.Instance.GameFormula.GetEntry(378)?.Dataint0 ?? 50u);
                     break;
                 }
             }
@@ -443,6 +447,45 @@ namespace NexusForever.Game.Entity
                         player.CastSpell(spells[i], new SpellParameters());
                 }
             }
+        }
+
+        /// <summary>
+        /// Time a settler structure stays built before it falls back into disrepair.
+        /// </summary>
+        /// <remarks>
+        /// Retail values are unknown, the client data has no durations for settler structures.
+        /// </remarks>
+        private static readonly TimeSpan SettlerStructureBuiltTime = TimeSpan.FromMinutes(15d);
+
+        /// <summary>
+        /// A broken or unbuilt settler structure is replaced by its built version for a while, e.g. a broken banner becomes an Exile banner.
+        /// </summary>
+        private bool BuildStructure(IWorldEntity structure)
+        {
+            uint builtCreatureId = AssetManager.Instance.GetBuiltSettlerStructure(structure.CreatureId);
+            if (builtCreatureId == 0u)
+                return false;
+
+            ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(builtCreatureId);
+            if (creatureInfo == null)
+                return false;
+
+            // built banners use creation type 20 in the client data, their world spawns are simple collidable units
+            EntityType type = creatureInfo.Entry.CreationTypeEnum == EntityType.Player ? EntityType.SimpleCollidable : creatureInfo.Entry.CreationTypeEnum;
+            IWorldEntity built = LegacyServiceProvider.Provider.GetService<IEntityFactory>().CreateWorldEntity(type);
+            if (built == null)
+                return false;
+
+            IBaseMap map = structure.Map;
+            Vector3 position = structure.Position;
+            built.Initialise(creatureInfo);
+            built.Rotation = structure.Rotation;
+
+            structure.DespawnWithRespawn(SettlerStructureBuiltTime);
+            built.AddToMap(map, position, (m, guid, vector) => m.ScheduleDespawn(guid, SettlerStructureBuiltTime));
+
+            log.Trace($"Player {player.CharacterId} built settler structure {structure.CreatureId} into {builtCreatureId}.");
+            return true;
         }
 
         public void OnEntityInteract(IWorldEntity entity)

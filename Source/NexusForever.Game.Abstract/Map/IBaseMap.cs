@@ -38,6 +38,11 @@ namespace NexusForever.Game.Abstract.Map
         void ScheduleRespawn(ICreatureInfo creatureInfo, EntityModel model, TimeSpan delay);
 
         /// <summary>
+        /// Remove the entity with the supplied guid from the map after a delay, used for temporary entities (eg: built settler structures).
+        /// </summary>
+        void ScheduleDespawn(uint guid, TimeSpan delay);
+
+        /// <summary>
         /// Enqueue <see cref="IPlayer"/> to be added to <see cref="IBaseMap"/>.
         /// </summary>
         /// <remarks>

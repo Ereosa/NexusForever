@@ -64,6 +64,7 @@ namespace NexusForever.Game.Map
 
         private readonly List<PendingRespawn> pendingRespawns = [];
         private readonly HashSet<EntityModel> respawningModels = [];
+        private readonly List<(uint Guid, double Timer)> pendingDespawns = [];
 
         protected IScriptCollection scriptCollection;
 
@@ -511,8 +512,27 @@ namespace NexusForever.Game.Map
             });
         }
 
+        public void ScheduleDespawn(uint guid, TimeSpan delay)
+        {
+            pendingDespawns.Add((guid, delay.TotalSeconds));
+        }
+
         private void UpdateRespawns(double lastTick)
         {
+            for (int i = pendingDespawns.Count - 1; i >= 0; i--)
+            {
+                (uint guid, double timer) = pendingDespawns[i];
+                timer -= lastTick;
+                if (timer > 0d)
+                {
+                    pendingDespawns[i] = (guid, timer);
+                    continue;
+                }
+
+                pendingDespawns.RemoveAt(i);
+                GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+            }
+
             for (int i = pendingRespawns.Count - 1; i >= 0; i--)
             {
                 PendingRespawn respawn = pendingRespawns[i];
