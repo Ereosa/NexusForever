@@ -46,7 +46,8 @@ namespace NexusForever.Game.Entity
             PathMissionType.ExplorerActivateChecklist,
             PathMissionType.ScientistDatacubeDiscovery,
             PathMissionType.ExplorerScavengerHunt,
-            PathMissionType.ExplorerDoor
+            PathMissionType.ExplorerDoor,
+            PathMissionType.SettlerMayor
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -349,6 +350,11 @@ namespace NexusForever.Game.Entity
                 }
                 case PathMissionType.ScientistScan:
                     return mission.Progress >= 100u;
+                case PathMissionType.SettlerMayor:
+                {
+                    uint needed = (uint)GetMayorTasks(mission.Entry.ObjectId).Count(t => t.TextId != 0u);
+                    return needed > 0u && BitOperations.PopCount(mission.Progress) >= needed;
+                }
                 case PathMissionType.ExplorerScavengerHunt:
                 {
                     uint needed = (uint)GetScavengerClues(mission.Entry.ObjectId).Count(c => c != 0u);
@@ -435,7 +441,18 @@ namespace NexusForever.Game.Entity
                 .Where(r => r != null && r.PathRewardTypeEnum == 1u && r.ObjectId == mission.Id))
                 player.PathManager.GrantPathReward(reward);
 
+            // civil service and public safety missions reward a title
+            uint titleId = mission.Type switch
+            {
+                PathMissionType.SettlerMayor   => GameTableManager.Instance.PathSettlerMayor.GetEntry(mission.Entry.ObjectId)?.CharacterTitleIdReward ?? 0u,
+                PathMissionType.SettlerSheriff => GameTableManager.Instance.PathSettlerSheriff.GetEntry(mission.Entry.ObjectId)?.CharacterTitleIdReward ?? 0u,
+                _                              => 0u
+            };
+            if (titleId != 0u)
+                player.TitleManager.AddTitle((ushort)titleId);
+
             CheckEpisodeComplete(mission.Entry.PathEpisodeId);
+            UpdateMayorTasks(mission.Entry.WorldLocation2Id00, 0u);
 
             if (mission.Type is PathMissionType.ScientistScan or PathMissionType.ScientistScanChecklist)
                 player.PathScientistManager.RefreshScannableEntities();
@@ -818,8 +835,53 @@ namespace NexusForever.Game.Entity
             }
         }
 
+        private static (uint TextId, uint WorldLocation2Id)[] GetMayorTasks(uint pathSettlerMayorId)
+        {
+            PathSettlerMayorEntry entry = GameTableManager.Instance.PathSettlerMayor.GetEntry(pathSettlerMayorId);
+            if (entry == null)
+                return [];
+
+            return
+            [
+                (entry.LocalizedTextId00, entry.WorldLocation2Id00), (entry.LocalizedTextId01, entry.WorldLocation2Id01),
+                (entry.LocalizedTextId02, entry.WorldLocation2Id02), (entry.LocalizedTextId03, entry.WorldLocation2Id03),
+                (entry.LocalizedTextId04, entry.WorldLocation2Id04), (entry.LocalizedTextId05, entry.WorldLocation2Id05),
+                (entry.LocalizedTextId06, entry.WorldLocation2Id06), (entry.LocalizedTextId07, entry.WorldLocation2Id07)
+            ];
+        }
+
+        /// <summary>
+        /// Civil service tasks are completed by helping out where they point to: completing the settler mission at the task location
+        /// or completing quests in the task location's zone.
+        /// </summary>
+        private void UpdateMayorTasks(uint completedMissionLocationId, uint questZoneId)
+        {
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.SettlerMayor))
+            {
+                (uint TextId, uint WorldLocation2Id)[] tasks = GetMayorTasks(mission.Entry.ObjectId);
+                uint progress = mission.Progress;
+                for (int i = 0; i < tasks.Length; i++)
+                {
+                    if (tasks[i].TextId == 0u || tasks[i].WorldLocation2Id == 0u)
+                        continue;
+
+                    if (completedMissionLocationId != 0u && tasks[i].WorldLocation2Id == completedMissionLocationId)
+                        progress |= 1u << i;
+                    else if (questZoneId != 0u && GameTableManager.Instance.WorldLocation2.GetEntry(tasks[i].WorldLocation2Id)?.WorldZoneId == questZoneId)
+                        progress |= 1u << i;
+                }
+
+                if (progress != mission.Progress)
+                    UpdateMission(mission, progress, mission.State);
+            }
+        }
+
         public void OnQuestCompleted(uint questId)
         {
+            if (player.Zone != null)
+                foreach (uint zoneId in GetZoneChain())
+                    UpdateMayorTasks(0u, zoneId);
+
             foreach (IPathMission mission in GetActiveMissions(PathMissionType.SettlerSheriff))
             {
                 int index = Array.IndexOf(GetSheriffQuests(mission.Entry.ObjectId), questId);
