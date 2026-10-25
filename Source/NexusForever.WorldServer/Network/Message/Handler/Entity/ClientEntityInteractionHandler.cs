@@ -56,6 +56,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 
             switch (entityInteraction.Type)
             {
+                case InteractionType.SettlerImprovement: // "InvokeSettlerBuild"
+                {
+                    if (entity != null)
+                        session.Player.PathSettlerManager.OpenDepot(entity);
+                    break;
+                }
                 case InteractionType.TalkTo: // Quest NPC
                 {
                     session.EnqueueMessageEncrypted(new ServerDialogStart

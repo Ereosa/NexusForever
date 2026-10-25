@@ -34,7 +34,8 @@ namespace NexusForever.Game.Entity
             PathMissionType.ExplorerExploreZone,
             PathMissionType.ScientistScan,
             PathMissionType.ScientistScanChecklist,
-            PathMissionType.SoldierHoldout
+            PathMissionType.SoldierHoldout,
+            PathMissionType.SettlerHub
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -332,6 +333,11 @@ namespace NexusForever.Game.Entity
                 }
                 case PathMissionType.ScientistScan:
                     return mission.Progress >= 100u;
+                case PathMissionType.SettlerHub:
+                {
+                    PathSettlerHubEntry hub = GameTableManager.Instance.PathSettlerHub.GetEntry(mission.Entry.ObjectId);
+                    return hub != null && hub.MissionCount > 0u && mission.Progress >= hub.MissionCount;
+                }
                 case PathMissionType.ScientistScanChecklist:
                 {
                     PathScientistCreatureInfoEntry info = GameTableManager.Instance.PathScientistCreatureInfo.GetEntry(mission.Entry.ObjectId);
