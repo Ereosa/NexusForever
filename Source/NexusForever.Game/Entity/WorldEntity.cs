@@ -361,6 +361,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public virtual void Initialise(ICreatureInfo creatureInfo, EntityModel model)
         {
+            questObjectSpawnModel = model;
             CreatureInfo         = creatureInfo;
             EntityId             = model.Id;
             Rotation             = new Vector3(model.Rx, model.Ry, model.Rz);
@@ -644,6 +645,30 @@ namespace NexusForever.Game.Entity
             }
 
             scriptCollection?.Invoke<IWorldEntityScript>(s => s.OnActivateSuccess(activator));
+
+            DespawnUsedQuestObject();
+        }
+
+        /// <summary>
+        /// Time before a used quest object (supply crate, cage, captive) is available again.
+        /// </summary>
+        /// <remarks>
+        /// Retail values are unknown, the client data has no respawn times.
+        /// </remarks>
+        private static readonly TimeSpan QuestObjectRespawnDelay = TimeSpan.FromSeconds(30d);
+
+        private EntityModel questObjectSpawnModel;
+
+        /// <summary>
+        /// Quest objects (creatures that name the quest they belong to) are single use, they disappear when used and come back later.
+        /// </summary>
+        private void DespawnUsedQuestObject()
+        {
+            if (CreatureInfo?.Entry == null || CreatureInfo.Entry.QuestAnimStateId == 0u || questObjectSpawnModel == null || Map == null)
+                return;
+
+            Map.ScheduleRespawn(CreatureInfo, questObjectSpawnModel, QuestObjectRespawnDelay);
+            RemoveFromMap();
         }
 
         /// <summary>
