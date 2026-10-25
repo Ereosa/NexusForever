@@ -31,4 +31,12 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         // Wake from cryosleep
         protected override uint? FinalObjectiveId => 21298;
     }
+
+    [ScriptFilterOwnerId(10528)]
+    public class BonVoyageExileQuestScript : TutorialQuestScript
+    {
+        public override QuestId? NextQuestId => null;
+        // Travel to Nexus, the alternative routes are optional
+        protected override uint? FinalObjectiveId => 21327;
+    }
 }
