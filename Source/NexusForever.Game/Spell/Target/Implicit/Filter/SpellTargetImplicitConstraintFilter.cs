@@ -22,6 +22,9 @@ namespace NexusForever.Game.Spell.Target.Implicit.Filter
             if (constraints == null)
                 return;
 
+            // order before applying the count constraint so the selection type picks which targets are kept, eg: the closest foe
+            OrderForSelectionType(targets);
+
             uint count = 0u;
             foreach (ISpellTargetImplicit target in targets)
             {
@@ -29,12 +32,13 @@ namespace NexusForever.Game.Spell.Target.Implicit.Filter
                 if (target.Result != null)
                     continue;
 
-                SpellTargetImplicitSelectionResult? result = FilterImplicitTarget(target, count++);
+                // only targets that pass the other constraints count towards the target count
+                SpellTargetImplicitSelectionResult? result = FilterImplicitTarget(target, count);
                 if (result.HasValue)
                     target.Result = result.Value;
+                else
+                    count++;
             }
-
-            OrderForSelectionType(targets);
         }
 
         private SpellTargetImplicitSelectionResult? FilterImplicitTarget(ISpellTargetImplicit target, uint count)

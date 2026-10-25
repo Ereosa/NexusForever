@@ -210,6 +210,11 @@ namespace NexusForever.Game.Spell
             if (AlternateSpellInfo != null && CheckRunnerOverride())
                 spellInfoToCast = AlternateSpellInfo;
 
+            // summon spells become the bot ability while their pet is summoned
+            ISpellInfo petSwitchSpellInfo = Owner.CombatPetManager.GetPetSwitchSpell(SpellInfo);
+            if (petSwitchSpellInfo != null)
+                spellInfoToCast = petSwitchSpellInfo;
+
             // For Threshold Spells
             if (Owner.HasSpell(spellInfoToCast.Entry.Id, out ISpell spell, isCasting: castMethod == CastMethod.ChargeRelease))
             {

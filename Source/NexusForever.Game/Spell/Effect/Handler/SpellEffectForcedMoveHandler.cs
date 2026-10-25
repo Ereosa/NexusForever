@@ -99,7 +99,11 @@ namespace NexusForever.Game.Spell.Effect.Handler
                 case SpellEffectForcedMoveType.Unknown10: // 4206 - Grapple
                 case SpellEffectForcedMoveType.Unknown15:
                 {
-                    position = mover.Position;
+                    // the target is moved to the caster, or the caster to its primary target (eg: 35504 Bruiserbot leaping at the Blitz target, 70642 Repairbot returning to its owner)
+                    if (mover != executionContext.Spell.Caster)
+                        position = executionContext.Spell.Caster.Position;
+                    else if (executionContext.Spell.Parameters.PrimaryTargetId != 0u && executionContext.Spell.Parameters.PrimaryTargetId != mover.Guid)
+                        position = mover.GetVisible<IUnitEntity>(executionContext.Spell.Parameters.PrimaryTargetId)?.Position ?? Vector3.Zero;
                     break;
                 }
             }

@@ -71,7 +71,7 @@ namespace NexusForever.Game.Combat
 
             // TODO: Add in other attacking modifiers like Armor Pierce, Strikethrough, Multi-Hit, etc.
 
-            if (CalculateCrit(ref damage, executionContext.Spell.Caster, victim))
+            if (CalculateCrit(ref damage, GetStatSource(executionContext.Spell.Caster), victim))
                 damageDescription.CombatResult = CombatResult.Critical;
 
             uint preGlanceDamage = damage;
@@ -118,7 +118,7 @@ namespace NexusForever.Game.Combat
             damageDescription.RawScaledDamage = heal;
 
             heal = CalculateBaseDamageVariance(heal);
-            if (CalculateCrit(ref heal, executionContext.Spell.Caster, target))
+            if (CalculateCrit(ref heal, GetStatSource(executionContext.Spell.Caster), target))
                 damageDescription.CombatResult = CombatResult.Critical;
 
             damageDescription.AdjustedDamage = heal;
@@ -130,7 +130,9 @@ namespace NexusForever.Game.Combat
         /// </summary>
         private uint CalculateBaseDamage(IUnitEntity caster, IUnitEntity target, Spell4EffectsEntry entry)
         {
-            float basePropertyDamage = CalculateBasePropertyDamage(caster, entry);
+            IUnitEntity statSource = GetStatSource(caster);
+
+            float basePropertyDamage = CalculateBasePropertyDamage(statSource, entry);
             float baseEntityDamage   = CalculateBaseEntityDamage(caster, target, entry);
 
             float typeMultiplier = 1f;
@@ -163,9 +165,23 @@ namespace NexusForever.Game.Combat
 
             float baseDamage = basePropertyDamage + ((typeBaseDamage + baseEntityDamage) * typeMultiplier);
 
-            float propertyMultiplier = caster.GetProperty((Property)(entry.DamageType + 140)).Value;
+            float propertyMultiplier = statSource.GetProperty((Property)(entry.DamageType + 140)).Value;
 
             return (uint)(propertyMultiplier * baseDamage);
+        }
+
+        /// <summary>
+        /// Returns the <see cref="IUnitEntity"/> whose properties scale the damage and healing of the supplied caster.
+        /// </summary>
+        /// <remarks>
+        /// Combat pet abilities scale with their owner, bot tooltips show damage as a percentage of the Engineer's Assault and Support Power.
+        /// </remarks>
+        private static IUnitEntity GetStatSource(IUnitEntity caster)
+        {
+            if (caster is ICombatPetEntity pet && caster.Map != null)
+                return caster.Map.GetEntity<IUnitEntity>(pet.OwnerGuid) ?? caster;
+
+            return caster;
         }
 
         private float CalculateBasePropertyDamage(IUnitEntity caster, Spell4EffectsEntry entry)
@@ -267,7 +283,7 @@ namespace NexusForever.Game.Combat
                         intermediateValue = (caster.MaxShieldCapacity - caster.Shield);
                         break;
                     case SpellEffectParameterType.PerLevel:
-                        intermediateValue = caster.Level;
+                        intermediateValue = GetStatSource(caster).Level;
                         break;
                 }
 
