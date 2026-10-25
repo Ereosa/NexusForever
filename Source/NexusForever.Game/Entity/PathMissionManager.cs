@@ -5,6 +5,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Prerequisite;
+using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.PlayerPath;
@@ -47,7 +48,8 @@ namespace NexusForever.Game.Entity
             PathMissionType.ScientistDatacubeDiscovery,
             PathMissionType.ExplorerScavengerHunt,
             PathMissionType.ExplorerDoor,
-            PathMissionType.SettlerMayor
+            PathMissionType.SettlerMayor,
+            PathMissionType.ScientistSpecimenSurvey
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -281,7 +283,7 @@ namespace NexusForever.Game.Entity
             log.Trace($"Player {player.CharacterId} unlocked path mission {entry.Id}.");
 
             OnMissionUnlocked(mission);
-            if (hidden)
+            if (hidden || mission.Type == PathMissionType.ScientistSpecimenSurvey)
                 player.PathScientistManager.RefreshScannableEntities();
             return mission;
         }
@@ -350,6 +352,23 @@ namespace NexusForever.Game.Entity
                 }
                 case PathMissionType.ScientistScan:
                     return mission.Progress >= 100u;
+                case PathMissionType.ScientistSpecimenSurvey:
+                {
+                    PathScientistSpecimenSurveyEntry survey = GameTableManager.Instance.PathScientistSpecimenSurvey.GetEntry(mission.Entry.ObjectId);
+                    if (survey == null)
+                        return false;
+
+                    // client GetNumNeeded counts the objectives with text
+                    TextTable text = GameTableManager.Instance.GetTextTable(Language.English);
+                    uint needed = (uint)new[]
+                    {
+                        survey.LocalizedTextIdObjective00, survey.LocalizedTextIdObjective01, survey.LocalizedTextIdObjective02,
+                        survey.LocalizedTextIdObjective03, survey.LocalizedTextIdObjective04, survey.LocalizedTextIdObjective05,
+                        survey.LocalizedTextIdObjective06, survey.LocalizedTextIdObjective07, survey.LocalizedTextIdObjective08,
+                        survey.LocalizedTextIdObjective09
+                    }.Count(id => id != 0u && !string.IsNullOrEmpty(text?.GetEntry(id)));
+                    return needed > 0u && BitOperations.PopCount(mission.Progress) >= needed;
+                }
                 case PathMissionType.SettlerMayor:
                 {
                     uint needed = (uint)GetMayorTasks(mission.Entry.ObjectId).Count(t => t.TextId != 0u);

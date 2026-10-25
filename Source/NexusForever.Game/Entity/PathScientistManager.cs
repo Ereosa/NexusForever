@@ -4,6 +4,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Spell;
+using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.PlayerPath;
 using NexusForever.GameTable;
@@ -188,7 +189,84 @@ namespace NexusForever.Game.Entity
             foreach (uint creatureInfoId in AssetManager.Instance.GetScientistCreatureInfoIds(target.CreatureId))
                 ScanCreatureInfo(target, creatureInfoId);
 
+            foreach ((IPathMission mission, int index) in GetSpecimenObjectives(target))
+                player.PathMissionManager.UpdateMission(mission, mission.Progress | (1u << index), mission.State);
+
             SendScanParameters(target);
+        }
+
+        private static readonly Dictionary<uint, string> creatureNames = new();
+        private static readonly object creatureNameLock = new();
+
+        private static string GetCreatureName(uint creatureId)
+        {
+            lock (creatureNameLock)
+            {
+                if (!creatureNames.TryGetValue(creatureId, out string name))
+                {
+                    Creature2Entry entry = GameTableManager.Instance.Creature2.GetEntry(creatureId);
+                    name = entry != null ? GameTableManager.Instance.GetTextTable(Language.English)?.GetEntry(entry.LocalizedTextIdName) ?? "" : "";
+                    // strip plural forms, e.g. "Fierce Skeech Shaman{p:Fierce Skeech Shamans}"
+                    int plural = name.IndexOf('{');
+                    if (plural >= 0)
+                        name = name[..plural];
+                    name = name.Trim().ToLowerInvariant();
+                    creatureNames.Add(creatureId, name);
+                }
+
+                return name;
+            }
+        }
+
+        /// <summary>
+        /// Specimen survey objectives name the specimen to scan, e.g. "Squirg Spewer" or "Scan a male Scourwind Falkrin".
+        /// </summary>
+        private static string GetSpecimenName(uint localizedTextId)
+        {
+            string text = GameTableManager.Instance.GetTextTable(Language.English)?.GetEntry(localizedTextId);
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            text = text.Trim().ToLowerInvariant();
+            foreach (string prefix in new[] { "scan ", "the ", "an ", "a ", "male ", "female " })
+                if (text.StartsWith(prefix))
+                    text = text[prefix.Length..];
+            foreach (string prefix in new[] { "the ", "an ", "a ", "male ", "female " })
+                if (text.StartsWith(prefix))
+                    text = text[prefix.Length..];
+            return text;
+        }
+
+        private IEnumerable<(IPathMission Mission, int Index)> GetSpecimenObjectives(IWorldEntity entity)
+        {
+            string name = GetCreatureName(entity.CreatureId);
+            if (string.IsNullOrEmpty(name))
+                yield break;
+
+            foreach (IPathMission mission in player.PathMissionManager
+                .Where(m => !m.Completed && m.Type == PathMissionType.ScientistSpecimenSurvey)
+                .ToList())
+            {
+                PathScientistSpecimenSurveyEntry survey = GameTableManager.Instance.PathScientistSpecimenSurvey.GetEntry(mission.Entry.ObjectId);
+                if (survey == null)
+                    continue;
+
+                uint[] objectives =
+                [
+                    survey.LocalizedTextIdObjective00, survey.LocalizedTextIdObjective01, survey.LocalizedTextIdObjective02,
+                    survey.LocalizedTextIdObjective03, survey.LocalizedTextIdObjective04, survey.LocalizedTextIdObjective05,
+                    survey.LocalizedTextIdObjective06, survey.LocalizedTextIdObjective07, survey.LocalizedTextIdObjective08,
+                    survey.LocalizedTextIdObjective09
+                ];
+                for (int i = 0; i < objectives.Length; i++)
+                {
+                    if (objectives[i] == 0u || (mission.Progress & (1u << i)) != 0u)
+                        continue;
+
+                    if (GetSpecimenName(objectives[i]) == name)
+                        yield return (mission, i);
+                }
+            }
         }
 
         private void ScanCreatureInfo(IWorldEntity target, uint creatureInfoId)
@@ -252,8 +330,8 @@ namespace NexusForever.Game.Entity
                 scannedUnits.Remove(target.Guid);
             }
 
-            return AssetManager.Instance.GetScientistCreatureInfoIds(target.CreatureId)
-                .Any(id => GetScanMissions(id).Any());
+            return AssetManager.Instance.GetScientistCreatureInfoIds(target.CreatureId).Any(id => GetScanMissions(id).Any())
+                || GetSpecimenObjectives(target).Any();
         }
 
         public void OnAddVisible(IWorldEntity entity)
@@ -262,8 +340,19 @@ namespace NexusForever.Game.Entity
                 return;
 
             var infoIds = AssetManager.Instance.GetScientistCreatureInfoIds(entity.CreatureId);
-            if (infoIds.Count == 0)
+            var specimens = GetSpecimenObjectives(entity).ToList();
+            if (infoIds.Count == 0 && specimens.Count == 0)
                 return;
+
+            foreach ((IPathMission mission, int index) in specimens)
+            {
+                player.Session.EnqueueMessageEncrypted(new ServerPathScientistAddSpecimenSurveyToCreature
+                {
+                    UnitId                        = entity.Guid,
+                    PathScientistSpecimenSurveyId = mission.Entry.ObjectId,
+                    ObjectiveIndex                = (uint)index
+                });
+            }
 
             foreach (uint infoId in infoIds)
             {
@@ -283,7 +372,7 @@ namespace NexusForever.Game.Entity
             player.Session.EnqueueMessageEncrypted(new ServerPathScientistUnitScanParameters
             {
                 UnitId          = entity.Guid,
-                ScanRewardFlags = scannable ? ScanReward.RewardForScan : 0,
+                ScanRewardFlags = scannable ? (GetSpecimenObjectives(entity).Any() ? ScanReward.SpecimenSurveyReward : ScanReward.RewardForScan) : 0,
                 IsScannable     = scannable
             });
         }
@@ -293,9 +382,9 @@ namespace NexusForever.Game.Entity
             if (player.Path != Path.Scientist)
                 return;
 
-            foreach (IWorldEntity entity in player.GetVisible().OfType<IWorldEntity>().ToList())
-                if (AssetManager.Instance.GetScientistCreatureInfoIds(entity.CreatureId).Count > 0)
-                    SendScanParameters(entity);
+            foreach (IWorldEntity entity in player.GetVisible().OfType<IWorldEntity>().Where(e => e is not IPlayer).ToList())
+                if (AssetManager.Instance.GetScientistCreatureInfoIds(entity.CreatureId).Count > 0 || GetSpecimenObjectives(entity).Any())
+                    OnAddVisible(entity);
         }
     }
 }
