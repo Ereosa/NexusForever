@@ -242,6 +242,7 @@ namespace NexusForever.Game.Entity
         public IPathMissionManager PathMissionManager { get; private set; }
         public IPathScientistManager PathScientistManager { get; private set; }
         public IPathSoldierManager PathSoldierManager { get; private set; }
+        public IPathSettlerManager PathSettlerManager { get; private set; }
         public ITitleManager TitleManager { get; private set; }
         public ISpellManager SpellManager { get; private set; }
         public ICostumeManager CostumeManager { get; private set; }
@@ -384,6 +385,7 @@ namespace NexusForever.Game.Entity
             PathMissionManager      = new PathMissionManager(this, model);
             PathScientistManager    = new PathScientistManager(this);
             PathSoldierManager      = new PathSoldierManager(this);
+            PathSettlerManager      = new PathSettlerManager(this);
             QuestManager.Initialise(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
@@ -742,6 +744,7 @@ namespace NexusForever.Game.Entity
 
             ZoneMapManager.OnZoneUpdate();
             PathMissionManager.OnZoneUpdate();
+            PathSettlerManager.OnZoneUpdate();
 
             messagePublisher.PublishAsync(new PlayerWorldZoneUpdatedMessage
             {
