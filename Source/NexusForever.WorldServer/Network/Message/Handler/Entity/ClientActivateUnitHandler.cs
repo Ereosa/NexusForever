@@ -15,6 +15,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 
             // TODO: sanity check for range etc.
 
+            // units without an activate spell, e.g. settler depots
+            session.Player.PathSettlerManager.OnEntityInteract(entity);
             entity.OnActivate(session.Player);
         }
     }

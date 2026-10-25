@@ -686,6 +686,16 @@ namespace NexusForever.Game.Entity
             RemoveFromMap();
         }
 
+        public void DespawnWithRespawn(TimeSpan respawnDelay)
+        {
+            if (Map == null)
+                return;
+
+            if (questObjectSpawnModel != null && CreatureInfo != null)
+                Map.ScheduleRespawn(CreatureInfo, questObjectSpawnModel, respawnDelay);
+            RemoveFromMap();
+        }
+
         /// <summary>
         /// Invoked when <see cref="IWorldEntity"/>'s activation fails.
         /// </summary>
