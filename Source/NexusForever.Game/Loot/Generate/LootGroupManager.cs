@@ -103,6 +103,14 @@ namespace NexusForever.Game.Loot.Generate
             return GenerateLoot(id, itemLoot, players);
         }
 
+        /// <summary>
+        /// Returns if the supplied item id has a loot table (eg: loot bags).
+        /// </summary>
+        public bool HasItemLoot(uint id)
+        {
+            return itemLoot.ContainsKey(id);
+        }
+
         private ILootBuilder GenerateLoot(uint id, Dictionary<uint, List<ILootGroup>> storage, IEnumerable<IPlayer> players)
         {
             if (!storage.TryGetValue(id, out List<ILootGroup> lootGroups))

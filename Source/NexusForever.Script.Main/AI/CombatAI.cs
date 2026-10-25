@@ -184,7 +184,8 @@ namespace NexusForever.Script.Main.AI
             if (source is not IUnitEntity unit)
                 return;
 
-            if (entity.GetDispositionTo(unit.Faction1) != Disposition.Hostile)
+            // units without a faction (eg: scenery units) are never hostile
+            if (unit.Faction1 == 0 || entity.GetDispositionTo(unit.Faction1) != Disposition.Hostile)
                 return;
 
             var spellParameters = spellParametersFactory.Resolve();
