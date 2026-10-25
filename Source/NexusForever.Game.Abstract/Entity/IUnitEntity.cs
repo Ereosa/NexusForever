@@ -1,5 +1,6 @@
-using NexusForever.Game.Abstract.Combat;
+﻿using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Abstract.Spell.Target;
 using NexusForever.Game.Abstract.Spell.Proc;
 using NexusForever.Game.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
@@ -118,6 +119,21 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         /// <param name="castingId">Casting ID of the spell to cancel</param>
         void CancelSpellCast(uint castingId);
+
+        /// <summary>
+        /// Add a <see cref="SpellEffectImmunityType"/> immunity from the supplied spell effect.
+        /// </summary>
+        void AddImmunity(ISpellTargetEffectInfo info, SpellEffectImmunityType type);
+
+        /// <summary>
+        /// Remove the immunity added by the supplied spell effect.
+        /// </summary>
+        void RemoveImmunity(ISpellTargetEffectInfo info);
+
+        /// <summary>
+        /// Returns if this <see cref="IUnitEntity"/> is immune to <see cref="SpellEffectImmunityType"/>.
+        /// </summary>
+        bool IsImmune(SpellEffectImmunityType type);
 
         /// <summary>
         /// Determine if this <see cref="IUnitEntity"/> can attack supplied <see cref="IUnitEntity"/>.

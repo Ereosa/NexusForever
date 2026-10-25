@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
@@ -483,6 +483,32 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Determine if this <see cref="IUnitEntity"/> can attack supplied <see cref="IUnitEntity"/>.
         /// </summary>
+        private readonly Dictionary<ISpellTargetEffectInfo, SpellEffectImmunityType> immunities = [];
+
+        /// <summary>
+        /// Add a <see cref="SpellEffectImmunityType"/> immunity from the supplied spell effect.
+        /// </summary>
+        public void AddImmunity(ISpellTargetEffectInfo info, SpellEffectImmunityType type)
+        {
+            immunities[info] = type;
+        }
+
+        /// <summary>
+        /// Remove the immunity added by the supplied spell effect.
+        /// </summary>
+        public void RemoveImmunity(ISpellTargetEffectInfo info)
+        {
+            immunities.Remove(info);
+        }
+
+        /// <summary>
+        /// Returns if this <see cref="IUnitEntity"/> is immune to <see cref="SpellEffectImmunityType"/>.
+        /// </summary>
+        public bool IsImmune(SpellEffectImmunityType type)
+        {
+            return immunities.ContainsValue(type);
+        }
+
         public virtual bool CanAttack(IUnitEntity target)
         {
             if (!IsAlive)

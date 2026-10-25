@@ -1,18 +1,160 @@
+using System.Diagnostics;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Static.Reputation;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
+using NexusForever.Shared;
+using NexusForever.Shared.Game;
 
 namespace NexusForever.Script.Main.Tutorial.Script.Part2
 {
+    /// <summary>
+    /// Dominion turrets in The Face of the Enemy.
+    /// </summary>
+    /// <remarks>
+    /// The turret is immune to damage and charges an 8 second shot at the player. Interrupting the charge gives a
+    /// 15 second Moment of Opportunity where the immunity is removed and the turret can be destroyed.
+    /// </remarks>
     [ScriptFilterCreatureId(73494)]
-    public class TurretEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
+    public class TurretEntityScript : IUnitScript, IOwnedScript<ICreatureEntity>
     {
+        private enum SpellId
+        {
+            Charging            = 85469,
+            MomentOfOpportunity = 85472,
+            TurretImmune        = 85474
+        }
+
+        private const float Range = 25f;
+        private static readonly TimeSpan ChargeTime          = TimeSpan.FromSeconds(8d);
+        private static readonly TimeSpan OpportunityDuration = TimeSpan.FromSeconds(15d);
+        private static readonly TimeSpan ChargeCooldown      = TimeSpan.FromSeconds(2d);
+
+        private ICreatureEntity owner;
+
+        private ISpell charge;
+        private readonly Stopwatch chargeTimer = new();
+        private readonly UpdateTimer cooldown = new(ChargeCooldown, false);
+        private readonly UpdateTimer opportunity = new(OpportunityDuration, false);
+
+        #region Dependency Injection
+
+        private readonly IFactory<ISpellParameters> spellParameterFactory;
+
+        public TurretEntityScript(
+            IFactory<ISpellParameters> spellParameterFactory)
+        {
+            this.spellParameterFactory = spellParameterFactory;
+        }
+
+        #endregion
+
         /// <summary>
         /// Invoked when <see cref="IScript"/> is loaded.
         /// </summary>
-        public void OnLoad(IWorldEntity owner)
+        public void OnLoad(ICreatureEntity owner)
         {
+            this.owner = owner;
             TutorialFaction.MakeHostile(owner);
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IGridEntity"/> is added to <see cref="IBaseMap"/>.
+        /// </summary>
+        public void OnAddToMap(IBaseMap map)
+        {
+            Cast(SpellId.TurretImmune, owner.Guid);
+        }
+
+        /// <summary>
+        /// Invoked each world tick with the delta since the previous tick occurred.
+        /// </summary>
+        public void Update(double lastTick)
+        {
+            if (!owner.IsAlive)
+                return;
+
+            if (opportunity.IsTicking)
+            {
+                opportunity.Update(lastTick);
+                if (opportunity.HasElapsed)
+                {
+                    opportunity.Reset(false);
+                    Cast(SpellId.TurretImmune, owner.Guid);
+                }
+                return;
+            }
+
+            if (charge != null)
+            {
+                if (!charge.IsFinished)
+                    return;
+
+                // a charge that ended early was interrupted
+                if (chargeTimer.Elapsed < ChargeTime - TimeSpan.FromSeconds(0.5d))
+                {
+                    Cast(SpellId.MomentOfOpportunity, owner.Guid);
+                    opportunity.Reset(true);
+                }
+
+                charge = null;
+                cooldown.Reset(true);
+                return;
+            }
+
+            if (cooldown.IsTicking)
+            {
+                cooldown.Update(lastTick);
+                if (!cooldown.HasElapsed)
+                    return;
+                cooldown.Reset(false);
+            }
+
+            IPlayer target = owner.Map.Search(owner.Position, Range, new SearchCheckHostilePlayer(owner)).FirstOrDefault();
+            if (target == null)
+                return;
+
+            owner.MovementManager.SetRotationFaceUnit(target.Guid);
+            Cast(SpellId.Charging, target.Guid);
+            if (owner.HasSpell(s => s.Spell4Id == (uint)SpellId.Charging && s.IsCasting, out ISpell spell))
+            {
+                charge = spell;
+                chargeTimer.Restart();
+            }
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IUnitEntity"/> is killed.
+        /// </summary>
+        public void OnDeath()
+        {
+            charge = null;
+            opportunity.Reset(false);
+        }
+
+        private void Cast(SpellId spell, uint targetId)
+        {
+            ISpellParameters parameters = spellParameterFactory.Resolve();
+            parameters.PrimaryTargetId        = targetId;
+            parameters.UserInitiatedSpellCast = false;
+            owner.CastSpell((uint)spell, parameters);
+        }
+
+        private class SearchCheckHostilePlayer : Game.Abstract.Map.Search.ISearchCheck<IPlayer>
+        {
+            private readonly ICreatureEntity owner;
+
+            public SearchCheckHostilePlayer(ICreatureEntity owner)
+            {
+                this.owner = owner;
+            }
+
+            public bool CheckEntity(IPlayer entity)
+            {
+                return entity.IsAlive && owner.GetDispositionTo(entity.Faction1) == Disposition.Hostile;
+            }
         }
     }
 }

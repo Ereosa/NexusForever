@@ -49,6 +49,9 @@ namespace NexusForever.Game.Spell.Effect.Handler
                     return BuildCombatLog(data.CCState, CCStateApplyRulesResult.TargetImmune, executionContext.Spell, target);
             }
 
+            if (target.IsImmune(SpellEffectImmunityType.CCState))
+                return BuildCombatLog(data.CCState, CCStateApplyRulesResult.TargetImmune, executionContext.Spell, target);
+
             if (target.MaxInterruptArmour == -1)
                 return BuildCombatLog(data.CCState, CCStateApplyRulesResult.TargetInfiniteInterruptArmor, executionContext.Spell, target);
 
