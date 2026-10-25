@@ -9,6 +9,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Challenges;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
@@ -22,8 +23,10 @@ using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Abstract.Reputation;
+using NexusForever.Game.Abstract.Reward;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Achievement;
+using NexusForever.Game.Challenges;
 using NexusForever.Game.Character;
 using NexusForever.Game.Chat;
 using NexusForever.Game.Crafting;
@@ -33,6 +36,7 @@ using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Reputation;
+using NexusForever.Game.Reward;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Chat;
 using NexusForever.Game.Static.Entity;
@@ -261,6 +265,8 @@ namespace NexusForever.Game.Entity
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
         public ITradeskillManager TradeskillManager { get; private set; }
         public ICraftingManager CraftingManager { get; private set; }
+        public IChallengeManager ChallengeManager { get; private set; }
+        public IRewardTrackManager RewardTrackManager { get; private set; }
         public IXpManager XpManager { get; private set; }
         public IReputationManager ReputationManager { get; private set; }
         public IGuildManager GuildManager { get; }
@@ -403,6 +409,8 @@ namespace NexusForever.Game.Entity
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             TradeskillManager       = new TradeskillManager(this, model);
             CraftingManager         = new CraftingManager(this);
+            ChallengeManager        = new ChallengeManager(this, model);
+            RewardTrackManager      = new RewardTrackManager(this, model);
             XpManager               = new XpManager(this, model);
             ReputationManager       = new ReputationManager(this, model);
             GuildManager.Initialise(this, model);
@@ -450,6 +458,7 @@ namespace NexusForever.Game.Entity
             PathScientistManager.Update(lastTick);
             PathSoldierManager.Update(lastTick);
             PathExplorerManager.Update(lastTick);
+            ChallengeManager.Update(lastTick);
             ResurrectionManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
@@ -646,6 +655,8 @@ namespace NexusForever.Game.Entity
             AchievementManager.Save(context);
             SupplySatchelManager.Save(context);
             TradeskillManager.Save(context);
+            ChallengeManager.Save(context);
+            RewardTrackManager.Save(context);
             XpManager.Save(context);
             ReputationManager.Save(context);
             GuildManager.Save(context);
@@ -811,6 +822,8 @@ namespace NexusForever.Game.Entity
             ZoneMapManager.OnZoneUpdate();
             PathMissionManager.OnZoneUpdate();
             PathSettlerManager.OnZoneUpdate();
+            ChallengeManager.OnZoneUpdate();
+            RewardTrackManager.OnZoneUpdate();
 
             messagePublisher.PublishAsync(new PlayerWorldZoneUpdatedMessage
             {
@@ -898,6 +911,8 @@ namespace NexusForever.Game.Entity
             AchievementManager.SendInitialPackets(null);
             TradeskillManager.SendInitialPackets();
             Account.RewardPropertyManager.SendInitialPackets();
+            RewardTrackManager.SendInitialPackets();
+            ChallengeManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
 
             Session.EnqueueMessageEncrypted(new ServerPhaseVisibilityWorldLocation
@@ -1118,6 +1133,7 @@ namespace NexusForever.Game.Entity
         private void OnLogout()
         {
             GuildManager.OnLogout();
+            ChallengeManager.OnLogout();
 
             matchingManager.OnLogout(this);
             matchManager.OnLogout(this);

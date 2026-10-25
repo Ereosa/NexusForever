@@ -627,6 +627,7 @@ namespace NexusForever.Game.Entity
 
                 activator.PathMissionManager.OnEntityActivated(this);
                 activator.PathSettlerManager.OnEntityActivated(this);
+                activator.ChallengeManager.OnActivateSuccess(this);
 
                 if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
                     activator.PathSoldierManager.OnActivate(this);
