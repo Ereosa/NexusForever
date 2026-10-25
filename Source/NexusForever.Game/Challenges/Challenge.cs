@@ -1,7 +1,14 @@
+using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Database.Character.Model;
+using NexusForever.Game.Abstract.Challenges;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Challenges;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Script;
+using NexusForever.Script.Template;
+using NexusForever.Script.Template.Collection;
+using NexusForever.Shared;
 using NetworkChallenge = NexusForever.Network.World.Message.Model.Challenges.ServerChallengeUpdate.Challenge;
 
 namespace NexusForever.Game.Challenges
@@ -9,9 +16,10 @@ namespace NexusForever.Game.Challenges
     /// <summary>
     /// State of a challenge the player has unlocked.
     /// </summary>
-    public class Challenge
+    public class Challenge : IChallenge
     {
         public ChallengeEntry Entry { get; }
+        public IPlayer Player { get; }
         public ChallengeType Type => (ChallengeType)Entry.ChallengeTypeEnum;
         public ChallengeFlags Flags => (ChallengeFlags)Entry.ChallengeFlags;
         public bool IsTimeTiered => (Flags & ChallengeFlags.TimeTiered) != 0;
@@ -59,8 +67,11 @@ namespace NexusForever.Game.Challenges
         public bool IsNew { get; set; }
         public bool IsDirty { get; set; }
 
-        public Challenge(ChallengeEntry entry)
+        private IScriptCollection scriptCollection;
+
+        public Challenge(IPlayer player, ChallengeEntry entry)
         {
+            Player   = player;
             Entry    = entry;
             Tiers    = new[] { entry.ChallengeTierId00, entry.ChallengeTierId01, entry.ChallengeTierId02 }
                 .TakeWhile(t => t != 0u)
@@ -69,12 +80,48 @@ namespace NexusForever.Game.Challenges
             Duration = GetDuration();
         }
 
-        public Challenge(ChallengeEntry entry, CharacterChallengeModel model)
-            : this(entry)
+        public Challenge(IPlayer player, ChallengeEntry entry, CharacterChallengeModel model)
+            : this(player, entry)
         {
             CompletionCount   = model.CompletionCount;
             LastRewardTier    = model.LastRewardTier;
             CooldownRemaining = model.CooldownRemaining;
+        }
+
+        /// <summary>
+        /// Load the scripts of the challenge, they run while the challenge runs.
+        /// </summary>
+        public void LoadScripts()
+        {
+            IScriptManager scriptManager = LegacyServiceProvider.Provider.GetService<IScriptManager>();
+            scriptCollection = scriptManager.InitialiseOwnedCollection<IChallenge>(this);
+            scriptManager.InitialiseOwnedScripts<IChallenge>(scriptCollection, Entry.Id);
+            scriptCollection.Invoke<IChallengeScript>(s => s.OnActivate());
+        }
+
+        /// <summary>
+        /// Invoke the challenge scripts each world tick while the challenge runs.
+        /// </summary>
+        public void UpdateScripts(double lastTick)
+        {
+            scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
+        }
+
+        public void InvokeScripts(Action<IChallengeScript> action)
+        {
+            scriptCollection?.Invoke(action);
+        }
+
+        /// <summary>
+        /// Notify the challenge scripts that the challenge stopped and unload them.
+        /// </summary>
+        /// <returns>The unloaded collection, to be released once no script call is running.</returns>
+        public IScriptCollection StopScripts(bool completed)
+        {
+            IScriptCollection collection = scriptCollection;
+            scriptCollection = null;
+            collection?.Invoke<IChallengeScript>(s => s.OnStop(completed));
+            return collection;
         }
 
         /// <summary>

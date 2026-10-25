@@ -36,9 +36,9 @@ namespace NexusForever.Game.Abstract.Challenges
         void OnItemAdded(uint itemId, uint count);
 
         /// <summary>
-        /// Invoked when a spell cast by the player lands an effect on a unit.
+        /// Invoked when a spell cast by the player lands an effect on a unit, <paramref name="firstHit"/> is set for the first unit of the cast.
         /// </summary>
-        void OnSpellEffectHit(uint spell4Id, IUnitEntity target);
+        void OnSpellEffectHit(uint spell4Id, IUnitEntity target, bool firstHit);
 
         /// <summary>
         /// Invoked when the player picks a challenge option in the client (start, abandon, accept or decline a shared challenge).
