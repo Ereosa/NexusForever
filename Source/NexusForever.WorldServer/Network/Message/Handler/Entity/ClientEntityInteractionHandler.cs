@@ -33,6 +33,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
         public void HandleMessage(IWorldSession session, ClientEntityInteract entityInteraction)
         {
             IWorldEntity entity = session.Player.GetVisible<IWorldEntity>(entityInteraction.UnitId);
+            log.LogDebug($"Interaction {entityInteraction.Type} with unit {entityInteraction.UnitId} (creature {entity?.CreatureId ?? 0u}).");
 
             if (entityInteraction.Type == InteractionType.TalkTo && entity != null)
             {
@@ -59,12 +60,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 
             switch (entityInteraction.Type)
             {
-                case InteractionType.SettlerImprovement: // "InvokeSettlerBuild"
-                {
-                    if (entity != null)
-                        session.Player.PathSettlerManager.OpenDepot(entity);
+                case InteractionType.SettlerImprovement: // "InvokeSettlerBuild", depots are opened by PathSettlerManager.OnEntityInteract
                     break;
-                }
                 case InteractionType.TalkTo: // Quest NPC
                 {
                     session.EnqueueMessageEncrypted(new ServerDialogStart

@@ -1,5 +1,7 @@
 using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Static;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Spell;
 using NexusForever.Game.Static.PlayerPath;
 using NexusForever.GameTable;
@@ -334,10 +336,85 @@ namespace NexusForever.Game.Entity
             }
         }
 
+        // Creature2Affiliation of settler world objects
+        private const uint AffiliationSettlerDepot     = 152u;
+        private const uint AffiliationSettlerResource  = 159u;
+        private const uint AffiliationSettlerStructure = 332u;
+
+        /// <summary>
+        /// Time before a collected settler resource or a built settler structure is available again.
+        /// </summary>
+        /// <remarks>
+        /// Retail values are unknown, the client data has no respawn times.
+        /// </remarks>
+        private static readonly TimeSpan SettlerObjectRespawnDelay = TimeSpan.FromMinutes(3d);
+
+        private static Dictionary<string, uint> resourceItems;
+
+        /// <summary>
+        /// Settler resource nodes are named after the hub resource item they give, e.g. "Salvaged Machine Parts".
+        /// </summary>
+        private static uint GetResourceItemId(uint creatureId)
+        {
+            lock (improvementLock)
+            {
+                TextTable text = GameTableManager.Instance.GetTextTable(Language.English);
+                if (resourceItems == null)
+                {
+                    resourceItems = new Dictionary<string, uint>(StringComparer.OrdinalIgnoreCase);
+                    foreach (PathSettlerHubEntry hub in GameTableManager.Instance.PathSettlerHub.Entries.Where(h => h != null))
+                    {
+                        foreach (uint itemId in new[] { hub.Item2IdResource00, hub.Item2IdResource01, hub.Item2IdResource02 })
+                        {
+                            Item2Entry item = itemId != 0u ? GameTableManager.Instance.Item.GetEntry(itemId) : null;
+                            string name = item != null ? StripPlural(text?.GetEntry(item.LocalizedTextIdName)) : null;
+                            if (!string.IsNullOrEmpty(name))
+                                resourceItems.TryAdd(name, itemId);
+                        }
+                    }
+                }
+
+                Creature2Entry creature = GameTableManager.Instance.Creature2.GetEntry(creatureId);
+                string creatureName = creature != null ? StripPlural(text?.GetEntry(creature.LocalizedTextIdName)) : null;
+                return creatureName != null && resourceItems.TryGetValue(creatureName, out uint resourceItemId) ? resourceItemId : 0u;
+            }
+        }
+
+        private static string StripPlural(string name)
+        {
+            if (name == null)
+                return null;
+
+            int plural = name.IndexOf('{');
+            return (plural >= 0 ? name[..plural] : name).Trim();
+        }
+
         public void OnEntityActivated(IWorldEntity entity)
         {
             if (player.Path != Path.Settler)
                 return;
+
+            switch (entity.CreatureInfo?.Entry?.Creature2AffiliationId ?? 0u)
+            {
+                // resource nodes give the hub resource used to build improvements
+                case AffiliationSettlerResource:
+                {
+                    uint itemId = GetResourceItemId(entity.CreatureId);
+                    if (itemId != 0u)
+                    {
+                        player.Inventory.ItemCreate(InventoryLocation.Inventory, itemId, 1u, ItemUpdateReason.Loot);
+                        entity.DespawnWithRespawn(SettlerObjectRespawnDelay);
+                    }
+                    break;
+                }
+                // building a settler structure (minfrastructure) is worth a path mission reward
+                case AffiliationSettlerStructure:
+                {
+                    player.PathManager.AddXp(GameTableManager.Instance.GameFormula.GetEntry(378)?.Dataint0 ?? 50u);
+                    entity.DespawnWithRespawn(SettlerObjectRespawnDelay);
+                    break;
+                }
+            }
 
             foreach ((IPathMission mission, PathSettlerInfrastructureEntry entry) in GetInfrastructureMissions(player))
             {
@@ -366,6 +443,13 @@ namespace NexusForever.Game.Entity
         {
             if (player.Path != Path.Settler)
                 return;
+
+            // depots open the build window whichever way the client interacts with them
+            if (GetDepotGroups(entity.CreatureId).Any())
+            {
+                OpenDepot(entity);
+                return;
+            }
 
             foreach ((IPathMission mission, PathSettlerInfrastructureEntry entry) in GetInfrastructureMissions(player))
             {
