@@ -60,6 +60,7 @@ using NexusForever.Network.Session;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Model.Abilities;
 using NexusForever.Network.World.Message.Model.Chat;
 using NexusForever.Network.World.Message.Model.Info;
 using NexusForever.Network.World.Message.Model.Pregame;
@@ -1456,6 +1457,69 @@ namespace NexusForever.Game.Entity
             {
                 Error = error
             });
+        }
+
+        private readonly Dictionary<ShortcutSet, ushort> shownActionBars = [];
+
+        /// <summary>
+        /// Show the supplied action bar to the player, the buttons on it cast their spells through <see cref="CastActionBarShortcut"/>.
+        /// </summary>
+        public void ShowActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId, uint associatedUnitId)
+        {
+            shownActionBars[shortcutSet] = actionBarShortcutSetId;
+            Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            {
+                ShortcutSet            = shortcutSet,
+                ActionBarShortcutSetId = actionBarShortcutSetId,
+                AssociatedUnitId       = associatedUnitId
+            });
+        }
+
+        /// <summary>
+        /// Hide the supplied action bar if it is still the one shown on <paramref name="shortcutSet"/>.
+        /// </summary>
+        public void HideActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId)
+        {
+            if (!shownActionBars.TryGetValue(shortcutSet, out ushort shownId) || shownId != actionBarShortcutSetId)
+                return;
+
+            shownActionBars.Remove(shortcutSet);
+            Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            {
+                ShortcutSet            = shortcutSet,
+                ActionBarShortcutSetId = 0
+            });
+        }
+
+        /// <summary>
+        /// Cast the spell of a button on an action bar shown with <see cref="ShowActionBar"/>, returns false if no such bar is shown.
+        /// </summary>
+        public bool CastActionBarShortcut(ShortcutSet shortcutSet, uint slot, uint targetUnitId, Vector3 position)
+        {
+            if (!shownActionBars.TryGetValue(shortcutSet, out ushort shownId))
+                return false;
+
+            ActionBarShortcutSetEntry entry = GameTableManager.Instance.ActionBarShortcutSet.GetEntry(shownId);
+            if (entry == null)
+                return false;
+
+            uint[] types   = [entry.ShortcutType00, entry.ShortcutType01, entry.ShortcutType02, entry.ShortcutType03, entry.ShortcutType04, entry.ShortcutType05,
+                              entry.ShortcutType06, entry.ShortcutType07, entry.ShortcutType08, entry.ShortcutType09, entry.ShortcutType10, entry.ShortcutType11];
+            uint[] objects = [entry.ObjectId00, entry.ObjectId01, entry.ObjectId02, entry.ObjectId03, entry.ObjectId04, entry.ObjectId05,
+                              entry.ObjectId06, entry.ObjectId07, entry.ObjectId08, entry.ObjectId09, entry.ObjectId10, entry.ObjectId11];
+            if (slot >= types.Length || objects[slot] == 0u)
+                return false;
+
+            // ShortcutType 6 and 7 are spells, see CombatPetManager
+            if (types[slot] is not (6u or 7u) || GameTableManager.Instance.Spell4.GetEntry(objects[slot]) == null)
+                return true;
+
+            ISpellParameters parameters = LegacyServiceProvider.Provider.GetService<IFactory<ISpellParameters>>().Resolve();
+            parameters.PrimaryTargetId        = targetUnitId;
+            parameters.TargetPosition         = new Network.World.Entity.Position(position);
+            parameters.UserInitiatedSpellCast = true;
+            CastSpell(objects[slot], parameters);
+            return true;
         }
 
         /// <summary>

@@ -11,6 +11,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
         /// </summary>
         public void HandleMessage(IWorldSession session, ClientGameCommand gameCommand)
         {
+            // bars shown by spell effects (minigame controls, cannons) first, the engineer pet bar otherwise
+            if (session.Player.CastActionBarShortcut((ShortcutSet)gameCommand.LimitedActionSetId, gameCommand.AbilityItemIndex,
+                gameCommand.TargetUnitId, gameCommand.TargetPosition.Vector))
+                return;
+
             session.Player.CombatPetManager.HandleActionBarCast((ShortcutSet)gameCommand.LimitedActionSetId, gameCommand.AbilityItemIndex,
                 gameCommand.TargetUnitId, gameCommand.TargetPosition.Vector);
         }

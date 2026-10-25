@@ -133,6 +133,10 @@ namespace NexusForever.Game.Challenges
         /// </remarks>
         private double GetDuration()
         {
+            // Speedy Delivery: "Make as many deliveries as you can in 3 minutes", the only challenge that states its time limit
+            if (Entry.Id == 345u)
+                return TimeSpan.FromMinutes(3d).TotalMilliseconds;
+
             double duration = ChallengeManager.DefaultDuration.TotalMilliseconds;
             if (IsTimeTiered && Tiers.Length > 0 && Tiers.Max() + 60000d > duration)
                 duration = Math.Ceiling((Tiers.Max() + 60000d) / 60000d) * 60000d;

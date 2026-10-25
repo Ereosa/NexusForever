@@ -14,6 +14,17 @@ namespace NexusForever.Script.Template
         }
 
         /// <summary>
+        /// Invoked when a spell of <paramref name="source"/> sends a ravel signal to <see cref="IWorldEntity"/> or to the entities around it.
+        /// </summary>
+        /// <remarks>
+        /// Ravel signals (RavelSignal spell effect, signal id in DataBits01) were how retail spells talked to server side event scripts,
+        /// eg: the Data Mining buttons of the Darkwhisper Database send signals 12511 to 12513.
+        /// </remarks>
+        void OnRavelSignal(IUnitEntity source, uint signal)
+        {
+        }
+
+        /// <summary>
         /// Invoked when <see cref="IPlayer"/> talks to <see cref="IWorldEntity"/>.
         /// </summary>
         /// <returns>True if the script handled the interaction, this skips the default talk objective updates and dialog.</returns>
