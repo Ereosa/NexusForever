@@ -12,7 +12,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
             // TODO: handle reset cost
 
             IActionSet actionSet = session.Player.SpellManager.GetActionSet(requestAmpReset.SpecIndex);
-            actionSet.RemoveAmp(requestAmpReset.RespecType, requestAmpReset.Value);
+            session.Player.SpellManager.RemoveAmps(requestAmpReset.SpecIndex, requestAmpReset.RespecType, requestAmpReset.Value);
             session.EnqueueMessageEncrypted(actionSet.BuildServerAmpList());
         }
     }

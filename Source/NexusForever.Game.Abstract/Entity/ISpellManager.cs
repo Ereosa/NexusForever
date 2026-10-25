@@ -1,6 +1,7 @@
 ﻿using NexusForever.Database.Character;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Info;
+using NexusForever.Game.Static.Abilities;
 using NexusForever.Network.World.Message.Static;
 using NexusForever.Shared;
 
@@ -91,6 +92,31 @@ namespace NexusForever.Game.Abstract.Entity
         /// Update active <see cref="IActionSet"/> with supplied index, returned <see cref="SpecError"/> is sent to the client.
         /// </summary>
         SpecError SetActiveActionSet(byte value);
+
+        /// <summary>
+        /// Returns if the spell level prerequisite of the supplied spell is met, eg: abilities unlocked through AMPs.
+        /// </summary>
+        bool CanCastSpell(uint spell4BaseId);
+
+        /// <summary>
+        /// Returns the total AMP power available to the player.
+        /// </summary>
+        uint GetAmpPower();
+
+        /// <summary>
+        /// Add the supplied AMPs to the <see cref="IActionSet"/>, AMPs already in the action set are ignored.
+        /// </summary>
+        LimitedActionSetResult AddAmps(byte actionSetIndex, IEnumerable<ushort> ampIds);
+
+        /// <summary>
+        /// Remove AMPs from the <see cref="IActionSet"/>, AMPs that are no longer valid are also removed.
+        /// </summary>
+        void RemoveAmps(byte actionSetIndex, AmpRespecType type, uint value);
+
+        /// <summary>
+        /// Cast the passive spells of the AMPs in the active <see cref="IActionSet"/> and remove those of AMPs no longer active.
+        /// </summary>
+        void UpdateAmpPassives();
 
         /// <summary>
         /// Set the supplied spell as the spell to Continuously Cast when GCD expires. Should only be called by a <see cref="ICharacterSpell"/>.

@@ -206,6 +206,17 @@ namespace NexusForever.Game.Spell
 
         private void CastSpell()
         {
+            // abilities unlocked through AMPs can't be cast without the AMP
+            if (!Owner.SpellManager.CanCastSpell(BaseInfo.Entry.Id))
+            {
+                Owner.Session.EnqueueMessageEncrypted(new ServerSpellCastResult
+                {
+                    Spell4Id   = SpellInfo.Entry.Id,
+                    CastResult = CastResult.PrereqCasterCast
+                });
+                return;
+            }
+
             var spellInfoToCast = SpellInfo;
             if (AlternateSpellInfo != null && CheckRunnerOverride())
                 spellInfoToCast = AlternateSpellInfo;

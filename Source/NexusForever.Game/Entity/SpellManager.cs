@@ -7,6 +7,7 @@ using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Info;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Spell;
+using NexusForever.Game.Static.Abilities;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
@@ -74,6 +75,16 @@ namespace NexusForever.Game.Entity
 
         private SpellManagerSaveMask saveMask;
 
+        /// <summary>
+        /// Spell level prerequisites of known spells, keyed by Spell4Base id.
+        /// </summary>
+        private readonly Dictionary<uint, uint> spellPrerequisites = [];
+
+        /// <summary>
+        /// AMP passive spells currently cast on the player.
+        /// </summary>
+        private readonly HashSet<uint> ampPassiveSpell4Ids = [];
+
         private readonly Dictionary<Class, List<uint> /* spell4Id*/> classPassives = new Dictionary<Class, List<uint>>
         {
             { Class.Warrior, new List<uint> { 46707 } },
@@ -127,13 +138,13 @@ namespace NexusForever.Game.Entity
                 .Where(s => s.ClassId == (byte)player.Class && s.CharacterLevel <= player.Level)
                 .OrderBy(s => s.CharacterLevel))
             {
-                //FIXME
-                if (spellLevel.PrerequisiteId > 0)
-                    continue;
-
                 Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(spellLevel.Spell4Id);
                 if (spell4Entry == null)
                     continue;
+
+                // abilities with a prerequisite (eg: 42810 Repair Bot "Unlocked through AMPs") are known but can only be cast while it is met
+                if (spellLevel.PrerequisiteId > 0)
+                    spellPrerequisites[spell4Entry.Spell4BaseIdBaseSpell] = spellLevel.PrerequisiteId;
 
                 if (GetSpell(spell4Entry.Spell4BaseIdBaseSpell) == null)
                     AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
@@ -536,7 +547,207 @@ namespace NexusForever.Game.Entity
             // TODO: handle other errors
 
             ActiveActionSet = value;
+            UpdateAmpPassives();
             return SpecError.Ok;
+        }
+
+        /// <summary>
+        /// Returns if the spell level prerequisite of the supplied spell is met.
+        /// </summary>
+        public bool CanCastSpell(uint spell4BaseId)
+        {
+            if (!spellPrerequisites.TryGetValue(spell4BaseId, out uint prerequisiteId))
+                return true;
+
+            return PrerequisiteManager.Instance.Meets(player, prerequisiteId);
+        }
+
+        /// <summary>
+        /// Returns the total AMP power available to the player.
+        /// </summary>
+        /// <remarks>
+        /// Matches the client: game formula 942 grants Dataint01 power at level Dataint0 and Datafloat0 power each level after.
+        /// </remarks>
+        public uint GetAmpPower()
+        {
+            GameFormulaEntry formula = GameTableManager.Instance.GameFormula.GetEntry(942);
+            uint startLevel  = formula?.Dataint0 ?? 10u;
+            uint startPower  = formula?.Dataint01 ?? 4u;
+            float levelPower = formula?.Datafloat0 ?? 1f;
+
+            if (player.Level < startLevel)
+                return 0u;
+
+            return startPower + (uint)((player.Level - startLevel) * levelPower);
+        }
+
+        /// <summary>
+        /// Add the supplied AMPs to the <see cref="IActionSet"/>, AMPs already in the action set are ignored.
+        /// </summary>
+        /// <remarks>
+        /// The client sends the full list of AMPs for the action set, existing and newly selected.
+        /// </remarks>
+        public LimitedActionSetResult AddAmps(byte actionSetIndex, IEnumerable<ushort> ampIds)
+        {
+            if (actionSetIndex >= ActionSet.MaxActionSets)
+                return LimitedActionSetResult.InvalidSpecIndex;
+
+            IActionSet actionSet = actionSets[actionSetIndex];
+
+            // prerequisite AMPs and lower category tiers first, the client can select them together
+            List<EldanAugmentationEntry> newAmps = ampIds
+                .Distinct()
+                .Where(id => actionSet.GetAmp(id) == null)
+                .Select(id => GameTableManager.Instance.EldanAugmentation.GetEntry(id))
+                .ToList();
+
+            if (newAmps.Any(e => e == null))
+                return LimitedActionSetResult.EldanAugmentationInvalidId;
+
+            LimitedActionSetResult result = LimitedActionSetResult.Ok;
+            while (newAmps.Count > 0)
+            {
+                EldanAugmentationEntry entry = newAmps
+                    .OrderBy(e => e.CategoryTier)
+                    .FirstOrDefault(e => e.EldanAugmentationIdRequired == 0 || actionSet.GetAmp((ushort)e.EldanAugmentationIdRequired) != null)
+                    ?? newAmps[0];
+                newAmps.Remove(entry);
+
+                LimitedActionSetResult ampResult = CanAddAmp(actionSet, entry);
+                if (ampResult != LimitedActionSetResult.Ok)
+                {
+                    log.Debug($"Player {player.CharacterId} failed to add AMP {entry.Id} to action set {actionSetIndex}: {ampResult}.");
+                    result = ampResult;
+                    continue;
+                }
+
+                actionSet.AddAmp((ushort)entry.Id);
+            }
+
+            if (actionSetIndex == ActiveActionSet)
+                UpdateAmpPassives();
+
+            return result;
+        }
+
+        private LimitedActionSetResult CanAddAmp(IActionSet actionSet, EldanAugmentationEntry entry)
+        {
+            if (entry.ClassId != (uint)player.Class)
+                return LimitedActionSetResult.UnknownClassId;
+
+            EldanAugmentationCategoryEntry category = GameTableManager.Instance.EldanAugmentationCategory.GetEntry(entry.EldanAugmentationCategoryId);
+            if (category == null)
+                return LimitedActionSetResult.EldanAugmentationInvalidCategoryId;
+
+            if (entry.CategoryTier > 2)
+                return LimitedActionSetResult.EldanAugmentationInvalidCategoryTier;
+
+            // eg: Critical Hit II requires Critical Hit I
+            if (entry.EldanAugmentationIdRequired != 0 && actionSet.GetAmp((ushort)entry.EldanAugmentationIdRequired) == null)
+                return LimitedActionSetResult.EldanAugmentationInvalidSeries;
+
+            if (entry.Item2IdUnlock != 0)
+                return LimitedActionSetResult.EldanAugmentationLockedInlaid;
+
+            if (!IsAmpCategoryTierUnlocked(actionSet, entry, category))
+                return LimitedActionSetResult.EldanAugmentationLockedCategoryTier;
+
+            uint spent = (uint)actionSet.Amps.Sum(a => a.Entry.PowerCost);
+            if (spent + entry.PowerCost > GetAmpPower())
+                return LimitedActionSetResult.EldanAugmentationNotEnoughPower;
+
+            return LimitedActionSetResult.Ok;
+        }
+
+        /// <summary>
+        /// Returns if the category tier of the supplied AMP is unlocked by power spent in the lower tiers of the category.
+        /// </summary>
+        /// <remarks>
+        /// Tier 2 needs Tier2CostAmount power and tier 3 needs Tier3CostAmount power (3 and 11 for every category).
+        /// </remarks>
+        private static bool IsAmpCategoryTierUnlocked(IActionSet actionSet, EldanAugmentationEntry entry, EldanAugmentationCategoryEntry category)
+        {
+            if (entry.CategoryTier == 0)
+                return true;
+
+            uint unlockCategoryId = category.EldanAugmentationCategoryIdTier2Category00 != 0 ? category.EldanAugmentationCategoryIdTier2Category00 : category.Id;
+            uint required = entry.CategoryTier == 1 ? category.Tier2CostAmount00 : category.Tier3CostAmount00;
+
+            uint power = (uint)actionSet.Amps
+                .Where(a => a.Entry.EldanAugmentationCategoryId == unlockCategoryId && a.Entry.CategoryTier < entry.CategoryTier && a.Entry.Id != entry.Id)
+                .Sum(a => a.Entry.PowerCost);
+
+            return power >= required;
+        }
+
+        /// <summary>
+        /// Remove AMPs from the <see cref="IActionSet"/>, AMPs that are no longer valid are also removed.
+        /// </summary>
+        public void RemoveAmps(byte actionSetIndex, AmpRespecType type, uint value)
+        {
+            if (actionSetIndex >= ActionSet.MaxActionSets)
+                return;
+
+            IActionSet actionSet = actionSets[actionSetIndex];
+            actionSet.RemoveAmp(type, value);
+
+            // AMPs in a series or higher tier lose their requirement when lower AMPs are removed
+            bool removed;
+            do
+            {
+                removed = false;
+                foreach (IActionSetAmp amp in actionSet.Amps.OrderByDescending(a => a.Entry.CategoryTier).ToList())
+                {
+                    EldanAugmentationCategoryEntry category = GameTableManager.Instance.EldanAugmentationCategory.GetEntry(amp.Entry.EldanAugmentationCategoryId);
+                    bool seriesMet = amp.Entry.EldanAugmentationIdRequired == 0 || actionSet.GetAmp((ushort)amp.Entry.EldanAugmentationIdRequired) != null;
+                    if (seriesMet && category != null && IsAmpCategoryTierUnlocked(actionSet, amp.Entry, category))
+                        continue;
+
+                    actionSet.RemoveAmp(AmpRespecType.Single, amp.Entry.Id);
+                    removed = true;
+                }
+            }
+            while (removed);
+
+            if (actionSetIndex == ActiveActionSet)
+                UpdateAmpPassives();
+        }
+
+        /// <summary>
+        /// Cast the passive spells of the AMPs in the active <see cref="IActionSet"/> and remove those of AMPs no longer active.
+        /// </summary>
+        public void UpdateAmpPassives()
+        {
+            var activeSpell4Ids = actionSets[ActiveActionSet].Amps
+                .Select(a => a.Entry.Spell4IdAugment)
+                .Where(id => id != 0u)
+                .ToHashSet();
+
+            List<uint> removedSpell4Ids = ampPassiveSpell4Ids.Except(activeSpell4Ids).ToList();
+            if (removedSpell4Ids.Count > 0)
+            {
+                player.FinishSpells(s => removedSpell4Ids.Contains(s.Spell4Id));
+                foreach (uint spell4Id in removedSpell4Ids)
+                    ampPassiveSpell4Ids.Remove(spell4Id);
+            }
+
+            if (player.Map == null)
+                return;
+
+            foreach (uint spell4Id in activeSpell4Ids)
+            {
+                if (ampPassiveSpell4Ids.Contains(spell4Id) && player.HasSpell(s => s.Spell4Id == spell4Id && !s.IsFinished, out ISpell _))
+                    continue;
+
+                if (GameTableManager.Instance.Spell4.GetEntry(spell4Id) == null)
+                    continue;
+
+                player.CastSpell(spell4Id, new SpellParameters
+                {
+                    UserInitiatedSpellCast = false
+                });
+                ampPassiveSpell4Ids.Add(spell4Id);
+            }
         }
 
         /// <summary>
@@ -606,6 +817,7 @@ namespace NexusForever.Game.Entity
             SendServerPlayerInnate();
             // TODO: Cast Innate Spells
             CastClassPassives();
+            UpdateAmpPassives();
 
             player.Session.EnqueueMessageEncrypted(new ServerCooldownList
             {

@@ -60,7 +60,8 @@ namespace NexusForever.Game.Spell
             Owner      = player.CharacterId;
             Index      = index;
             TierPoints = MaxTierPoints;
-            AmpPoints  = MaxAmpPoints - 10;
+            // AMP power is validated against the player's level by ISpellManager, this only tracks what is spent
+            AmpPoints  = MaxAmpPoints;
         }
 
         public void Save(CharacterContext context)
