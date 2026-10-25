@@ -663,8 +663,8 @@ namespace NexusForever.Game.Spell
                     executionContext.IncrementEffectTriggerCount(spell4EffectsEntry.Id);
 
                     // Ability challenges count the units their T-spell lands on
-                    if (Caster is IPlayer player && spellTarget.Entity != Caster && challengeCreditedUnits.Add(spellTarget.Entity.Guid))
-                        player.ChallengeManager.OnSpellEffectHit(Parameters.RootSpellInfo?.Entry.Id ?? Spell4Id, spellTarget.Entity);
+                    if (Caster is IPlayer player && challengeCreditedUnits.Add(spellTarget.Entity.Guid))
+                        player.ChallengeManager.OnSpellEffectHit(Parameters.RootSpellInfo?.Entry.Id ?? Spell4Id, spellTarget.Entity, challengeCreditedUnits.Count == 1);
                 }
             }
         }

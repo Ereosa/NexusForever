@@ -14,6 +14,8 @@ using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Script;
+using NexusForever.Script.Template.Collection;
 using NexusForever.Network.World.Message.Model.Challenges;
 using NexusForever.Shared;
 using NexusForever.Shared.Game;
@@ -68,6 +70,11 @@ namespace NexusForever.Game.Challenges
         /// </summary>
         private const float ReachGoalMaxRadius = 10f;
 
+        /// <summary>
+        /// Height an indicator must be above the start location to be the goal of a climb (Up the Falls, Eldan Wall Scaler, Swiftfoot Supplies).
+        /// </summary>
+        private const float ClimbGoalMinHeight = 20f;
+
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
         private class ChallengeIndex
@@ -115,10 +122,21 @@ namespace NexusForever.Game.Challenges
                         Add(challengeIndex.ByTargetGroup, entry.Target, entry);
                         break;
                     case ChallengeType.Collect:
-                    case ChallengeType.General:
                     case ChallengeType.Ability:
                         Add(challengeIndex.ByTargetGroup, entry.TargetGroupIdRewardPane, entry);
                         break;
+                    case ChallengeType.General:
+                    {
+                        Add(challengeIndex.ByTargetGroup, entry.TargetGroupIdRewardPane, entry);
+
+                        // the target of a General challenge is a target group to kill or use (Gold Grab, Squirg Run) or
+                        // the spell of the action to repeat (Roan Tipping, pulling Wiggleroot Radishes, Whack-a-Pole)
+                        if (GameTableManager.Instance.TargetGroup.GetEntry(entry.Target) != null)
+                            Add(challengeIndex.ByTargetGroup, entry.Target, entry);
+                        else if (GameTableManager.Instance.Spell4.GetEntry(entry.Target) != null)
+                            Add(challengeIndex.BySpell, entry.Target, entry);
+                        break;
+                    }
                     case ChallengeType.Item:
                         Add(challengeIndex.ByItem, entry.Target, entry);
                         break;
@@ -184,6 +202,7 @@ namespace NexusForever.Game.Challenges
         private readonly Dictionary<uint, double> sharedOffers = [];
 
         private readonly UpdateTimer locationTimer = new(TimeSpan.FromSeconds(1d));
+        private readonly List<IScriptCollection> stoppedScripts = [];
 
         /// <summary>
         /// Create a new <see cref="IChallengeManager"/> from existing <see cref="CharacterModel"/> database model.
@@ -201,7 +220,7 @@ namespace NexusForever.Game.Challenges
                     continue;
                 }
 
-                challenges.Add(entry.Id, new Challenge(entry, challengeModel));
+                challenges.Add(entry.Id, new Challenge(owner, entry, challengeModel));
             }
         }
 
@@ -275,6 +294,19 @@ namespace NexusForever.Game.Challenges
         {
             foreach (Challenge challenge in challenges.Values.Where(c => c.Activated).ToList())
                 Fail(challenge, ChallengeResult.AbandonRemoveArrows, 0);
+
+            UnloadStoppedScripts();
+        }
+
+        private void UnloadStoppedScripts()
+        {
+            if (stoppedScripts.Count == 0)
+                return;
+
+            IScriptManager scriptManager = LegacyServiceProvider.Provider.GetService<IScriptManager>();
+            foreach (IScriptCollection collection in stoppedScripts)
+                scriptManager.Unload(collection);
+            stoppedScripts.Clear();
         }
 
         public void Update(double lastTick)
@@ -295,6 +327,10 @@ namespace NexusForever.Game.Challenges
             foreach (Challenge challenge in challenges.Values.Where(c => c.Activated).ToList())
             {
                 challenge.Elapsed += elapsed;
+                challenge.UpdateScripts(lastTick);
+                if (!challenge.Activated)
+                    continue;
+
                 if (challenge.Elapsed >= challenge.Duration)
                 {
                     // challenges that reached a tier before the timer ran out are completed on that tier
@@ -339,6 +375,9 @@ namespace NexusForever.Game.Challenges
                 UpdateLocation();
                 locationTimer.Reset();
             }
+
+            // scripts of challenges that stopped are unloaded once no script call is running
+            UnloadStoppedScripts();
         }
 
         /// <summary>
@@ -439,7 +478,8 @@ namespace NexusForever.Game.Challenges
         }
 
         /// <summary>
-        /// General challenges with nothing to count and a small indicator apart from the start spot are races to that spot.
+        /// General challenges with nothing to count whose indicator is a small spot, or a spot well above the start location,
+        /// apart from the start location are races to that spot.
         /// </summary>
         private static bool IsReachChallenge(ChallengeEntry entry)
         {
@@ -451,7 +491,14 @@ namespace NexusForever.Game.Challenges
                 return false;
 
             WorldLocation2Entry indicator = GameTableManager.Instance.WorldLocation2.GetEntry(entry.WorldLocation2IdIndicator);
-            return indicator != null && indicator.Radius <= ReachGoalMaxRadius;
+            if (indicator == null)
+                return false;
+
+            if (indicator.Radius <= ReachGoalMaxRadius)
+                return true;
+
+            WorldLocation2Entry start = GameTableManager.Instance.WorldLocation2.GetEntry(entry.WorldLocation2IdStartLocation);
+            return start != null && indicator.Position1 - start.Position1 >= ClimbGoalMinHeight;
         }
 
         public bool Unlock(uint challengeId)
@@ -469,7 +516,7 @@ namespace NexusForever.Game.Challenges
 
         private Challenge Unlock(ChallengeEntry entry)
         {
-            var challenge = new Challenge(entry)
+            var challenge = new Challenge(player, entry)
             {
                 IsNew   = true,
                 IsDirty = true
@@ -583,6 +630,8 @@ namespace NexusForever.Game.Challenges
 
             // challenge objects that are only usable while the challenge runs appear
             player.VisibilityUpdate();
+
+            challenge.LoadScripts();
 
             if (share)
                 Share(challenge);
@@ -707,6 +756,9 @@ namespace NexusForever.Game.Challenges
             if (entity is IPlayer)
                 return;
 
+            foreach (Challenge challenge in challenges.Values.Where(c => c.Activated).ToList())
+                challenge.InvokeScripts(s => s.OnEntityKilled(entity));
+
             OnTarget(entity, ChallengeType.Combat, ChallengeType.Collect, ChallengeType.General);
         }
 
@@ -729,6 +781,10 @@ namespace NexusForever.Game.Challenges
                     TryActivate(challenge, true, true);
                 }
             }
+
+            // the starter object also counts for the challenge it started
+            foreach (Challenge challenge in challenges.Values.Where(c => c.Activated).ToList())
+                challenge.InvokeScripts(s => s.OnEntityActivated(entity));
 
             OnTarget(entity, ChallengeType.Collect, ChallengeType.ChecklistActivate, ChallengeType.General);
         }
@@ -766,16 +822,24 @@ namespace NexusForever.Game.Challenges
         }
 
         /// <summary>
-        /// Invoked when a spell cast by the player lands an effect on a unit.
+        /// Invoked when a spell cast by the player lands an effect on a unit, <paramref name="firstHit"/> is set for the first unit of the cast.
         /// </summary>
-        public void OnSpellEffectHit(uint spell4Id, IUnitEntity target)
+        public void OnSpellEffectHit(uint spell4Id, IUnitEntity target, bool firstHit)
         {
-            if (target == null || target is IPlayer || !index.Value.BySpell.TryGetValue(spell4Id, out List<ChallengeEntry> entries))
+            if (target == null || !index.Value.BySpell.TryGetValue(spell4Id, out List<ChallengeEntry> entries))
                 return;
 
             foreach (ChallengeEntry entry in entries)
             {
-                if (!challenges.TryGetValue(entry.Id, out Challenge challenge) || !challenge.Activated)
+                if ((ChallengeType)entry.ChallengeTypeEnum == ChallengeType.General)
+                {
+                    // General challenges count each cast of their action spell once
+                    if (firstHit)
+                        Progress(entry, 1u, 0u);
+                    continue;
+                }
+
+                if (target is IPlayer || !challenges.TryGetValue(entry.Id, out Challenge challenge) || !challenge.Activated)
                     continue;
 
                 // the reward pane group is what the T-spell has to be used on (Lopp children, dreadbots, Lightreach commoners)
@@ -903,7 +967,7 @@ namespace NexusForever.Game.Challenges
             challenge.CooldownRemaining = CooldownDuration.TotalMilliseconds;
             challenge.IsDirty           = true;
 
-            OnStop(challenge);
+            OnStop(challenge, true);
 
             // the client shows timer and area results as a completion when the challenge has a tier
             SendUpdate(challenge);
@@ -935,14 +999,18 @@ namespace NexusForever.Game.Challenges
             challenge.LeftArea    = false;
             challenge.CurrentTier = 0u;
 
-            OnStop(challenge);
+            OnStop(challenge, false);
 
             SendUpdate(challenge);
             SendResult(challenge.Entry.Id, result, data);
         }
 
-        private void OnStop(Challenge challenge)
+        private void OnStop(Challenge challenge, bool completed)
         {
+            IScriptCollection collection = challenge.StopScripts(completed);
+            if (collection != null)
+                stoppedScripts.Add(collection);
+
             if (challenge.Type == ChallengeType.Ability && challenge.Entry.Target != 0u)
                 SendSpellShortcut(challenge, false);
 
