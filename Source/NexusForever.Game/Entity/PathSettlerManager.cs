@@ -169,7 +169,7 @@ namespace NexusForever.Game.Entity
                 : [improvement.CountResource00, improvement.CountResource01, improvement.CountResource02];
             for (int i = 0; i < resources.Length; i++)
                 if (resources[i] != 0u && counts[i] != 0u)
-                    player.Inventory.ItemDelete(resources[i], counts[i], ItemUpdateReason.SettlerImprovementConsumeResource);
+                    TakeResource(resources[i], counts[i]);
 
             ImprovementState state = GetState(group.Id);
             lock (improvementLock)
@@ -193,6 +193,42 @@ namespace NexusForever.Game.Entity
             SendBuildResult(SettlerBuildResult.Ok, group);
             BroadcastStatus(group);
             UpdateHubMission(group);
+        }
+
+        /// <summary>
+        /// Settler resources are tradeskill materials, they are kept in the supply satchel unless the satchel is full.
+        /// </summary>
+        private static ushort GetSupplySatchelMaterialId(uint itemId)
+        {
+            return (ushort)(GameTableManager.Instance.TradeskillMaterial.Entries
+                .FirstOrDefault(m => m != null && m.Item2Id == itemId)?.Id ?? 0u);
+        }
+
+        private bool HasResource(uint itemId, uint count)
+        {
+            ushort materialId = GetSupplySatchelMaterialId(itemId);
+            uint satchel = materialId != 0 ? player.SupplySatchelManager.GetAmount(materialId) : 0u;
+            if (satchel >= count)
+                return true;
+
+            return player.Inventory.HasItemCount(itemId, count - satchel);
+        }
+
+        private void TakeResource(uint itemId, uint count)
+        {
+            ushort materialId = GetSupplySatchelMaterialId(itemId);
+            if (materialId != 0)
+            {
+                uint satchel = Math.Min(count, player.SupplySatchelManager.GetAmount(materialId));
+                if (satchel > 0u)
+                {
+                    player.SupplySatchelManager.RemoveAmount(materialId, satchel);
+                    count -= satchel;
+                }
+            }
+
+            if (count > 0u)
+                player.Inventory.ItemDelete(itemId, count, ItemUpdateReason.SettlerImprovementConsumeResource);
         }
 
         private SettlerBuildResult CanBuild(PathSettlerImprovementGroupEntry group, uint tier, out PathSettlerImprovementEntry improvement, out bool contribution)
@@ -237,7 +273,7 @@ namespace NexusForever.Game.Entity
                 ? [improvement.CountRecontributionResource00, improvement.CountRecontributionResource01, improvement.CountRecontributionResource02]
                 : [improvement.CountResource00, improvement.CountResource01, improvement.CountResource02];
             for (int i = 0; i < resources.Length; i++)
-                if (resources[i] != 0u && counts[i] != 0u && !player.Inventory.HasItemCount(resources[i], counts[i]))
+                if (resources[i] != 0u && counts[i] != 0u && !HasResource(resources[i], counts[i]))
                     return Fail("the player doesn't have the resources");
 
             return SettlerBuildResult.Ok;
@@ -538,10 +574,10 @@ namespace NexusForever.Game.Entity
             if (hub == null || hub.Item2IdResource00 == 0u)
                 return 1u;
 
-            if (!player.Inventory.HasItemCount(hub.Item2IdResource00, 1u))
+            if (!HasResource(hub.Item2IdResource00, 1u))
                 return 0u;
 
-            player.Inventory.ItemDelete(hub.Item2IdResource00, 1u, ItemUpdateReason.SettlerImprovementConsumeResource);
+            TakeResource(hub.Item2IdResource00, 1u);
             return 1u;
         }
 

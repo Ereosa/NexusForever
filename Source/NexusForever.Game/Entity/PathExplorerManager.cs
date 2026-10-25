@@ -223,6 +223,72 @@ namespace NexusForever.Game.Entity
             return nodes;
         }
 
+        /// <summary>
+        /// Time the platforms raised by an explorer switch stay up.
+        /// </summary>
+        /// <remarks>
+        /// The switch spells keep the switch busy for 35 seconds, the platforms stay a little longer so the climb can be finished.
+        /// </remarks>
+        private static readonly TimeSpan SwitchPlatformTime = TimeSpan.FromSeconds(60d);
+        private const float PlatformStepHeight = 2.4f;
+        private const float PlatformStepDistance = 3.5f;
+        private const float PlatformSpiralRadius = 6f;
+
+        /// <summary>
+        /// Explorer switches (e.g. "Unusual Rock") raise a hidden path of platforms up to the vista of their mission.
+        /// </summary>
+        /// <remarks>
+        /// The retail platform positions are server side only, the path climbs from the switch to the mission's explorer node.
+        /// </remarks>
+        public void OnEntityActivated(IWorldEntity entity)
+        {
+            Database.World.Model.PathExplorerSwitchModel explorerSwitch = AssetManager.Instance.GetExplorerSwitch(entity.CreatureId);
+            if (explorerSwitch == null || player.Map == null)
+                return;
+
+            PathMissionEntry mission = GameTableManager.Instance.PathMission.GetEntry(explorerSwitch.PathMissionId);
+            PathExplorerNodeEntry node = mission != null ? GameTableManager.Instance.PathExplorerNode.Entries
+                .FirstOrDefault(n => n != null && n.PathExplorerAreaId == mission.ObjectId) : null;
+            WorldLocation2Entry target = node != null ? GameTableManager.Instance.WorldLocation2.GetEntry(node.WorldLocation2Id) : null;
+
+            ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(explorerSwitch.PlatformCreatureId);
+            if (target == null || creatureInfo == null)
+                return;
+
+            Vector3 start = entity.Position;
+            var end = new Vector3(target.Position0, target.Position1, target.Position2);
+
+            float height = end.Y - start.Y;
+            int steps = Math.Max(1, (int)MathF.Ceiling(height / PlatformStepHeight));
+            var horizontal = new Vector2(end.X - start.X, end.Z - start.Z);
+            bool spiral = horizontal.Length() < steps * PlatformStepDistance;
+
+            for (int i = 1; i <= steps; i++)
+            {
+                float t = (float)i / steps;
+                float y = start.Y + height * t - 1f;
+                Vector3 position;
+                if (spiral)
+                {
+                    // not enough room for a straight climb, wind the platforms around the vista
+                    float angle = MathF.Atan2(start.Z - end.Z, start.X - end.X) + (i - 1) * PlatformStepDistance / PlatformSpiralRadius;
+                    float radius = PlatformSpiralRadius * (1f - t * 0.5f);
+                    position = new Vector3(end.X + MathF.Cos(angle) * radius, y, end.Z + MathF.Sin(angle) * radius);
+                }
+                else
+                    position = new Vector3(start.X + horizontal.X * t, y, start.Z + horizontal.Y * t);
+
+                IWorldEntity platform = LegacyServiceProvider.Provider.GetService<IEntityFactory>().CreateWorldEntity(creatureInfo.Entry.CreationTypeEnum);
+                if (platform == null)
+                    return;
+
+                platform.Initialise(creatureInfo);
+                platform.AddToMap(player.Map, position, (map, guid, vector) => map.ScheduleDespawn(guid, SwitchPlatformTime));
+            }
+
+            log.Trace($"Player {player.CharacterId} raised {steps} platforms with explorer switch {entity.CreatureId}.");
+        }
+
         public void OnPowerMapProgress(uint missionId)
         {
             if (powerMap == null || powerMap.Mission.Id != missionId || !powerMap.Entered || powerMap.VictoryTimer >= 0d)

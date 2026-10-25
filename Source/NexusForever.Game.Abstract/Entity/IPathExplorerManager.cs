@@ -10,6 +10,11 @@ namespace NexusForever.Game.Abstract.Entity
         void OnPowerMapProgress(uint missionId);
 
         /// <summary>
+        /// Invoked when the player activates an entity, explorer switches raise their hidden path platforms.
+        /// </summary>
+        void OnEntityActivated(IWorldEntity entity);
+
+        /// <summary>
         /// Cancel any running power map, e.g. on map change or path change.
         /// </summary>
         void Cancel();
