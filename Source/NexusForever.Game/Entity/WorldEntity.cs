@@ -616,8 +616,9 @@ namespace NexusForever.Game.Entity
                     IQuestObjective objective = activator.QuestManager
                         .GetActiveQuest((ushort)CreatureInfo.Entry.QuestAnimStateId)?
                         .GetQuestObjectiveByIndex((byte)CreatureInfo.Entry.QuestAnimObjectiveIndex);
+                    // rescue objectives and objectives with no target in their data (eg: Indigenous Intelligence prisoners) rely on the object naming them
                     if (objective != null && !objective.IsComplete()
-                        && (QuestObjectiveType)objective.ObjectiveInfo.Entry.Type is QuestObjectiveType.Unknown28)
+                        && ((QuestObjectiveType)objective.ObjectiveInfo.Entry.Type is QuestObjectiveType.Unknown28 || objective.ObjectiveInfo.Entry.Data == 0u))
                         activator.QuestManager.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
                 }
 
