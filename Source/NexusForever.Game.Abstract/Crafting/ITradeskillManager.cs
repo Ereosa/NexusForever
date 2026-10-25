@@ -53,5 +53,10 @@ namespace NexusForever.Game.Abstract.Crafting
         /// </summary>
         /// <param name="discoveryCoordinates">Coordinates on the discovery panel, when the schematic was discovered during a craft.</param>
         void LearnSchematic(uint schematicId, Vector2? discoveryCoordinates = null);
+
+        /// <summary>
+        /// Invoked when an achievement is completed, granting any tradeskill rewards for it.
+        /// </summary>
+        void OnAchievementCompleted(uint achievementId);
     }
 }

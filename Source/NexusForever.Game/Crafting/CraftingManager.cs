@@ -3,6 +3,7 @@ using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Spell;
+using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
@@ -374,6 +375,11 @@ namespace NexusForever.Game.Crafting
             player.TradeskillManager.AddXp(tradeskillId, xp);
 
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, crafted.Id, craft.Count);
+            if (itemId != 0u)
+            {
+                player.AchievementManager.CheckAchievements(player, AchievementType.CraftItem, itemId, count: craft.Count);
+                player.AchievementManager.CheckAchievements(player, AchievementType.CraftItemChecklist, itemId);
+            }
             if (crafted.Id != craft.Schematic.Id)
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, craft.Schematic.Id, craft.Count);
 

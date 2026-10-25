@@ -5,7 +5,9 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Crafting;
+using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
@@ -169,6 +171,46 @@ namespace NexusForever.Game.Crafting
 
             player.Session.EnqueueMessageEncrypted(professionsLoad);
             sentInitialPackets = true;
+
+            foreach (ITradeskill tradeskill in tradeskills.Values.Where(t => t.Active))
+                CheckTierAchievements(tradeskill);
+        }
+
+        /// <summary>
+        /// Update tradeskill tier achievements for every tier reached in the supplied <see cref="ITradeskill"/>.
+        /// </summary>
+        private void CheckTierAchievements(ITradeskill tradeskill)
+        {
+            if (!sentInitialPackets)
+                return;
+
+            uint currentTier = tradeskill.Tier?.Tier ?? 0u;
+            foreach (TradeskillTierEntry tier in GameTableManager.Instance.TradeskillTier.Entries
+                .Where(t => t.TradeSkillId == (uint)tradeskill.Id && t.Tier <= currentTier))
+                player.AchievementManager.CheckAchievements(player, AchievementType.TradeskillTier, tier.Id);
+        }
+
+        public void OnAchievementCompleted(uint achievementId)
+        {
+            TradeskillAchievementRewardEntry reward = GameTableManager.Instance.TradeskillAchievementReward.Entries
+                .FirstOrDefault(r => r.AchievementId == achievementId);
+            if (reward == null)
+                return;
+
+            uint[] schematicIds =
+            [
+                reward.TradeSkillSchematicId00, reward.TradeSkillSchematicId01, reward.TradeSkillSchematicId02, reward.TradeSkillSchematicId03,
+                reward.TradeSkillSchematicId04, reward.TradeSkillSchematicId05, reward.TradeSkillSchematicId06, reward.TradeSkillSchematicId07
+            ];
+            foreach (uint schematicId in schematicIds.Where(s => s != 0u && GameTableManager.Instance.TradeskillSchematic2.GetEntry(s) != null))
+                LearnSchematic(schematicId);
+
+            if (reward.Faction2Id != 0u && reward.FactionIdAmount != 0u)
+                player.ReputationManager.UpdateReputation((Faction)reward.Faction2Id, reward.FactionIdAmount);
+
+            // TODO: tradeskill talents, TradeskillTalentTier has no data in this client version
+            if (reward.TalentPoints != 0u)
+                log.Trace($"Achievement {achievementId} rewards {reward.TalentPoints} tradeskill talent points, talents aren't implemented.");
         }
 
         public ITradeskill GetTradeskill(TradeskillType tradeskillId)
@@ -253,6 +295,7 @@ namespace NexusForever.Game.Crafting
             SendTradeskillUpdate(learn);
 
             LearnTierSchematics(learn);
+            CheckTierAchievements(learn);
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.LearnTradeskill, 0u, 1u);
 
             log.Trace($"Player {player.CharacterId} learned tradeskill {learnTradeskillId}, dropped {dropTradeskillId} for {cost} credits.");
@@ -282,6 +325,7 @@ namespace NexusForever.Game.Crafting
                     SendTradeskillUpdate(tradeskill);
 
                 LearnTierSchematics(tradeskill);
+                CheckTierAchievements(tradeskill);
             }
         }
 
@@ -303,7 +347,10 @@ namespace NexusForever.Game.Crafting
             SendTradeskillUpdate(tradeskill);
 
             if (tradeskill.Tier != oldTier)
+            {
                 LearnTierSchematics(tradeskill);
+                CheckTierAchievements(tradeskill);
+            }
         }
 
         /// <summary>
@@ -355,6 +402,8 @@ namespace NexusForever.Game.Crafting
             }
 
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ObtainSchematic, entry.Id, 1u);
+            if (sentInitialPackets)
+                player.AchievementManager.CheckAchievements(player, AchievementType.LearnSchematic, entry.Id);
         }
 
         private void SendTradeskillUpdate(ITradeskill tradeskill)
