@@ -4,6 +4,7 @@
     <Project Path="NexusForever.MapGenerator/NexusForever.MapGenerator.csproj" />
   </Folder>
   <Folder Name="/Tools/">
+    <Project Path="NexusForever.AccountAudit/NexusForever.AccountAudit.csproj" />
     <Project Path="NexusForever.QuestAudit/NexusForever.QuestAudit.csproj" />
   </Folder>
   <Folder Name="/Server/">
