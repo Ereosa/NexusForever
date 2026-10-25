@@ -280,9 +280,7 @@ namespace NexusForever.Game.Entity
             }
 
             // update any existing stacks before creating new items
-            // TODO: looted items go into new stacks for now, the client crashes handling a stack count update after
-            // looting (its player unit pointer is null at that point, cause not found yet)
-            if (info.IsStackable() && reason != ItemUpdateReason.Loot)
+            if (info.IsStackable())
             {
                 foreach (IItem item in bag.Where(i => i.Info.Id == info.Id))
                 {
