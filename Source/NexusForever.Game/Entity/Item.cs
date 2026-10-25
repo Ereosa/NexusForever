@@ -165,6 +165,11 @@ namespace NexusForever.Game.Entity
                 SpellEntry = GameTableManager.Instance.Spell4Base.GetEntry(model.ItemId);
 
             saveMask = ItemSaveMask.None;
+
+            // items used to be created without their charges, a charged item with none left is removed when used up
+            // so an unused one still on the character gets its charges back
+            if (charges == 0u && Info?.Entry != null && Info.Entry.MaxCharges > 0u)
+                Charges = Info.Entry.MaxCharges;
         }
 
         /// <summary>
@@ -178,7 +183,8 @@ namespace NexusForever.Game.Entity
             PreviousLocation = InventoryLocation.None;
             bagIndex         = 0u;
             stackCount       = count;
-            charges          = initialCharges;
+            // new items start with their full charges (eg: title and unlock consumables)
+            charges          = initialCharges != 0u ? initialCharges : info?.Entry?.MaxCharges ?? 0u;
             durability       = 1.0f;
             Info             = info;
 
