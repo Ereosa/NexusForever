@@ -104,6 +104,19 @@ namespace NexusForever.Game.Entity
             return missions.TryGetValue((ushort)missionId, out IPathMission mission) ? mission : null;
         }
 
+        public IPathMission GetOrUnlockMission(uint missionId)
+        {
+            IPathMission mission = GetMission(missionId);
+            if (mission != null)
+                return mission;
+
+            PathMissionEntry entry = GameTableManager.Instance.PathMission.GetEntry(missionId);
+            if (entry == null || !CanUnlock(entry))
+                return null;
+
+            return UnlockMission(entry);
+        }
+
         public bool IsMissionComplete(uint missionId)
         {
             return GetMission(missionId)?.Completed ?? false;
@@ -135,6 +148,8 @@ namespace NexusForever.Game.Entity
                 return;
 
             PathEpisodeEntry episode = FindEpisode();
+            if (episode != CurrentEpisode)
+                log.Debug($"Player {player.CharacterId} path episode for zone {player.Zone.Id} on world {player.Map.Entry.Id}: {episode?.Id ?? 0u}.");
             if (episode != CurrentEpisode)
             {
                 CurrentEpisode = episode;
