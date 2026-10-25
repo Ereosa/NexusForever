@@ -293,7 +293,7 @@ namespace NexusForever.Game.Crafting
 
             TradeskillSchematic2Entry hit = variants
                 .Where(v => player.TradeskillManager.IsSchematicKnown(v.Id) && v.Radius > 0f)
-                .Select(v => (Variant: v, Distance: Vector2.Distance(craft.Position, new Vector2(v.VectorX, v.VectorY))))
+                .Select(v => (Variant: v, Distance: Vector2.Distance(craft.Position, GetVariantPosition(v))))
                 .Where(v => v.Distance <= v.Variant.Radius)
                 .OrderBy(v => v.Distance)
                 .Select(v => v.Variant)
@@ -304,12 +304,12 @@ namespace NexusForever.Game.Crafting
 
             // undiscovered variants give hot or cold feedback towards the closest one, landing on one discovers it
             TradeskillSchematic2Entry undiscovered = variants
-                .Where(v => ((SchematicFlags)v.Flags & SchematicFlags.Discoverable) != 0 && !player.TradeskillManager.IsSchematicKnown(v.Id))
-                .OrderBy(v => Vector2.Distance(craft.Position, new Vector2(v.VectorX, v.VectorY)))
+                .Where(v => IsDiscoverable(v) && !player.TradeskillManager.IsSchematicKnown(v.Id))
+                .OrderBy(v => Vector2.Distance(craft.Position, GetVariantPosition(v)))
                 .FirstOrDefault();
             if (undiscovered != null)
             {
-                var target     = new Vector2(undiscovered.VectorX, undiscovered.VectorY);
+                Vector2 target = GetVariantPosition(undiscovered);
                 float distance = Vector2.Distance(craft.Position, target);
                 float radius   = Math.Max(undiscovered.Radius, 0.01f);
 
@@ -318,7 +318,7 @@ namespace NexusForever.Game.Crafting
 
                 if (discovery == CraftingDiscovery.Success && hit == null)
                 {
-                    player.TradeskillManager.LearnSchematic(undiscovered.Id, craft.Position);
+                    player.TradeskillManager.LearnSchematic(undiscovered.Id, target);
                     hit = undiscovered;
                 }
             }
@@ -327,6 +327,39 @@ namespace NexusForever.Game.Crafting
                 crafted = hit;
 
             FinishCraft(craft, crafted, crafted.Item2IdOutput, crafted.OutputCount, discovery, direction);
+        }
+
+        private static bool IsDiscoverable(TradeskillSchematic2Entry schematic)
+        {
+            return ((SchematicFlags)schematic.Flags & SchematicFlags.Discoverable) != 0;
+        }
+
+        /// <summary>
+        /// Return the centre of the supplied variant on the crafting grid.
+        /// </summary>
+        /// <remarks>
+        /// Discoverable variants don't have a fixed position, for them the vector is the distance range from the centre of the grid and
+        /// the variant is somewhere in the quadrant around the discovery angle. Each character has their own position which becomes
+        /// the variant position once discovered.
+        /// </remarks>
+        private Vector2 GetVariantPosition(TradeskillSchematic2Entry variant)
+        {
+            if (!IsDiscoverable(variant))
+                return new Vector2(variant.VectorX, variant.VectorY);
+
+            ITradeskillSchematic learned = player.TradeskillManager.GetSchematic(variant.Id);
+            if (learned is { Discovered: true })
+                return learned.DiscoveryCoordinates;
+
+            float centreAngle = variant.DiscoverableAngle > 0f ? variant.DiscoverableAngle : variant.DiscoverableQuadrant * 90f + 45f;
+            float minDistance = Math.Min(variant.VectorX, variant.VectorY);
+            float maxDistance = Math.Max(variant.VectorX, variant.VectorY);
+
+            // stable for the character so hot and cold feedback is consistent between crafts
+            var random = new Random(unchecked((int)(player.CharacterId * 397u) ^ (int)variant.Id));
+            float angle    = (centreAngle - 45f + (float)random.NextDouble() * 90f) * MathF.PI / 180f;
+            float distance = minDistance + (float)random.NextDouble() * (maxDistance - minDistance);
+            return new Vector2(MathF.Cos(angle) * distance, MathF.Sin(angle) * distance);
         }
 
         /// <remarks>
