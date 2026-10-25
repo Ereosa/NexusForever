@@ -16,6 +16,11 @@ namespace NexusForever.Game.Abstract.Storefront
         bool Visible { get; }
 
         /// <summary>
+        /// Account items granted when this offer is purchased.
+        /// </summary>
+        IEnumerable<IOfferItemData> Items { get; }
+
+        /// <summary>
         /// Get the <see cref="IOfferItemPrice"/> associated with this <see cref="IOfferItem"/> for the given account currency ID
         /// </summary>
         IOfferItemPrice GetPriceDataForCurrency(AccountCurrencyType currencyId);

@@ -12,6 +12,7 @@ namespace NexusForever.Database.Auth
         public DbSet<AccountEntitlementModel> AccountEntitlement { get; set; }
         public DbSet<AccountExternalReferenceModel> AccountExternalReference { get; set; }
         public DbSet<AccountGenericUnlockModel> AccountGenericUnlock { get; set; }
+        public DbSet<AccountItemModel> AccountItem { get; set; }
         public DbSet<AccountKeybindingModel> AccountKeybinding { get; set; }
         public DbSet<AccountPermissionModel> AccountPermission { get; set; }
         public DbSet<AccountRoleModel> AccountRole { get; set; }
@@ -152,6 +153,39 @@ namespace NexusForever.Database.Auth
                     .WithMany(p => p.AccountCurrency)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__account_currency_id__account_id");
+            });
+
+            modelBuilder.Entity<AccountItemModel>(entity =>
+            {
+                entity.HasKey(e => new { e.Id, e.ItemId })
+                    .HasName("PRIMARY");
+
+                entity.ToTable("account_item");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ItemId)
+                    .HasColumnName("itemId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.AccountItemId)
+                    .HasColumnName("accountItemId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CreateTime)
+                    .HasColumnName("createTime")
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("current_timestamp()");
+
+                entity.HasOne(d => d.Account)
+                    .WithMany(p => p.AccountItem)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__account_item_id__account_id");
             });
 
             modelBuilder.Entity<AccountEntitlementModel>(entity =>

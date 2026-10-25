@@ -146,6 +146,38 @@ namespace NexusForever.Database.Auth.Migrations
                     b.ToTable("account_generic_unlock", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Auth.Model.AccountItemModel", b =>
+                {
+                    b.Property<uint>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("id");
+
+                    b.Property<ulong>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("itemId");
+
+                    b.Property<uint>("AccountItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("accountItemId");
+
+                    b.Property<DateTime>("CreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasColumnName("createTime")
+                        .HasDefaultValueSql("current_timestamp()");
+
+                    b.HasKey("Id", "ItemId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("account_item", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.Auth.Model.AccountKeybindingModel", b =>
                 {
                     b.Property<uint>("Id")
@@ -1271,6 +1303,18 @@ namespace NexusForever.Database.Auth.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Auth.Model.AccountItemModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Auth.Model.AccountModel", "Account")
+                        .WithMany("AccountItem")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__account_item_id__account_id");
+
+                    b.Navigation("Account");
+                });
+
             modelBuilder.Entity("NexusForever.Database.Auth.Model.AccountKeybindingModel", b =>
                 {
                     b.HasOne("NexusForever.Database.Auth.Model.AccountModel", "Account")
@@ -1369,6 +1413,7 @@ namespace NexusForever.Database.Auth.Migrations
                     b.Navigation("AccountExternalReference");
 
                     b.Navigation("AccountGenericUnlock");
+                    b.Navigation("AccountItem");
 
                     b.Navigation("AccountKeybinding");
 

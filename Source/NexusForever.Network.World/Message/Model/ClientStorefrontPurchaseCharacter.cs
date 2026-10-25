@@ -1,3 +1,4 @@
+﻿using NexusForever.Game.Static.AccountInventory;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Shared;
 
@@ -8,7 +9,8 @@ namespace NexusForever.Network.World.Message.Model
     {
         public uint OfferId { get; set; } // OfferId
         public byte Unknown1 { get; set; }
-        public ushort CurrencyId { get; set; } // CurrencyId - 1408 == NCCoin, 768 == Omnibits
+        public byte Unknown2 { get; set; }
+        public AccountCurrencyType CurrencyId { get; set; }
         public uint Unknown3 { get; set; }
         public Identity Target { get; set; } = new();
         public uint Unknown6 { get; set; }
@@ -17,7 +19,8 @@ namespace NexusForever.Network.World.Message.Model
         {
             OfferId    = reader.ReadUInt(20);
             Unknown1   = reader.ReadByte(5);
-            CurrencyId = reader.ReadUShort(14);
+            Unknown2   = reader.ReadByte(7);
+            CurrencyId = reader.ReadEnum<AccountCurrencyType>(7u);
             Unknown3   = reader.ReadUInt(20);
             Target.Read(reader);
             Unknown6   = reader.ReadUInt(20);

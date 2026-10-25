@@ -76,6 +76,7 @@ namespace NexusForever.Database.Auth
                 .Include(a => a.AccountCostumeUnlock)
                 .Include(a => a.AccountCurrency)
                 .Include(a => a.AccountGenericUnlock)
+                .Include(a => a.AccountItem)
                 .Include(a => a.AccountKeybinding)
                 .Include(a => a.AccountEntitlement)
                 .Include(a => a.AccountPermission)

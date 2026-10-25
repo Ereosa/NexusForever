@@ -18,6 +18,8 @@ using NexusForever.Game.RBAC;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.RBAC;
 using NexusForever.Network.Session;
+using NexusForever.Game.Abstract.Account.Inventory;
+using NexusForever.Game.Account.Inventory;
 
 namespace NexusForever.Game.Account
 {
@@ -29,6 +31,7 @@ namespace NexusForever.Game.Account
         public IAccountRBACManager RbacManager { get; private set; }
         public IGenericUnlockManager GenericUnlockManager { get; private set; }
         public IAccountCurrencyManager CurrencyManager { get; private set; }
+        public IAccountItemManager ItemManager { get; private set; }
         public IAccountEntitlementManager EntitlementManager { get; private set; }
         public IAccountCostumeManager CostumeManager { get; private set; }
         public IRewardPropertyManager RewardPropertyManager { get; private set; }
@@ -53,6 +56,7 @@ namespace NexusForever.Game.Account
             RbacManager           = new AccountRBACManager(this, model);
             GenericUnlockManager  = new GenericUnlockManager(this, model);
             CurrencyManager       = new AccountCurrencyManager(this, model);
+            ItemManager           = new AccountItemManager(this, model);
             EntitlementManager    = new AccountEntitlementManager(this, model);
             CostumeManager        = new AccountCostumeManager(this, model);
             RewardPropertyManager = new RewardPropertyManager(this);
@@ -64,6 +68,7 @@ namespace NexusForever.Game.Account
             RbacManager.Save(context);
             GenericUnlockManager.Save(context);
             CurrencyManager.Save(context);
+            ItemManager.Save(context);
             EntitlementManager.Save(context);
             CostumeManager.Save(context);
             KeybindingManager.Save(context);

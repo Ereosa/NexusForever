@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database;
 using NexusForever.Database.Auth;
@@ -809,6 +809,7 @@ namespace NexusForever.Game.Entity
             MailManager.SendInitialPackets();
             ZoneMapManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
+            Account.ItemManager.SendInitialPackets();
             QuestManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);
             Account.RewardPropertyManager.SendInitialPackets();
