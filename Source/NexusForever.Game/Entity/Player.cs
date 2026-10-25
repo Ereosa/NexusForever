@@ -725,7 +725,9 @@ namespace NexusForever.Game.Entity
                     });
                 }
 
-                QuestManager.ObjectiveUpdate(QuestObjectiveType.EnterZone, Zone.Id, 1);
+                // entering a sub zone also enters every parent zone (e.g. a room inside a lab)
+                for (WorldZoneEntry zone = Zone; zone != null; zone = zone.ParentZoneId != 0u ? GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) : null)
+                    QuestManager.ObjectiveUpdate(QuestObjectiveType.EnterZone, zone.Id, 1);
             }
 
             ZoneMapManager.OnZoneUpdate();
