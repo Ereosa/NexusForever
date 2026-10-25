@@ -211,7 +211,9 @@ namespace NexusForever.GameTable
         [GameData]
         public GameTable<EntitlementEntry> Entitlement { get; private set; }
 
+        [GameData]
         public GameTable<EpisodeEntry> Episode { get; private set; }
+        [GameData]
         public GameTable<EpisodeQuestEntry> EpisodeQuest { get; private set; }
 
         [GameData]
