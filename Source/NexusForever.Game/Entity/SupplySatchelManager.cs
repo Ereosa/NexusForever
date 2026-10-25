@@ -38,7 +38,7 @@ namespace NexusForever.Game.Entity
         /// Return the <see cref="TradeskillMaterialEntry"/> stored in the supply satchel for the supplied item id, if any.
         /// </summary>
         /// <remarks>
-        /// Materials have both a current (stat revolution) and legacy item, both are stored as the same material.
+        /// The material is stored for its stat revolution item, the other item of the entry is what used the slot before and isn't the same material.
         /// </remarks>
         public static TradeskillMaterialEntry GetMaterialEntry(uint itemId)
         {
@@ -46,12 +46,8 @@ namespace NexusForever.Game.Entity
             {
                 var materials = new Dictionary<uint, TradeskillMaterialEntry>();
                 foreach (TradeskillMaterialEntry entry in GameTableManager.Instance.TradeskillMaterial.Entries)
-                {
                     if (entry.Item2IdStatRevolution != 0)
                         materials.TryAdd(entry.Item2IdStatRevolution, entry);
-                    if (entry.Item2Id != 0)
-                        materials.TryAdd(entry.Item2Id, entry);
-                }
 
                 materialsByItem = materials;
             }
