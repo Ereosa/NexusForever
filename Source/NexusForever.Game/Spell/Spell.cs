@@ -897,7 +897,14 @@ namespace NexusForever.Game.Spell
                 if (Parameters.SpellInfo.Entry.PrerequisiteIdCasterPersistence > 0 && !PrerequisiteManager.Instance.Meets(player, Parameters.SpellInfo.Entry.PrerequisiteIdCasterPersistence, parameters))
                     Finish();
 
-                // TODO: Check if target can still persist
+                if (Parameters.SpellInfo.Entry.PrerequisiteIdTargetPersistence > 0)
+                {
+                    IPlayer target = Parameters.PrimaryTargetId == 0u || Parameters.PrimaryTargetId == player.Guid
+                        ? player
+                        : player.GetVisible<IPlayer>(Parameters.PrimaryTargetId);
+                    if (target != null && !PrerequisiteManager.Instance.Meets(target, Parameters.SpellInfo.Entry.PrerequisiteIdTargetPersistence, parameters))
+                        Finish();
+                }
 
                 persistCheck.Reset();
             }
