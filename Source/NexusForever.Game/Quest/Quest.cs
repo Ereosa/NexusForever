@@ -502,14 +502,16 @@ namespace NexusForever.Game.Quest
         }
 
         /// <summary>
-        /// Update any <see cref="IQuestObjective"/>'s with supplied <see cref="QuestObjectiveType"/> that have no target of their own
-        /// and list their targets in the supplied reward pane target group instead.
+        /// Update any <see cref="IQuestObjective"/>'s with supplied <see cref="QuestObjectiveType"/> whose targets are the supplied target group:
+        /// creature objectives with no target of their own that list them in their reward pane target group,
+        /// and creature objectives whose data is a target group rather than a creature (eg: Captives of the Dominion).
         /// </summary>
         public void ObjectiveUpdateRewardPane(QuestObjectiveType type, uint targetGroupId, uint progress)
         {
             ObjectiveUpdate(o => o.ObjectiveInfo.Entry.Type == (uint)type
-                && o.ObjectiveInfo.Entry.Data == 0u
-                && o.ObjectiveInfo.Entry.TargetGroupIdRewardPane == targetGroupId, progress);
+                && (o.ObjectiveInfo.Entry.Data == 0u
+                    ? o.ObjectiveInfo.Entry.TargetGroupIdRewardPane == targetGroupId
+                    : o.ObjectiveInfo.Entry.Data == targetGroupId && GameTableManager.Instance.Creature2.GetEntry(targetGroupId) == null), progress);
         }
 
         private void ObjectiveUpdate(Func<IQuestObjective, bool> predicate, uint progress)
