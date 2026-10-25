@@ -217,7 +217,7 @@ namespace NexusForever.Game.Map.Instance
                     .Select(GetEntity<IPlayer>)
                     .Count(p => !p.Account.RbacManager.HasPermission(Permission.BypassInstanceLimits))
                     // include players pending add to instance
-                    + pendingActions.Count(a => a is IGridActionAdd);
+                    + pendingActions.Count(a => a is IGridActionAdd && a.Entity is IPlayer);
 
                 if (count >= instanceLimit)
                     return GenericError.InstanceFull;
