@@ -381,6 +381,7 @@ namespace NexusForever.Game.Entity
 
             CostumeManager          = new CostumeManager(this, model);
             Inventory               = new Inventory(this, model);
+            CostumeManager.UpdateVisuals();
             CurrencyManager.Initialise(this, model);
             PathManager             = new PathManager(this, model);
             TitleManager            = new TitleManager(this, model);

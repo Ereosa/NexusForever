@@ -756,7 +756,11 @@ namespace NexusForever.Game.Entity
             bag.RemoveItem(item);
 
             if (IsVisualItemSlot(item.PreviousLocation, item.PreviousBagIndex) && player != null)
+            {
                 player.RemoveVisual((ItemSlot)item.Info.TypeEntry.ItemSlotId);
+                // an equipped costume keeps showing its item in the slot
+                player.CostumeManager?.UpdateVisuals();
+            }
         }
 
         /// <summary>

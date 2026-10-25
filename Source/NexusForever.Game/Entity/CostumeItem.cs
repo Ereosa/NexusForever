@@ -89,7 +89,7 @@ namespace NexusForever.Game.Entity
         {
             this.costume = costume;
             Slot         = (CostumeItemSlot)model.Slot;
-            ItemSlot     = GetSlot(Slot);
+            ItemSlot     = GetItemSlot(Slot);
             Item2Id      = model.Item2Id > 0 ? model.Item2Id : null;
             dyeData      = model.DyeData;
 
@@ -103,14 +103,17 @@ namespace NexusForever.Game.Entity
         {
             this.costume = costume;
             Slot         = slot;
-            ItemSlot     = GetSlot(Slot);
+            ItemSlot     = GetItemSlot(Slot);
             Item2Id      = item.Item2Id > 0 ? item.Item2Id : null;
             dyeData      = GenerateDyeData(item.DyeColorRampIds);
 
             saveMask     = CostumeItemSaveMask.Create;
         }
 
-        private static ItemSlot GetSlot(CostumeItemSlot slot)
+        /// <summary>
+        /// Return the <see cref="ItemSlot"/> the supplied <see cref="CostumeItemSlot"/> is shown in.
+        /// </summary>
+        public static ItemSlot GetItemSlot(CostumeItemSlot slot)
         {
             return slot switch
             {

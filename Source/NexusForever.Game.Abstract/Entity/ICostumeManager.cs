@@ -35,6 +35,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         void SetCostume(int index);
 
+        /// <summary>
+        /// Update the player visuals for the costume slots and equipped items with the current costume.
+        /// </summary>
+        void UpdateVisuals();
+
         void SendInitialPackets();
     }
 }
