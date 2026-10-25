@@ -28,6 +28,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part1
                 return;
 
             IPlayer player = owner.GetOwner();
+            owner.RewardQuest(0);
             player.QuestManager.QuestComplete(owner.Id);
             player.QuestManager.QuestAdd(NextQuestId);
         }

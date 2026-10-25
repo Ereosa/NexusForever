@@ -1,4 +1,4 @@
-using NexusForever.Game.Abstract.Entity;
+﻿using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Script.Template;
@@ -38,7 +38,9 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
 
             advanced = true;
 
+            // auto completed quests still give their rewards (experience, Omnibits, items)
             IPlayer player = owner.GetOwner();
+            owner.RewardQuest(0);
             player.QuestManager.QuestComplete(owner.Id);
             if (NextQuestId.HasValue)
                 player.QuestManager.QuestAdd(NextQuestId.Value);

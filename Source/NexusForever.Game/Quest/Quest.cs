@@ -17,6 +17,7 @@ using NexusForever.Script.Template;
 using NexusForever.Script.Template.Collection;
 using NexusForever.Shared;
 using NexusForever.Shared.Game;
+using NexusForever.Game.Static.AccountInventory;
 
 namespace NexusForever.Game.Quest
 {
@@ -434,6 +435,9 @@ namespace NexusForever.Game.Quest
                     break;
                 case QuestRewardType.Money:
                     player.CurrencyManager.CurrencyAddAmount((CurrencyType)entry.ObjectId, entry.ObjectAmount);
+                    break;
+                case QuestRewardType.AccountCurrency:
+                    player.Account.CurrencyManager.CurrencyAddAmount((AccountCurrencyType)entry.ObjectId, entry.ObjectAmount);
                     break;
                 default:
                 {
