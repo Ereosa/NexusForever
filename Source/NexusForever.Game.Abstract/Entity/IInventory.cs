@@ -110,6 +110,14 @@ namespace NexusForever.Game.Abstract.Entity
         IItem ItemDelete(ItemLocation from, ItemUpdateReason reason = ItemUpdateReason.Loot);
 
         /// <summary>
+        /// Take the supplied count from the <see cref="IItem"/> at <see cref="ItemLocation"/>, splitting the stack if only part of it is taken.
+        /// </summary>
+        /// <returns>
+        /// The item that was taken, which is no longer in the inventory.
+        /// </returns>
+        IItem ItemTake(ItemLocation from, uint count, ItemUpdateReason reason);
+
+        /// <summary>
         /// Delete a supplied amount of an item.
         /// </summary>
         void ItemDelete(uint itemId, uint count = 1, ItemUpdateReason reason = ItemUpdateReason.Loot);
