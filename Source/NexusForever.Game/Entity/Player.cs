@@ -1489,6 +1489,18 @@ namespace NexusForever.Game.Entity
                 ShortcutSet            = shortcutSet,
                 ActionBarShortcutSetId = 0
             });
+
+            // the engineer pet bar shares its bar with bars shown by spell effects
+            if (shortcutSet == ShortcutSet.PrimaryPetBar)
+                CombatPetManager.UpdateActionBar();
+        }
+
+        /// <summary>
+        /// Return the action bar shown on <paramref name="shortcutSet"/> with <see cref="ShowActionBar"/>.
+        /// </summary>
+        public ushort? GetShownActionBar(ShortcutSet shortcutSet)
+        {
+            return shownActionBars.TryGetValue(shortcutSet, out ushort shownId) ? shownId : null;
         }
 
         /// <summary>
