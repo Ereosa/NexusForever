@@ -24,7 +24,11 @@ namespace NexusForever.Game.Entity
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
-        private static ILookup<uint, PathMissionEntry> missionsByEpisode;
+        private static readonly Lazy<ILookup<uint, PathMissionEntry>> missionsByEpisodeLookup = new(() => GameTableManager.Instance.PathMission.Entries
+            .Where(e => e != null && e.PathEpisodeId != 0)
+            .ToLookup(e => e.PathEpisodeId));
+
+        private static ILookup<uint, PathMissionEntry> missionsByEpisode => missionsByEpisodeLookup.Value;
 
         /// <summary>
         /// Mission types that are implemented, other mission types are never unlocked.
@@ -71,10 +75,6 @@ namespace NexusForever.Game.Entity
         public PathMissionManager(IPlayer owner, CharacterModel model)
         {
             player = owner;
-
-            missionsByEpisode ??= GameTableManager.Instance.PathMission.Entries
-                .Where(e => e != null && e.PathEpisodeId != 0)
-                .ToLookup(e => e.PathEpisodeId);
 
             foreach (CharacterPathMissionModel missionModel in model.PathMission)
             {

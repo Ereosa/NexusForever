@@ -46,8 +46,6 @@ namespace NexusForever.Game.Entity
                     if (GetPathEntry(path) == null)
                         SetPathEntry(path, PathCreate(path));
             }
-
-            // TODO: Check for missing level up rewards.
         }
 
         /// <summary>
@@ -194,7 +192,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         /// <param name="path">The path to grant the reward for</param>
         /// <param name="level">The level to grant the reward for</param>
-        private void GrantLevelUpReward(Path path, uint level)
+        private void GrantLevelUpReward(Path path, uint level, bool levelUp = true)
         {
             // level rewards reference the PathLevel entry of the level reached
             PathLevelEntry pathLevelEntry = GameTableManager.Instance.PathLevel.Entries
@@ -221,8 +219,11 @@ namespace NexusForever.Game.Entity
                 GrantPathReward(pathRewardEntry);
             }
 
-            GetPathEntry(path).LevelRewarded = (byte)level;
-            player.CastSpell(53234, new Spell.SpellParameters());
+            if (level > GetPathEntry(path).LevelRewarded)
+                GetPathEntry(path).LevelRewarded = (byte)level;
+
+            if (levelUp)
+                player.CastSpell(53234, new Spell.SpellParameters());
         }
 
         /// <summary>
@@ -247,7 +248,8 @@ namespace NexusForever.Game.Entity
             if (pathRewardEntry.Spell4Id > 0)
             {
                 Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(pathRewardEntry.Spell4Id);
-                player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
+                if (spell4Entry != null && player.SpellManager.GetSpell(spell4Entry.Spell4BaseIdBaseSpell) == null)
+                    player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
             }
 
             if (pathRewardEntry.CharacterTitleId > 0)
@@ -276,6 +278,22 @@ namespace NexusForever.Game.Entity
         public void SendInitialPackets()
         {
             SendPathLogPacket();
+            GrantMissingLevelUpRewards();
+        }
+
+        /// <summary>
+        /// Grant level up rewards for levels of the active path reached without receiving them, e.g. path experience granted by a GM command.
+        /// </summary>
+        private void GrantMissingLevelUpRewards()
+        {
+            Path path = player.Path;
+            IPathEntry entry = GetPathEntry(path);
+            if (entry == null)
+                return;
+
+            uint level = GetCurrentLevel(path);
+            for (uint rewardLevel = Math.Max(2u, entry.LevelRewarded + 1u); rewardLevel <= level; rewardLevel++)
+                GrantLevelUpReward(path, rewardLevel, false);
         }
 
         /// <summary>
