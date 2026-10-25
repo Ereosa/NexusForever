@@ -501,6 +501,10 @@ namespace NexusForever.Game.Quest
             if (State == QuestState.Achieved)
                 return;
 
+            // most updates (spell casts, item pickups) don't match any objective, skip the visibility and completion checks for them
+            if (!objectives.Any(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data))
+                return;
+
             // Order in reverse Index so that sequential steps don't completed by the same action
             foreach (IQuestObjective objective in objectives
                 .Where(o => o.ObjectiveInfo.Entry.Type == (uint)type && o.ObjectiveInfo.Entry.Data == data)

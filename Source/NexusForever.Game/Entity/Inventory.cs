@@ -5,6 +5,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable.Model;
 using NexusForever.Network;
 using NexusForever.Network.World.Message.Model;
@@ -155,6 +156,21 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Returns the total stack count of the supplied item id in the inventory bag.
+        /// </summary>
+        public uint GetItemCount(uint itemId)
+        {
+            IBag bag = GetBag(InventoryLocation.Inventory);
+            if (bag == null)
+                return 0u;
+
+            uint count = 0u;
+            foreach (IItem item in bag.Where(i => i.Id == itemId))
+                count += item.StackCount;
+            return count;
+        }
+
+        /// <summary>
         /// Return <see cref="IItem"/> at supplied <see cref="ItemLocation"/>.
         /// </summary>
         public IItem GetItem(ItemLocation itemLocation)
@@ -246,6 +262,10 @@ namespace NexusForever.Game.Entity
             IBag bag = GetBag(location);
             if (bag == null)
                 throw new ArgumentException();
+
+            // quest collect objectives count items as they arrive in the inventory
+            if (player != null && location == InventoryLocation.Inventory && count > 0u)
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CollectItem, info.Id, count);
 
             // looted tradeskill materials go straight into the supply satchel, anything that doesn't fit goes into the inventory
             if (player != null && location == InventoryLocation.Inventory && reason == ItemUpdateReason.Loot)
