@@ -3,16 +3,21 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NexusForever.Database.Configuration.Model;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Entity.Movement.Command.Mode;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 
 namespace NexusForever.Database.World
 {
     public class WorldContext : DbContext
     {
+        public DbSet<CreatureInfoPropertyModel> CreatureInfoProperty { get; set; }
+        public DbSet<CreatureInfoStatModel> CreatureInfoStat { get; set; }
         public DbSet<DisableModel> Disable { get; set; }
         public DbSet<EntityModel> Entity { get; set; }
         public DbSet<EntityEmoteModel> Emote { get; set; }
         public DbSet<EntityEventModel> EventEntity { get; set; }
+        public DbSet<EntityPropertyModel> EntityProperty { get; set; }
+        public DbSet<EntityScriptModel> EntityScript { get; set; }
         public DbSet<EntitySplineModel> EntitySpline { get; set; }
         public DbSet<EntityStatModel> EntityStat { get; set; }
         public DbSet<EntityVendorModel> EntityVendor { get; set; }
@@ -48,6 +53,48 @@ namespace NexusForever.Database.World
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<CreatureInfoPropertyModel>(entity =>
+            {
+                entity.ToTable("creature_info_property");
+
+                entity.HasKey(e => new { e.CreatureId, e.Property })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned");
+
+                entity.Property(e => e.Property)
+                    .HasColumnName("property")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasConversion<EnumToNumberConverter<Property, byte>>();
+
+                entity.Property(e => e.Value)
+                    .HasColumnName("value")
+                    .HasColumnType("float");
+            });
+
+            modelBuilder.Entity<CreatureInfoStatModel>(entity =>
+            {
+                entity.HasKey(e => new { e.CreatureId, e.Stat })
+                    .HasName("PRIMARY");
+
+                entity.ToTable("creature_info_stat");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned");
+
+                entity.Property(e => e.Stat)
+                    .HasColumnName("stat")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasConversion<EnumToNumberConverter<Stat, byte>>();
+
+                entity.Property(e => e.Value)
+                    .HasColumnName("value")
+                    .HasColumnType("float");
+            });
+
             modelBuilder.Entity<DisableModel>(entity =>
             {
                 entity.ToTable("disable");
@@ -219,6 +266,62 @@ namespace NexusForever.Database.World
                     .HasColumnName("z")
                     .HasColumnType("float")
                     .HasDefaultValue(0);
+
+                entity.Property(e => e.Mode)
+                    .HasColumnName("mode")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasConversion<EnumToNumberConverter<ModeType, byte>>();
+            });
+
+            modelBuilder.Entity<EntityPropertyModel>(entity =>
+            {
+                entity.ToTable("entity_property");
+
+                entity.HasKey(e => new { e.Id, e.Property })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Property)
+                    .HasColumnName("property")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasConversion<EnumToNumberConverter<Property, byte>>();
+
+                entity.Property(e => e.Value)
+                    .HasColumnName("value")
+                    .HasColumnType("float")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Entity)
+                    .WithMany(p => p.EntityProperty)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__entity_property_id__entity_id");
+            });
+
+            modelBuilder.Entity<EntityScriptModel>(entity =>
+            {
+                entity.ToTable("entity_script");
+
+                entity.HasKey(e => new { e.Id, e.ScriptName })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ScriptName)
+                    .HasColumnName("scriptName")
+                    .HasColumnType("varchar(150)")
+                    .HasDefaultValue("");
+
+                entity.HasOne(d => d.Entity)
+                    .WithMany(p => p.EntityScript)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__entity_script_id__entity_id");
             });
 
             modelBuilder.Entity<EntitySplineModel>(entity =>

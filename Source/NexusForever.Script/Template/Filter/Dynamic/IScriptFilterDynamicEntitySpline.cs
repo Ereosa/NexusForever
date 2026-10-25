@@ -1,6 +1,6 @@
 ﻿namespace NexusForever.Script.Template.Filter.Dynamic
 {
-    public interface IScriptFilterDynamicEntitySpline : IScriptFilterDynamic
+    public interface IScriptFilterDynamicEntitySpline : IScriptFilter
     {
     }
 }

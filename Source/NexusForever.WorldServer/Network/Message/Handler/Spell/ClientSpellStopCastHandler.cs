@@ -1,5 +1,6 @@
 ﻿using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Spell;
+using NexusForever.Game.Static.Spell;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Spell
 {

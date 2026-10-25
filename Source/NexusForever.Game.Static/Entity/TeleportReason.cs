@@ -3,6 +3,7 @@
     public enum TeleportReason
     {
         Relocate,
-        Unload
+        Unload,
+        EndMatch
     }
 }

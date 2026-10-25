@@ -25,8 +25,9 @@ namespace NexusForever.Game.Entity
 
         #region Dependency Injection
 
-        public GhostEntity(IMovementManager movementManager)
-            : base(movementManager)
+        public GhostEntity(IMovementManager movementManager,
+            IEntitySummonFactory entitySummonFactory)
+            : base(movementManager, entitySummonFactory)
         {
         }
 
@@ -61,9 +62,9 @@ namespace NexusForever.Game.Entity
 
             SetBaseProperty(Property.BaseHealth, 101.0f);
 
-            SetStat(Stat.Health, 101u);
-            SetStat(Stat.Level, owner.Level);
-            SetStat(Stat.Sheathed, 1);
+            SetStat(Static.Entity.Stat.Health, 101u);
+            SetStat(Static.Entity.Stat.Level, owner.Level);
+            SetStat(Static.Entity.Stat.Sheathed, 1);
         }
 
         protected override IEntityModel BuildEntityModel()
@@ -96,7 +97,9 @@ namespace NexusForever.Game.Entity
             }
 
             owner.SetControl(this);
-            owner.ResurrectionManager.ShowResurrection();
+
+            ResurrectionType type = map.GetResurrectionType();
+            owner.ResurrectionManager.ShowResurrection(type, null, null);
         }
     }
 }

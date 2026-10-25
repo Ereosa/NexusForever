@@ -129,9 +129,9 @@ namespace NexusForever.Game.Abstract.Entity.Movement
         void SetPositionMultiSpline(List<ushort> splineIds, SplineMode mode, float speed);
 
         /// <summary>
-        /// NYI
+        /// Launch a new projectile with the supplied flight time, gravity and position.
         /// </summary>
-        void SetPositionProjectile();
+        void SetPositionProjectile(uint flightTime, float gravity, Vector3 position);
 
         /// <summary>
         /// Return the current velocity.
@@ -146,7 +146,7 @@ namespace NexusForever.Game.Abstract.Entity.Movement
         /// <summary>
         /// Set velocity with the supplied <see cref="Vector3"/> key and time values.
         /// </summary>
-        void SetVelocityKeys();
+        void SetVelocityKeys(List<uint> times, List<Vector3> velocities);
 
         /// <summary>
         /// Set velocity with the default values.
@@ -305,5 +305,10 @@ namespace NexusForever.Game.Abstract.Entity.Movement
         /// Launch a new follow spline, following the supplied <see cref="IWorldEntity"/> at distance.
         /// </summary>
         void Follow(IWorldEntity entity, float distance);
+
+        /// <summary>
+        /// Launch a new chase spline, chasing the supplied <see cref="IWorldEntity"/> at distance.
+        /// </summary>
+        void Chase(IWorldEntity entity, float distance);
     }
 }

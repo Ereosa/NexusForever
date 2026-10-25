@@ -14,13 +14,16 @@ using NexusForever.Game.Abstract.Entity.Movement.Command.Time;
 using NexusForever.Game.Abstract.Entity.Movement.Command.Velocity;
 using NexusForever.Game.Abstract.Entity.Movement.Generator;
 using NexusForever.Game.Entity.Movement.Generator;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Entity.Movement.Command.Mode;
 using NexusForever.Game.Static.Entity.Movement.Command.State;
 using NexusForever.Game.Static.Entity.Movement.Spline;
+using NexusForever.Game.Static.Spell.Proc;
 using NexusForever.Network.Session;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Command;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared;
 
 namespace NexusForever.Game.Entity.Movement
 {
@@ -120,7 +123,7 @@ namespace NexusForever.Game.Entity.Movement
             timeCommandGroup.Initialise();
             platformCommandGroup.Initialise();
             positionCommandGroup.Initialise(this);
-            velocityCommandGroup.Initialise();
+            velocityCommandGroup.Initialise(this);
             moveCommandGroup.Initialise(this);
             rotationCommandGroup.Initialise(this, positionCommandGroup);
             scaleCommandGroup.Initialise(this);
@@ -136,26 +139,15 @@ namespace NexusForever.Game.Entity.Movement
             if (Owner.Map == null)
                 return;
 
-            void UpdateEntityCommandGroup(IEntityCommandGroup commandGroup)
-            {
-                commandGroup.Update(lastTick);
-
-                if (commandGroup.IsDirty)
-                {
-                    commandGroup.IsDirty = false;
-                    IsDirty = true;
-                }
-            }
-
-            UpdateEntityCommandGroup(timeCommandGroup);
-            UpdateEntityCommandGroup(platformCommandGroup);
-            UpdateEntityCommandGroup(positionCommandGroup);
-            UpdateEntityCommandGroup(velocityCommandGroup);
-            UpdateEntityCommandGroup(moveCommandGroup);
-            UpdateEntityCommandGroup(rotationCommandGroup);
-            UpdateEntityCommandGroup(scaleCommandGroup);
-            UpdateEntityCommandGroup(stateCommandGroup);
-            UpdateEntityCommandGroup(modeCommandGroup);
+            timeCommandGroup.Update(lastTick);
+            platformCommandGroup.Update(lastTick);
+            positionCommandGroup.Update(lastTick);
+            velocityCommandGroup.Update(lastTick);
+            moveCommandGroup.Update(lastTick);
+            rotationCommandGroup.Update(lastTick);
+            scaleCommandGroup.Update(lastTick);
+            stateCommandGroup.Update(lastTick);
+            modeCommandGroup.Update(lastTick);
 
             BroadcastNetworkEntityCommands();
         }
@@ -235,6 +227,25 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void BroadcastNetworkEntityCommands()
         {
+            void EntityCommandGroupRequiresBroadcast(IEntityCommandGroup commandGroup)
+            {
+                if (commandGroup.IsDirty)
+                {
+                    commandGroup.IsDirty = false;
+                    IsDirty = true;
+                }
+            }
+
+            EntityCommandGroupRequiresBroadcast(timeCommandGroup);
+            EntityCommandGroupRequiresBroadcast(platformCommandGroup);
+            EntityCommandGroupRequiresBroadcast(positionCommandGroup);
+            EntityCommandGroupRequiresBroadcast(velocityCommandGroup);
+            EntityCommandGroupRequiresBroadcast(moveCommandGroup);
+            EntityCommandGroupRequiresBroadcast(rotationCommandGroup);
+            EntityCommandGroupRequiresBroadcast(scaleCommandGroup);
+            EntityCommandGroupRequiresBroadcast(stateCommandGroup);
+            EntityCommandGroupRequiresBroadcast(modeCommandGroup);
+
             if (!IsDirty)
                 return;
 
@@ -373,10 +384,23 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetPositionKeys(List<uint> times, List<Vector3> positions)
         {
-            if (!ServerControl)
-                return;
+            positionCommandGroup.SetPositionKeys(times, positions, KeyReturnControlCallback());
+            KeyRemoveControl();
+        }
 
-            positionCommandGroup.SetPositionKeys(times, positions);
+        private Action KeyReturnControlCallback()
+        {
+            Action callback = null;
+            if (!ServerControl && Owner is IPlayer player)
+                callback = () => player.SetControl(player);
+
+            return callback;
+        }
+
+        private void KeyRemoveControl()
+        {
+            if (!ServerControl && Owner is IPlayer player)
+                player.SetControl(null);
         }
 
         /// <summary>
@@ -385,6 +409,10 @@ namespace NexusForever.Game.Entity.Movement
         public void SetPositionPath(List<Vector3> nodes, SplineType type, SplineMode mode, float speed)
         {
             if (!ServerControl)
+                return;
+
+            // ensure first and last nodes aren't the same
+            if (nodes[0] == nodes[^1])
                 return;
 
             positionCommandGroup.SetPositionPath(nodes, type, mode, speed);
@@ -410,12 +438,39 @@ namespace NexusForever.Game.Entity.Movement
         }
 
         /// <summary>
-        /// NYI
+        /// Launch a new projectile with the supplied flight time, gravity and position.
         /// </summary>
-        public void SetPositionProjectile()
+        public void SetPositionProjectile(uint flightTime, float gravity, Vector3 position)
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            SetModeDefault();
+            SetStateDefault();
+            SetVelocityDefaults();
+            //SetMove(Vector3.Zero, false);
+
+            positionCommandGroup.SetPositionProjectile(flightTime, gravity, position);
         }
+
+        public bool HasVelocity
+        {
+            get => hasVelocity;
+            set
+            {
+                if (hasVelocity != value && Owner is IUnitEntity unit)
+                {
+                    if (value == true)
+                        unit.ProcManager.TriggerProc(ProcType.BeginMoving);
+                    else
+                        unit.ProcManager.TriggerProc(ProcType.StopsMoving);
+                }
+
+                hasVelocity = value;
+            }
+        }
+
+        private bool hasVelocity;
 
         /// <summary>
         /// Return the current velocity.
@@ -431,14 +486,18 @@ namespace NexusForever.Game.Entity.Movement
         public void SetVelocity(Vector3 velocity, bool blend)
         {
             velocityCommandGroup.SetVelocity(velocity, blend);
+            HasVelocity = velocity.Length() > 0;
         }
 
         /// <summary>
         /// Set velocity with the supplied <see cref="Vector3"/> key and time values.
         /// </summary>
-        public void SetVelocityKeys()
+        public void SetVelocityKeys(List<uint> times, List<Vector3> velocities)
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            velocityCommandGroup.SetVelocityKeys(times, velocities);
         }
 
         /// <summary>
@@ -514,10 +573,8 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetRotationKeys(List<uint> times, List<Vector3> rotations)
         {
-            if (!ServerControl)
-                return;
-
-            rotationCommandGroup.SetRotationKeys(times, rotations);
+            rotationCommandGroup.SetRotationKeys(times, rotations, KeyReturnControlCallback());
+            KeyRemoveControl();
         }
 
         /// <summary>
@@ -769,6 +826,27 @@ namespace NexusForever.Game.Entity.Movement
             // TODO: calculate speed based on entity being followed.
             List<Vector3> nodes = generator.CalculatePath();
             SetPositionPath(nodes, SplineType.Linear, SplineMode.OneShot, 8f);
+        }
+
+        /// <summary>
+        /// Launch a new chase spline, chasing the supplied <see cref="IWorldEntity"/> at distance.
+        /// </summary>
+        public void Chase(IWorldEntity entity, float distance)
+        {
+            if (!ServerControl)
+                return;
+
+            SetState(StateFlags.Move);
+            SetMoveDefaults(false);
+            SetRotationFaceUnit(entity.Guid);
+
+            Vector3 destination = entity.Position.GetPoint2D(GetRotation().X, distance);
+            // due to most content maps not having terrain data, movement generators will fail
+            // TODO: replace this once movement maps are implemented
+            List<Vector3> nodes = [positionCommandGroup.GetPosition(), destination];
+
+            float speed = Owner.GetPropertyValue(Property.MoveSpeedMultiplier) * 8f;
+            LaunchSpline(nodes, SplineType.Linear, SplineMode.OneShot, speed);
         }
     }
 }

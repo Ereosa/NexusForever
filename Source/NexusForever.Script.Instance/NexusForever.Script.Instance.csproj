@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NexusForever.Game.Abstract\NexusForever.Game.Abstract.csproj" />
+    <ProjectReference Include="..\NexusForever.Script.Main\NexusForever.Script.Main.csproj" />
     <ProjectReference Include="..\NexusForever.Script\NexusForever.Script.csproj" />
   </ItemGroup>
 
@@ -20,7 +21,6 @@
     <Folder Include="Adventure\WarOfTheWilds\" />
     <Folder Include="Adventure\RiotInTheVoid\" />
     <Folder Include="Adventure\TheHycrestInsurrection\" />
-    <Folder Include="Arena\TheCryoPlex\" />
     <Folder Include="Battleground\DaggerstonePass\" />
     <Folder Include="Battleground\HallsOfTheBloodsworn\" />
     <Folder Include="Dungeon\ColdbloodCitadel\" />

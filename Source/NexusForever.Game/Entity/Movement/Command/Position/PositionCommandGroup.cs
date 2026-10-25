@@ -6,7 +6,6 @@ using NexusForever.Game.Static.Entity.Movement.Command;
 using NexusForever.Game.Static.Entity.Movement.Command.Mode;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Network.World.Entity;
-using NexusForever.Script.Template;
 using NexusForever.Shared;
 using NexusForever.Shared.Game;
 
@@ -26,15 +25,17 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
             is EntityCommand.SetPositionKeys
             or EntityCommand.SetPositionPath
             or EntityCommand.SetPositionSpline
-            or EntityCommand.SetPositionMultiSpline;
+            or EntityCommand.SetPositionMultiSpline
+            or EntityCommand.SetPositionProjectile;
 
         /// <summary>
         /// Current position entity command.
         /// </summary>
         public IPositionCommand Command { get; private set; }
 
-        private readonly UpdateTimer relocationTimer = new(TimeSpan.FromSeconds(1));
         private Vector3 lastPosition;
+
+        private Action callback;
 
         private IMovementManager movementManager;
 
@@ -70,18 +71,10 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
 
             Command.Update(lastTick);
 
-            relocationTimer.Update(lastTick);
-            if (relocationTimer.HasElapsed)
-            {
-                Relocate();
-                relocationTimer.Reset();
-            }
+            Relocate();
 
             if (Command.IsFinalised)
-            {
-                movementManager.Owner.InvokeScriptCollection<IWorldEntityScript>(s => s.OnPositionEntityCommandFinalise(Command));
                 Finalise();
-            }
         }
 
         private void Relocate()
@@ -100,7 +93,7 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
                 return;
 
             lastPosition = position;
-            movementManager.Owner.Relocate(position);
+            movementManager.Owner.RelocateOnMap(position);
         }
 
         /// <summary>
@@ -132,10 +125,21 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
             if (Command == null)
                 return;
 
+            IPositionCommand previousCommand = Command;
+
             Vector3 position = GetPosition();
             Command = null;
 
             SetPosition(position, true);
+
+            if (callback != null)
+            {
+                var cb = callback;
+                callback = null;
+                cb.Invoke();
+            }
+
+            movementManager.Owner.OnEntityCommandFinalise(previousCommand);
         }
 
         /// <summary>
@@ -169,13 +173,15 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
         /// <summary>
         /// Set the position to the interpolated <see cref="Vector3"/> between the supplied times and positions.
         /// </summary> 
-        public void SetPositionKeys(List<uint> times, List<Vector3> positions)
+        public void SetPositionKeys(List<uint> times, List<Vector3> positions, Action callback = null)
         {
             Finalise();
 
             var command = factory.Resolve<PositionKeysCommand>();
             command.Initialise(movementManager, times, positions);
             Command = command;
+
+            this.callback = callback;
 
             IsDirty = true;
         }
@@ -217,11 +223,17 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
         }
 
         /// <summary>
-        /// NYI
+        /// Set the position based on the supplied flight time, gravity and position.
         /// </summary>
-        public void SetPositionProjectile()
+        public void SetPositionProjectile(uint flightTime, float gravity, Vector3 position)
         {
-            throw new NotImplementedException();
+            Finalise();
+
+            var command = factory.Resolve<PositionProjectileCommand>();
+            command.Initialise(flightTime, gravity, position, GetPosition());
+            Command = command;
+
+            IsDirty = true;
         }
     }
 }

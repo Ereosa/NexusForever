@@ -52,12 +52,18 @@ namespace NexusForever.Game.Map.Instance
 
         private IMapPosition unloadPosition;
 
+        /// <summary>
+        /// Count of players in map instance.
+        /// </summary>
+        public uint PlayerCount => (uint)playerEntities.Count;
+
+        private readonly HashSet<uint> playerEntities = [];
+
         private uint instanceLimit;
 
         private readonly UpdateTimer unloadTimer
             = new(SharedConfiguration.Instance.Get<MapConfig>().GridUnloadTimer ?? 600d);
 
-        private readonly HashSet<uint> playerEntities = new();
         private readonly Dictionary<uint, IMapInstanceRemoval> instanceRemovals = new();
 
         #region Dependency Injection
@@ -201,7 +207,7 @@ namespace NexusForever.Game.Map.Instance
         /// <summary>
         /// Returns if <see cref="IGridEntity"/> can be added to <see cref="IBaseMap"/>.
         /// </summary>
-        public override GenericError? CanEnter(IPlayer player, IMapPosition position)
+        protected override GenericError? CanEnter(IPlayer player, Vector3 position)
         {
             // elevated users bypass instance player limits
             if (!player.Account.RbacManager.HasPermission(Permission.BypassInstanceLimits))
@@ -211,7 +217,7 @@ namespace NexusForever.Game.Map.Instance
                     .Select(GetEntity<IPlayer>)
                     .Count(p => !p.Account.RbacManager.HasPermission(Permission.BypassInstanceLimits))
                     // include players pending add to instance
-                    + pendingActions.Count(a => a is IGridActionAdd or IGridActionPending);
+                    + pendingActions.Count(a => a is IGridActionAdd);
 
                 if (count >= instanceLimit)
                     return GenericError.InstanceFull;
@@ -220,9 +226,10 @@ namespace NexusForever.Game.Map.Instance
             return base.CanEnter(player, position);
         }
 
-        protected override void AddEntity(IGridEntity entity, Vector3 vector)
+        protected override void AddEntity(IGridEntity entity, Vector3 vector, OnAddDelegate add = null)
         {
-            base.AddEntity(entity, vector);
+            base.AddEntity(entity, vector, add);
+
             if (entity is IPlayer player)
             {
                 playerEntities.Add(player.Guid);
@@ -233,7 +240,7 @@ namespace NexusForever.Game.Map.Instance
             }
         }
 
-        protected override void RemoveEntity(IGridEntity entity)
+        protected override void RemoveEntity(IGridEntity entity, OnRemoveDelegate remove = null)
         {
             if (entity is IPlayer player)
             {
@@ -246,7 +253,7 @@ namespace NexusForever.Game.Map.Instance
                     unloadTimer.Reset();
             }
 
-            base.RemoveEntity(entity);
+            base.RemoveEntity(entity, remove);
         }
 
         /// <summary>
@@ -308,6 +315,19 @@ namespace NexusForever.Game.Map.Instance
                 return;
 
             player.Session.EnqueueMessageEncrypted(new ServerPendingWorldRemovalCancel());
+        }
+
+        /// <summary>
+        /// Returns all <see cref="IPlayer"/>'s in map instance.
+        /// </summary>
+        public IEnumerable<IPlayer> GetPlayers()
+        {
+            foreach (uint guid in playerEntities)
+            {
+                IPlayer player = GetEntity<IPlayer>(guid);
+                if (player != null)
+                    yield return player;
+            }
         }
 
         /// <summary>

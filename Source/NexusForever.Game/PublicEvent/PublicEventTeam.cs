@@ -143,7 +143,7 @@ namespace NexusForever.Game.PublicEvent
                     continue;
 
                 if (objective.Entry.PublicEventObjectiveTypeEnum != type
-                    && objective.Entry.ObjectId != objectId)
+                    || objective.Entry.ObjectId != objectId)
                     continue;
 
                 objective.UpdateObjective(count);
@@ -173,6 +173,17 @@ namespace NexusForever.Game.PublicEvent
         }
 
         /// <summary>
+        /// Set the dynamic max of a specific active objective for the team.
+        /// </summary>
+        public void SetObjectiveDynamicMax(uint objectiveId, uint max)
+        {
+            if (!objectives.TryGetValue(objectiveId, out IPublicEventObjective objective))
+                return;
+
+            objective.SetDynamicMax(max);
+        }
+
+        /// <summary>
         /// Activate specific objective for the team with the supplied max.
         /// </summary>
         /// <remarks>
@@ -183,8 +194,18 @@ namespace NexusForever.Game.PublicEvent
             if (!objectives.TryGetValue(objectiveId, out IPublicEventObjective objective))
                 return;
 
-            objective.DynamicMax = max;
-            objective.ActivateObjective();
+            objective.ActivateObjective(max);
+        }
+
+        /// <summary>
+        /// Reset specific objective for the team.
+        /// </summary>
+        public void ResetObjective(uint objectiveId)
+        {
+            if (!objectives.TryGetValue(objectiveId, out IPublicEventObjective objective))
+                return;
+
+            objective.ResetObjective();
         }
 
         /// <summary>

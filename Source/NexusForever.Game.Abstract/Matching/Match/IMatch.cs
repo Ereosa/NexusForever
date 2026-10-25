@@ -68,11 +68,19 @@ namespace NexusForever.Game.Abstract.Matching.Match
         void MatchTeleport(Identity identity);
 
         /// <summary>
-        /// Get return <see cref="IMapPosition"/> for <see cref="IPlayer"/>.
+        /// Get return <see cref="IMapPosition"/> for supplied character.
         /// </summary>
         /// <remarks>
         /// Return position is the position of the player before entering the match.
         /// </remarks>
-        IMapPosition GetReturnPosition(IPlayer player);
+        IMapPosition GetReturnPosition(Identity identity);
+
+        /// <summary>
+        /// Get <see cref="IMapEntrance"/> for supplied character.
+        /// </summary>
+        /// <remarks>
+        /// Map entrance position is the position the players team will be teleported to when the match starts.
+        /// </remarks>
+        IMapEntrance GetMapEntrance(Identity identity);
     }
 }

@@ -21,6 +21,11 @@ namespace NexusForever.Game.Abstract.Entity
         bool InWorld { get; }
 
         /// <summary>
+        /// Determines if the <see cref="IGridEntity"/> is pending removal from the <see cref="IBaseMap"/>.
+        /// </summary>
+        bool PendingRemoval { get; }
+
+        /// <summary>
         /// Distance between <see cref="IGridEntity"/> and a <see cref="IMapGrid"/> for activation.
         /// </summary>
         float ActivationRange { get; }
@@ -30,19 +35,39 @@ namespace NexusForever.Game.Abstract.Entity
         Task<T> SynchroniseAsync<T>(Func<T> func);
 
         /// <summary>
+        /// Initialise <see cref="IGridEntity"/>
+        /// </summary>
+        void Initialise();
+
+        /// <summary>
         /// Invoke <see cref="Action{T}"/> against <see cref="IGridEntity"/> script collection.
         /// </summary>
         void InvokeScriptCollection<T>(Action<T> action);
 
         /// <summary>
+        /// Invoke <see cref="Func{TIn, TOut}"/> against <see cref="IGridEntity"/> script collection.
+        /// </summary>
+        TOut? InvokeScriptCollection<TOut, TIn>(Func<TIn, TOut> func) where TOut : struct;
+
+        /// <summary>
+        /// Enqueue <see cref="IGridEntity"/> for addition to the <see cref="IBaseMap"/>.
+        /// </summary>
+        void AddToMap(IBaseMap map, Vector3 position, OnAddDelegate callback = null);
+
+        /// <summary>
         /// Enqueue <see cref="IGridEntity"/> for removal from the <see cref="IBaseMap"/>.
         /// </summary>
-        void RemoveFromMap();
+        void RemoveFromMap(OnRemoveDelegate callback = null);
 
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> for relocation on the <see cref="IBaseMap"/>.
         /// </summary>
-        void Relocate(Vector3 position);
+        void RelocateOnMap(Vector3 position, OnRelocateDelegate callback = null);
+
+        /// <summary>
+        /// Enqueue <see cref="IGridEntity"/> for visibility update on the <see cref="IBaseMap"/>.
+        /// </summary>
+        void VisibilityUpdate();
 
         /// <summary>
         /// Invoked when <see cref="IGridEntity"/> is enqueued to be added to <see cref="IBaseMap"/>.
@@ -50,39 +75,13 @@ namespace NexusForever.Game.Abstract.Entity
         void OnEnqueueAddToMap();
 
         /// <summary>
-        /// Invoked when <see cref="IGridEntity"/> is added to <see cref="IBaseMap"/>.
-        /// </summary>
-        void OnAddToMap(IBaseMap map, uint guid, Vector3 vector);
-
-        /// <summary>
         /// Invoked when <see cref="IGridEntity"/> is enqueued to be removed from <see cref="IBaseMap"/>.
         /// </summary>
         void OnEnqueueRemoveFromMap();
 
-        /// <summary>
-        /// Invoked when <see cref="IGridEntity"/> is removed from <see cref="IBaseMap"/>.
-        /// </summary>
-        void OnRemoveFromMap();
+        void AddVisionEntity(IGridEntity entity);
 
-        /// <summary>
-        /// Invoked when <see cref="IGridEntity"/> is relocated.
-        /// </summary>
-        void OnRelocate(Vector3 vector);
-
-        /// <summary>
-        /// Returns if <see cref="IGridEntity"/> can see supplied <see cref="IGridEntity"/>.
-        /// </summary>
-        bool CanSeeEntity(IGridEntity entity);
-
-        /// <summary>
-        /// Add tracked <see cref="IGridEntity"/> that is in vision range.
-        /// </summary>
-        void AddVisible(IGridEntity entity);
-
-        /// <summary>
-        /// Remove tracked <see cref="IGridEntity"/> that is no longer in vision range.
-        /// </summary>
-        void RemoveVisible(IGridEntity entity);
+        void RemoveVisionEntity(IGridEntity entity);
 
         /// <summary>
         /// Return visible <see cref="IGridEntity"/> by supplied guid.

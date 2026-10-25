@@ -100,8 +100,10 @@ namespace NexusForever.Script
 
             try
             {
-                using Stream stream = loader.Load(path);
                 context = new AssemblyLoadContext(Name, true);
+                LoadDependencies(context, loader, path);
+
+                using Stream stream = loader.Load(path);
                 Assembly assembly = context.LoadFromStream(stream);
 
                 foreach (Type type in assembly.GetTypes())
@@ -142,6 +144,12 @@ namespace NexusForever.Script
                 sourceWatcher.OnEvent += () => RaiseEvent(ReloadType.Source);
                 sourceWatcher.Start();
             }
+        }
+
+        private void LoadDependencies(AssemblyLoadContext context, ILoader loader, string path)
+        {
+            using Stream stream = loader.Load("NexusForever.Script.Main.dll");
+            context.LoadFromStream(stream);
         }
 
         private void RaiseEvent(ReloadType reloadType)

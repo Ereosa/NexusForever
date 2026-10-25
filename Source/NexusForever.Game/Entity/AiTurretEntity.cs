@@ -12,8 +12,10 @@ namespace NexusForever.Game.Entity
 
         #region Dependency Injection
 
-        public AiTurretEntity(IMovementManager movementManager)
-            : base(movementManager)
+        public AiTurretEntity(
+            IMovementManager movementManager,
+            IEntitySummonFactory entitySummonFactory)
+            : base(movementManager, entitySummonFactory)
         {
         }
 
@@ -23,7 +25,7 @@ namespace NexusForever.Game.Entity
         {
             return new AiTurretEntityModel
             {
-                CreatureId = CreatureId,
+                CreatureId        = CreatureId,
                 QuestChecklistIdx = 0
             };
         }

@@ -1,6 +1,7 @@
 ﻿using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Map.Instance;
+using NexusForever.Game.Abstract.Matching;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Matching;
@@ -25,7 +26,8 @@ namespace NexusForever.Game.Map.Instance
 
         protected override void InitialiseScriptCollection()
         {
-            scriptCollection = scriptManager.InitialiseOwnedScripts<IContentPvpMapInstance>(this, Entry.Id);
+            scriptCollection = scriptManager.InitialiseOwnedCollection<IContentPvpMapInstance>(this);
+            scriptManager.InitialiseOwnedScripts<IContentPvpMapInstance>(scriptCollection, Entry.Id);
         }
 
         /// <summary>
@@ -50,6 +52,51 @@ namespace NexusForever.Game.Map.Instance
         public override ResurrectionType GetResurrectionType()
         {
             return ResurrectionType.Holocrypt;
+        }
+
+        /// <summary>
+        /// Resurrect <see cref="IPlayer"/> with supplied <see cref="ResurrectionType"/>.
+        /// </summary>
+        public override void Resurrect(ResurrectionType type, IPlayer player)
+        {
+            if (Match is IPvpMatch pvpMatch)
+            {
+                switch (type)
+                {
+                    case ResurrectionType.Holocrypt:
+                        OnResurrectHolocrypt(pvpMatch, player);
+                        return;
+                    default:
+                        throw new InvalidOperationException();
+                }
+            }
+
+            base.Resurrect(type, player);
+        }
+
+        private void OnResurrectHolocrypt(IPvpMatch pvpMatch, IPlayer player)
+        {
+            IMapEntrance entrance = pvpMatch.GetMapEntrance(player.Identity);
+
+            player.Rotation = entrance.Rotation;
+            player.TeleportToLocal(entrance.Position, false, (_) =>
+            {
+                pvpMatch.UpdatePool(player.Identity);
+
+                player.ModifyHealth(player.MaxHealth, null, null);
+                player.Shield = player.MaxShieldCapacity;
+            });
+        }
+
+        /// <summary>
+        /// Invoked when a <see cref="IPlayer"/> on the map dies.
+        /// </summary>
+        public override void OnDeath(IPlayer player)
+        {
+            if (Match is IPvpMatch pvpMatch)
+                pvpMatch.OnDeath(player);
+            else
+                Resurrect(ResurrectionType.WakeHere, player);
         }
     }
 }

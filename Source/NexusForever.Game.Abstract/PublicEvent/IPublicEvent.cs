@@ -11,6 +11,7 @@ namespace NexusForever.Game.Abstract.PublicEvent
         Guid Guid { get; }
         uint Id { get; }
         bool IsFinalised { get; }
+        bool HasFinished { get; }
         bool IsBusy { get; set; }
         uint Phase { get; }
 
@@ -66,6 +67,11 @@ namespace NexusForever.Game.Abstract.PublicEvent
         void UpdateObjective(IPlayer player, PublicEventObjectiveType type, uint objectId, int count);
 
         /// <summary>
+        /// Update any objective for any team that meets the supplied <see cref="PublicEventObjectiveType"/>, objectId and count.
+        /// </summary>
+        void UpdateObjective(PublicEventObjectiveType type, uint objectId, int count);
+
+        /// <summary>
         /// Update a specific objective with the supplied objectiveId and count.
         /// </summary>
         void UpdateObjective<T>(T objectiveId, int count) where T : Enum;
@@ -74,6 +80,16 @@ namespace NexusForever.Game.Abstract.PublicEvent
         /// Update a specific objective with the supplied objectiveId and count.
         /// </summary>
         void UpdateObjective(uint objectiveId, int count);
+
+        /// <summary>
+        /// Set the dynamic max of a specific active objective, for example when participants join or leave.
+        /// </summary>
+        void SetObjectiveDynamicMax<T>(T objectiveId, uint max) where T : Enum;
+
+        /// <summary>
+        /// Set the dynamic max of a specific active objective, for example when participants join or leave.
+        /// </summary>
+        void SetObjectiveDynamicMax(uint objectiveId, uint max);
 
         /// <summary>
         /// Activate objective with the supplied objectiveId and max count.
@@ -90,6 +106,16 @@ namespace NexusForever.Game.Abstract.PublicEvent
         /// Max value is used for dynamic objectives where the max count can change during the event.
         /// </remarks>
         void ActivateObjective(uint objectiveId, uint max = 0u);
+
+        /// <summary>
+        /// Reset objective with supplied objectiveId.
+        /// </summary>
+        void ResetObjective<T>(T objectiveId) where T : Enum;
+
+        /// <summary>
+        /// Reset objective with supplied objectiveId.
+        /// </summary>
+        void ResetObjective(uint objectiveId);
 
         /// <summary>
         /// Update stat for the <see cref="IPlayer"/> with the supplied <see cref="PublicEventStat"/> and value.

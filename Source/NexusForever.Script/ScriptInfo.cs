@@ -18,16 +18,16 @@ namespace NexusForever.Script
 
         private readonly ILogger log;
         private readonly IFactory<IScriptInstanceInfo> instanceFactory;
-        private readonly IScriptFilterParameters parameters;
+        private readonly IScriptFilterMatcher matcher;
 
         public ScriptInfo(
             ILogger<IScriptInfo> log,
             IFactory<IScriptInstanceInfo> instanceFactory,
-            IScriptFilterParameters parameters)
+            IScriptFilterMatcher matcher)
         {
             this.log             = log;
             this.instanceFactory = instanceFactory;
-            this.parameters      = parameters;
+            this.matcher         = matcher;
         }
 
         #endregion
@@ -40,7 +40,7 @@ namespace NexusForever.Script
             Name = type.Name;
             Type = type;
 
-            parameters.Initialise(type);
+            matcher.Initialise(type);
 
             log.LogTrace("Initialised script {Name}.", Name);
         }
@@ -50,8 +50,7 @@ namespace NexusForever.Script
         /// </summary>
         public bool Match(IScriptFilterSearch search)
         {
-            IScriptFilterMatch match = new ScriptFilterMatch();
-            return match.Match(search, parameters);
+            return matcher.Match(search);
         }
 
         /// <summary>

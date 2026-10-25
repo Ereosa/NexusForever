@@ -12,7 +12,8 @@ namespace NexusForever.Game.Abstract.PublicEvent
         PublicEventObjectiveEntry Entry { get; }
         PublicEventStatus Status { get; }
         uint Count { get; }
-        uint DynamicMax { get; set; }
+        uint DynamicMax { get; }
+        uint Checklist { get; }
 
         bool IsBusy { get; }
 
@@ -40,6 +41,22 @@ namespace NexusForever.Game.Abstract.PublicEvent
         /// <remarks>
         /// This shows the objective to members and allows it to be updated.
         /// </remarks>
-        void ActivateObjective();
+        void ActivateObjective(uint max);
+
+        /// <summary>
+        /// Set the dynamic max of an active objective, for example when participants join or leave.
+        /// </summary>
+        /// <remarks>
+        /// The objective is completed immediately if the current count already meets the new max.
+        /// </remarks>
+        void SetDynamicMax(uint max);
+
+        /// <summary>
+        /// Reset the objective.
+        /// </summary>
+        /// <remarks>
+        /// This will reset the objective to its initial state allowing it to be activated again.
+        /// </remarks>
+        void ResetObjective();
     }
 }

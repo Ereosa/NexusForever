@@ -552,6 +552,11 @@ namespace NexusForever.Database.Auth
                     },
                     new PermissionModel
                     {
+                        Id   = 38,
+                        Name = "Command: EntitySummon"
+                    },
+                    new PermissionModel
+                    {
                         Id   = 40,
                         Name = "Category: EntitlementAccount"
                     },

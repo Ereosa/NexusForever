@@ -1,6 +1,5 @@
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map;
-using NexusForever.Game.Map;
 using NexusForever.Game.Static.Entity;
 
 namespace NexusForever.Game.Entity
@@ -10,5 +9,6 @@ namespace NexusForever.Game.Entity
         public TeleportReason Reason { get; init; }
         public IMapPosition MapPosition { get; init; }
         public uint? VanityPetId { get; init; }
+        public bool Resurrect { get; init; }
     }
 }

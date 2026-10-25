@@ -230,8 +230,11 @@ namespace NexusForever.Game.Matching.Queue
 
             // blame Max for this...
             // since we don't have party support yet, just do a sneaky grid search for players
+            var check = new SearchCheckRange<IPlayer>();
+            check.Initialise(player.Position, 10f);
+
             List<Identity> identities = player.Map
-                .Search(player.Position, 10f, new SearchCheckRange<IPlayer>(player.Position, 10f))
+                .Search(player.Position, 10f, check)
                 .Select(p => p.Identity)
                 .ToList();
 

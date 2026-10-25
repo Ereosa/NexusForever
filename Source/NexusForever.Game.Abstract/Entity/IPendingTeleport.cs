@@ -8,5 +8,6 @@ namespace NexusForever.Game.Abstract.Entity
         TeleportReason Reason { get; init; }
         IMapPosition MapPosition { get; init; }
         uint? VanityPetId { get; init; }
+        bool Resurrect { get; init; }
     }
 }

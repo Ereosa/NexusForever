@@ -1,11 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
-using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Matching;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Matching;
+using NexusForever.Game.Static.PVP;
 using NexusForever.GameTable;
 using NexusForever.Network.Internal;
 using NexusForever.Network.World.Message.Model;
@@ -27,6 +28,8 @@ namespace NexusForever.Game.Matching.Match
 
         #region Dependency Injection
 
+        private readonly IPlayerManager playerManager;
+
         public PvpMatch(
             ILogger<PvpMatch> log,
             IMatchManager matchManager,
@@ -37,6 +40,7 @@ namespace NexusForever.Game.Matching.Match
             IInternalMessagePublisher messagePublisher)
             : base(log, matchManager, matchingDataManager, matchTeamFactory, gameTableManager, playerManager, messagePublisher)
         {
+            this.playerManager = playerManager;
         }
 
         #endregion
@@ -101,14 +105,11 @@ namespace NexusForever.Game.Matching.Match
                     SetNextPhase(MatchingMap.GameTypeEntry.PreparationTimeMS, () => { SetState(PvpGameState.InProgress); });
                     break;
                 case PvpGameState.InProgress:
-                    SetNextPhase(MatchingMap.GameTypeEntry.MatchTimeMS, () => { MatchFinish(MatchWinner.Draw, MatchEndReason.TimeExpired); });
+                    OnPhaseInProgress();
                     break;
                 case PvpGameState.Finished:
-                {
-                    stateTimer = null;
-                    stateCallback = null;
+                    OnPhaseFinished();
                     break;
-                }
             }
 
             Broadcast(new ServerMatchingMatchPvpStateUpdated
@@ -129,6 +130,41 @@ namespace NexusForever.Game.Matching.Match
             stateCallback = callback;
         }
 
+        private void OnPhaseInProgress()
+        {
+            SetNextPhase(MatchingMap.GameTypeEntry.MatchTimeMS, () => { MatchFinish(MatchWinner.Draw, MatchEndReason.TimeExpired); });
+
+            foreach (IMatchTeam matchTeam in GetTeams())
+            {
+                foreach (IMatchTeamMember matchTeamMember in matchTeam.GetMembers())
+                {
+                    IPlayer player = playerManager.GetPlayer(matchTeamMember.Identity);
+                    if (player == null)
+                        continue;
+
+                    EnableForcedPvp(player);
+                }
+            }
+        }
+
+        private void OnPhaseFinished()
+        {
+            stateTimer    = null;
+            stateCallback = null;
+
+            foreach (IMatchTeam matchTeam in GetTeams())
+            {
+                foreach (IMatchTeamMember matchTeamMember in matchTeam.GetMembers())
+                {
+                    IPlayer player = playerManager.GetPlayer(matchTeamMember.Identity);
+                    if (player == null)
+                        continue;
+
+                    RemoveForcedPvp(player);
+                }
+            }
+        }
+
         /// <summary>
         /// Update deathmatch pool for the team the character is on.
         /// </summary>
@@ -141,11 +177,11 @@ namespace NexusForever.Game.Matching.Match
             if (team == null)
                 throw new InvalidOperationException();
 
+            if (deathmatchPool[team.Team] == 0)
+                throw new InvalidOperationException();
+
             deathmatchPool[team.Team]--;
             SendPoolUpdate();
-
-            if (deathmatchPool[team.Team] == 0)
-                MatchFinish(team.Team == Static.Matching.MatchTeam.Red ? MatchWinner.Blue : MatchWinner.Red, MatchEndReason.Completed);
         }
 
         private void SendPoolUpdate()
@@ -180,6 +216,50 @@ namespace NexusForever.Game.Matching.Match
 
             if (MatchingMap.GameTypeEntry.MatchingRulesEnum == MatchRules.DeathmatchPool)
                 SendPoolUpdate();
+
+            if (state == PvpGameState.InProgress)
+                EnableForcedPvp(player);
+        }
+
+        private void EnableForcedPvp(IPlayer player)
+        {
+            player.PvPFlags |= PvPFlag.Forced;
+            player.ResurrectionManager.CanResurrectOtherPlayer = false;
+            player.SetControl(player);
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> exits the match.
+        /// </summary>
+        public override void MatchExit(IPlayer player, bool teleport)
+        {
+            base.MatchExit(player, teleport);
+
+            if (state == PvpGameState.InProgress)
+                RemoveForcedPvp(player);
+        }
+
+        private void RemoveForcedPvp(IPlayer player)
+        {
+            player.PvPFlags &= ~PvPFlag.Forced;
+            player.ResurrectionManager.CanResurrectOtherPlayer = true;
+        }
+
+        /// <summary>
+        /// Remove character from match.
+        /// </summary>
+        public override void MatchLeave(Abstract.Identity identity)
+        {
+            IMatchTeam team = GetTeam(identity);
+            if (team == null)
+                throw new InvalidOperationException();
+
+            base.MatchLeave(identity);
+
+            // if all members of a team have left, the other team wins
+            if (Status == MatchStatus.InProgress)
+                if (!team.GetMembers().Any())
+                    MatchFinish(team.Team == Static.Matching.MatchTeam.Red ? MatchWinner.Blue : MatchWinner.Red, MatchEndReason.Completed);
         }
 
         /// <summary>
@@ -202,6 +282,61 @@ namespace NexusForever.Game.Matching.Match
 
             if (map is IContentPvpMapInstance pvpMapInstance)
                 pvpMapInstance.OnPvpMatchFinish(matchWinner, matchEndReason);
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> dies.
+        /// </summary>
+        public void OnDeath(IPlayer player)
+        {
+            IMatchTeam team = GetTeam(player.Identity);
+            if (team == null)
+                throw new InvalidOperationException();
+
+            // if the match has a deathmatch pool and the team has no lives left, the other team wins
+            if (DeathpoolDepleted(team))
+            {
+                MatchFinish(team.Team == Static.Matching.MatchTeam.Red ? MatchWinner.Blue : MatchWinner.Red, MatchEndReason.Completed);
+                return;
+            }
+
+            bool canResurrect = CanResurrect(team);
+            ResurrectionType type = canResurrect ? map.GetResurrectionType() : ResurrectionType.None;
+
+            // TODO: should the timespans be dynamic?
+            player.ResurrectionManager.ShowResurrection(type, canResurrect ? TimeSpan.FromSeconds(5) : null, canResurrect ? TimeSpan.FromSeconds(20) : null);
+        }
+
+        private bool DeathpoolDepleted(IMatchTeam team)
+        {
+            if (MatchingMap.GameTypeEntry.MatchingRulesEnum != MatchRules.DeathmatchPool)
+                return false;
+
+            if (deathmatchPool[team.Team] > 0)
+                return false;
+
+            foreach (IMatchTeamMember matchTeamMember in team.GetMembers())
+            {
+                if (!matchTeamMember.InMatch)
+                    continue;
+
+                IPlayer player = playerManager.GetPlayer(matchTeamMember.Identity);
+                if (player == null)
+                    continue;
+
+                if (player.IsAlive)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool CanResurrect(IMatchTeam team)
+        {
+            if (MatchingMap.GameTypeEntry.MatchingRulesEnum != MatchRules.DeathmatchPool)
+                return true;
+
+            return deathmatchPool[team.Team] > 0;
         }
     }
 }

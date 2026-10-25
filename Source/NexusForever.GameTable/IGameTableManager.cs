@@ -388,6 +388,7 @@ namespace NexusForever.GameTable
         TextTable TextGerman { get; }
 
         Task Initialise();
+
         Task Initialise(GameTableLoader loader);
 
         /// <summary>

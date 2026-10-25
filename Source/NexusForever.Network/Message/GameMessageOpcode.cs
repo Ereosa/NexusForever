@@ -80,6 +80,7 @@ namespace NexusForever.Network.Message
         ServerPathExplorerPowerMapWaiting = 0x00FA,
         ServerCharacterFlagsUpdated     = 0x00FE,
         ServerResurrectionState         = 0x0100,
+        ServerResurrectionForced        = 0x0101,
         ServerGalacticArchiveRefresh    = 0x0102,
         ClientGalacticArchiveUnlock     = 0x0103,
         ServerGalacticArchiveUpdate     = 0x0104,

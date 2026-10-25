@@ -11,7 +11,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity.Player
             if (clientResurrectAccept.RezType == ResurrectionType.None)
                 return;
 
-            session.Player.ResurrectionManager.Resurrect(clientResurrectAccept.RezType);
+            session.Player.ResurrectionManager.ResurrectSelf(clientResurrectAccept.RezType);
         }
     }
 }

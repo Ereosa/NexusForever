@@ -136,6 +136,9 @@ namespace NexusForever.Game.Reputation
         /// </summary>
         public FactionLevel? GetFriendshipFactionLevel(Faction factionId)
         {
+            if (FactionId == factionId)
+                return FactionLevel.Beloved;
+
             foreach (IRelationshipNode relationship in relationships)
             {
                 if (relationship.Node.FactionId == factionId)

@@ -4,8 +4,8 @@ using NexusForever.Database;
 using NexusForever.Database.World;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.PublicEvent;
-using NexusForever.Game.Map;
 
 namespace NexusForever.Game.PublicEvent
 {
@@ -22,15 +22,18 @@ namespace NexusForever.Game.PublicEvent
 
         private readonly IDatabaseManager databaseManager;
         private readonly IEntityFactory entityFactory;
+        private readonly ICreatureInfoManager creatureInfoManager;
 
         public PublicEventEntityFactory(
             ILogger<PublicEventEntityFactory> log,
             IDatabaseManager databaseManager,
-            IEntityFactory entityFactory)
+            IEntityFactory entityFactory,
+            ICreatureInfoManager creatureInfoManager)
         {
             this.log             = log;
             this.databaseManager = databaseManager;
             this.entityFactory   = entityFactory;
+            this.creatureInfoManager = creatureInfoManager;
         }
 
         #endregion
@@ -61,20 +64,16 @@ namespace NexusForever.Game.PublicEvent
 
             foreach (EntityModel model in models)
             {
+                ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(model.Creature);
+                if (creatureInfo == null)
+                    continue;
+
                 IWorldEntity entity = entityFactory.CreateWorldEntity(model.Type);
-                entity.Initialise(model);
+                entity.Initialise(creatureInfo, model);
                 entity.Rotation = new Vector3(model.Rx, model.Ry, model.Rz);
+                entity.AddToMap(publicEvent.Map, new Vector3(model.X, model.Y, model.Z));
 
                 entities.Add(entity);
-
-                publicEvent.Map.EnqueueAdd(entity, new MapPosition
-                {
-                    Info = new MapInfo
-                    {
-                        Entry = publicEvent.Map.Entry
-                    },
-                    Position = new Vector3(model.X, model.Y, model.Z)
-                });
             }
 
             log.LogTrace($"Spawned entities for public event {publicEvent.Id} phase {phase}.");
@@ -87,7 +86,7 @@ namespace NexusForever.Game.PublicEvent
         {
             foreach (IGridEntity entity in entities)
                 if (entity.InWorld)
-                    publicEvent.Map.EnqueueRemove(entity);
+                    entity.RemoveFromMap();
 
             entities.Clear();
 

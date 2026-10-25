@@ -11,6 +11,11 @@ namespace NexusForever.Game.Abstract.Entity
         public bool CanResurrectOtherPlayer { get; set; }
 
         /// <summary>
+        /// Initialise a new <see cref="IResurrectionManager"/> for <see cref="IPlayer"/>.
+        /// </summary>
+        void Initalise(IPlayer owner);
+
+        /// <summary>
         /// Send initial resurrection packets to owner <see cref="IPlayer"/>.
         /// </summary>
         void SendInitialPackets();
@@ -18,21 +23,21 @@ namespace NexusForever.Game.Abstract.Entity
         /// <summary>
         /// Show resurrection options to owner <see cref="IPlayer"/>.
         /// </summary>
-        void ShowResurrection();
+        void ShowResurrection(ResurrectionType type, TimeSpan? timeUntilResurrection, TimeSpan? timeUntilForcedResurrection);
 
         /// <summary>
         /// Resurrect owner <see cref="IPlayer"/> with the specified <see cref="ResurrectionType"/>.
         /// </summary>
-        void Resurrect(ResurrectionType rezType);
+        void ResurrectSelf(ResurrectionType rezType);
 
         /// <summary>
         /// Send resurrection request target <see cref="IPlayer>"/>.
         /// </summary>
-        void Resurrect(uint targetUnitId);
+        void ResurrectTarget(uint targetUnitId);
 
         /// <summary>
         /// Recieve resurrection request from <see cref="IPlayer"/>.
         /// </summary>
-        void ResurrectRequest(uint unitId);
+        void OnResurrectRequest(uint unitId);
     }
 }

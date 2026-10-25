@@ -1,7 +1,9 @@
 using System.Numerics;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Chat;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Entity.Movement.Command;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.GameTable.Model;
@@ -21,14 +23,18 @@ namespace NexusForever.Game.Abstract.Entity
         public WorldZoneEntry Zone { get; }
 
         uint EntityId { get; }
-        uint CreatureId { get; set; }
-        Creature2Entry CreatureEntry { get; }
-        uint DisplayInfo { get; set; }
-        Creature2DisplayInfoEntry CreatureDisplayEntry { get; }
-        ushort OutfitInfo { get; set; }
-        Creature2OutfitInfoEntry CreatureOutfitEntry { get; }
+
+        uint CreatureId { get; }
+        ICreatureInfo CreatureInfo { get; set; }
+        uint DisplayInfoId { get; }
+        Creature2DisplayInfoEntry CreatureDisplayEntry { get; set; }
+        ushort OutfitInfoId { get; }
+        Creature2OutfitInfoEntry CreatureOutfitEntry { get; set; }
+
         Faction Faction1 { get; set; }
         Faction Faction2 { get; set; }
+
+        byte QuestChecklistIdx { get; }
 
         ushort WorldSocketId { get; }
         ulong ActivePropId { get; }
@@ -43,8 +49,17 @@ namespace NexusForever.Game.Abstract.Entity
         uint MaxHealth { get; set; }
         uint Shield { get; set; }
         uint MaxShieldCapacity { get; set; }
+
+        float Endurance { get; set; }
+        float Focus { get; set; }
+        float Dash { get; set; }
+        float Resource1 { get; set; }
+        float Resource3 { get; set; }
+        float Resource4 { get; set; }
+        float InterruptArmour { get; set; }
+        int MaxInterruptArmour { get; set; }
+
         uint Level { get; set; }
-        uint InterruptArmor { get; set; }
         bool Sheathed { get; set; }
 
         /// <summary>
@@ -71,14 +86,27 @@ namespace NexusForever.Game.Abstract.Entity
         uint? PlatformGuid { get; }
 
         /// <summary>
-        /// Initialise <see cref="IWorldEntity"/> with supplied data.
+        /// Guid of the <see cref="IWorldEntity"/> that summoned this <see cref="IWorldEntity"/>.
         /// </summary>
-        public void Initialise(uint creatureId);
+        uint? SummonerGuid { get; set; }
+
+        /// <summary>
+        /// An entity factory to summon child entities.
+        /// </summary>
+        /// <remarks>
+        /// Any entities summoned by this <see cref="IWorldEntity"/> will be removed when this <see cref="IWorldEntity"/> is removed.
+        /// </remarks>
+        IEntitySummonFactory SummonFactory { get; }
+
+        /// <summary>
+        /// Initialise <see cref="IWorldEntity"/> with supplied <see cref="ICreatureInfo"/>.
+        /// </summary>
+        void Initialise(ICreatureInfo creatureInfo);
 
         /// <summary>
         /// Initialise <see cref="IWorldEntity"/> from an existing database model.
         /// </summary>
-        void Initialise(EntityModel model);
+        void Initialise(ICreatureInfo creatureInfo, EntityModel model);
 
         ServerEntityCreate BuildCreatePacket(bool initialCommands);
 
@@ -90,7 +118,17 @@ namespace NexusForever.Game.Abstract.Entity
         /// <summary>
         /// Invoked when <see cref="IWorldEntity"/> is cast activated.
         /// </summary>
-        void OnActivateCast(IPlayer activator);
+        void OnActivateCast(IPlayer activator, uint interactionId);
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/>'s activate succeeds.
+        /// </summary>
+        void OnActivateSuccess(IPlayer activator);
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/>'s activation fails.
+        /// </summary>
+        void OnActivateFail(IPlayer activator);
 
         /// <summary>
         /// Return a collection of <see cref="IItemVisual"/> for <see cref="IWorldEntity"/>.
@@ -101,11 +139,6 @@ namespace NexusForever.Game.Abstract.Entity
         /// Set <see cref="IWorldEntity"/> to broadcast all <see cref="IItemVisual"/> on next world update.
         /// </summary>
         void SetVisualEmit(bool status);
-
-        /// <summary>
-        /// Set visual info of <see cref="IWorldEntity"/> with supplied data.
-        /// </summary>
-        public void SetVisualInfo(uint displayInfo, ushort outfitInfo);
 
         /// <summary>
         /// Add or update <see cref="IItemVisual"/> at <see cref="ItemSlot"/> with supplied data.
@@ -151,6 +184,11 @@ namespace NexusForever.Game.Abstract.Entity
         void SetBaseProperty(Property property, float value);
 
         /// <summary>
+        /// Calculate the primary value for <see cref="Property"/>.
+        /// </summary>
+        void CalculateProperty(Property property);
+
+        /// <summary>
         /// Set <see cref="IWorldEntity"/> to broadcast <see cref="Property"/> on next world update.
         /// </summary>
         void SetPropertyEmit(Property property);
@@ -158,7 +196,22 @@ namespace NexusForever.Game.Abstract.Entity
         /// <summary>
         /// Return the <see cref="uint"/> value of the supplied <see cref="Stat"/> as an <see cref="Enum"/>.
         /// </summary>
-        T? GetStatEnum<T>(Stat stat) where T : struct, Enum;
+        T? GetStatEnum<T>(Static.Entity.Stat stat) where T : struct, Enum;
+
+        /// <summary>
+        /// Get the current value of the <see cref="Stat"/> mapped to <see cref="Vital"/>.
+        /// </summary>
+        float GetVitalValue(Vital vital);
+
+        /// <summary>
+        /// Set the stat value for the provided <see cref="Vital"/>.
+        /// </summary>
+        void SetVital(Vital vital, float value);
+
+        /// <summary>
+        /// Modify the current stat value for the <see cref="Vital"/>.
+        /// </summary>
+        void ModifyVital(Vital vital, float value);
 
         /// <summary>
         /// Enqueue broadcast of <see cref="IWritable"/> to all visible <see cref="IPlayer"/>'s in range.
@@ -243,5 +296,18 @@ namespace NexusForever.Game.Abstract.Entity
         /// <param name="standState">The stand state id to set.</param>
         /// <param name="emoteId">The emote id to use if <paramref name="standState"/> is <see cref="StandState.Emote"/>.</param>
         void SetStandState(StandState standState, uint emoteId = 0u);
+        /// Invoked when <see cref="IWorldEntity"/> summons another <see cref="IWorldEntity"/>.
+        /// </summary>
+        void OnSummon(IWorldEntity entity);
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> unsummons another <see cref="IWorldEntity"/>.
+        /// </summary>
+        void OnUnsummon(IWorldEntity entity);
+
+        /// <summary>
+        /// Invoked when an <see cref="IEntityCommand"/> has finialised for <see cref="IWorldEntity"/>.
+        /// </summary>
+        void OnEntityCommandFinalise(IEntityCommand command);
     }
 }

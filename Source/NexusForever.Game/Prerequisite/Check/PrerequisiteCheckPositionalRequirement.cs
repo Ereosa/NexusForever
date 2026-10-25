@@ -5,6 +5,7 @@ using NexusForever.Game.Abstract.Prerequisite;
 using NexusForever.Game.Static.Prerequisite;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Shared;
 
 namespace NexusForever.Game.Prerequisite.Check
 {

@@ -1,13 +1,14 @@
 using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Static.Entity;
-using NexusForever.GameTable;
-using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
 using NexusForever.Network.World.Message.Model.PlayerPath;
+using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared;
 using NexusForever.Shared.Game;
 using NLog;
 
@@ -23,39 +24,36 @@ namespace NexusForever.Game.Entity
         public override EntityType Type => EntityType.Pet;
 
         public uint OwnerGuid { get; private set; }
-        public Creature2DisplayGroupEntryEntry Creature2DisplayGroup { get; private set; }
 
         private readonly UpdateTimer followTimer = new(1d);
 
         #region Dependency Injection
 
-        public PetEntity(IMovementManager movementManager)
-            : base(movementManager)
+        public PetEntity(IMovementManager movementManager,
+            IEntitySummonFactory entitySummonFactory)
+            : base(movementManager, entitySummonFactory)
         {
         }
 
         #endregion
 
-        public void Initialise(IPlayer owner, uint creature)
+        public void Initialise(IPlayer owner, ICreatureInfo creatureInfo)
         {
             OwnerGuid = owner.Guid;
-            Initialise(creature);
-
-            Creature2DisplayGroup = GameTableManager.Instance.Creature2DisplayGroupEntry.Entries.SingleOrDefault(x => x.Creature2DisplayGroupId == CreatureEntry.Creature2DisplayGroupId);
-            SetVisualInfo(Creature2DisplayGroup?.Creature2DisplayInfoId ?? 0u, 0);
+            Initialise(creatureInfo);
 
             SetBaseProperty(Property.BaseHealth, 800.0f);
 
-            SetStat(Stat.Health, 800u);
-            SetStat(Stat.Level, 3u);
-            SetStat(Stat.Sheathed, 0u);
+            SetStat(Static.Entity.Stat.Health, 800u);
+            SetStat(Static.Entity.Stat.Level, 3u);
+            SetStat(Static.Entity.Stat.Sheathed, 0u);
         }
 
         protected override IEntityModel BuildEntityModel()
         {
             return new PetEntityModel
             {
-                CreatureId  = CreatureEntry.Id,
+                CreatureId  = CreatureId,
                 OwnerId     = OwnerGuid,
                 Name        = ""
             };

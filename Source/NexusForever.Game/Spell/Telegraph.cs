@@ -1,9 +1,9 @@
 ﻿using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
-using NexusForever.Game.Map.Search;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable.Model;
+using NexusForever.Shared;
 using NLog;
 
 namespace NexusForever.Game.Spell
@@ -16,6 +16,7 @@ namespace NexusForever.Game.Spell
         public Vector3 Position { get; private set; }
         public Vector3 Rotation { get; private set; }
         public TelegraphDamageEntry TelegraphDamage { get; }
+        public TelegraphTargetTypeFlags TelegraphTargetTypeFlags => (TelegraphTargetTypeFlags)TelegraphDamage.TargetTypeFlags;
 
         private float casterHitRadius => Caster.HitRadius * 0.5f;
 
@@ -59,14 +60,6 @@ namespace NexusForever.Game.Spell
                 rotationRadians += 2 * MathF.PI;
 
             Rotation = new Vector3(rotationRadians, Rotation.Y, Rotation.Z);
-        }
-
-        /// <summary>
-        /// Returns any <see cref="IUnitEntity"/> inside the <see cref="ITelegraph"/>.
-        /// </summary>
-        public IEnumerable<IUnitEntity> GetTargets()
-        {
-            return Caster.Map.Search(Position, GridSearchSize(), new SearchCheckTelegraph(this, Caster));
         }
 
         /// <summary>

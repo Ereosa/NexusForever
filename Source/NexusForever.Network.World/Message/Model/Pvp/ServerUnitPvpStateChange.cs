@@ -1,4 +1,4 @@
-﻿using NexusForever.Game.Static.Pvp;
+﻿using NexusForever.Game.Static.PVP;
 using NexusForever.Network.Message;
 
 namespace NexusForever.Network.World.Message.Model.Pvp
@@ -7,7 +7,7 @@ namespace NexusForever.Network.World.Message.Model.Pvp
     public class ServerUnitPvpStateChange : IWritable
     {
         public uint UnitId { get; set; }
-        public PvpState State { get; set; }
+        public PvPFlag State { get; set; }
 
         public void Write(GamePacketWriter writer)
         {

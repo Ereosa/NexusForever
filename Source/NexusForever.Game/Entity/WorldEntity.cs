@@ -3,14 +3,24 @@ using Newtonsoft.Json.Linq;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Chat;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Entity.Movement.Command;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Reputation;
 using NexusForever.Game.Chat;
+using NexusForever.Game.CSI;
+using NexusForever.Game.Entity.Movement;
 using NexusForever.Game.Map.Search;
+using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Reputation;
 using NexusForever.Game.Static.Chat;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Spell;
+using NexusForever.Game.Static.Chat;
+using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.PublicEvent;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -19,7 +29,9 @@ using NexusForever.Network.Message;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Shared;
+using NexusForever.Script;
 using NexusForever.Script.Template;
+using NexusForever.Script.Template.Collection;
 
 namespace NexusForever.Game.Entity
 {
@@ -37,44 +49,52 @@ namespace NexusForever.Game.Entity
         public WorldZoneEntry Zone { get; private set; }
         public uint EntityId { get; protected set; }
 
-        public uint CreatureId
+        public ICreatureInfo CreatureInfo
         {
-            get => CreatureEntry?.Id ?? 0;
+            get => creatureInfo;
             set
             {
-                CreatureEntry = GameTableManager.Instance.Creature2.GetEntry(value);
+                creatureInfo = value;
                 SetVisualEmit(true);
             }
         }
 
-        public Creature2Entry CreatureEntry { get; private set; }
+        private ICreatureInfo creatureInfo;
 
-        public uint DisplayInfo
+        public uint CreatureId => CreatureInfo?.Entry.Id ?? 0u;
+
+        public Creature2DisplayInfoEntry CreatureDisplayEntry
         {
-            get => CreatureDisplayEntry?.Id ?? 0;
+            get => creatureDisplayEntry;
             set
             {
-                CreatureDisplayEntry = GameTableManager.Instance.Creature2DisplayInfo.GetEntry(value);
+                creatureDisplayEntry = value;
                 SetVisualEmit(true);
             }
         }
 
-        public Creature2DisplayInfoEntry CreatureDisplayEntry { get; private set; }
+        public uint DisplayInfoId => CreatureDisplayEntry?.Id ?? 0u;
 
-        public ushort OutfitInfo
+        private Creature2DisplayInfoEntry creatureDisplayEntry;
+
+        public Creature2OutfitInfoEntry CreatureOutfitEntry
         {
-            get => (ushort)(CreatureOutfitEntry?.Id ?? 0);
+            get => creatureOutfitEntry;
             set
             {
-                CreatureOutfitEntry = GameTableManager.Instance.Creature2OutfitInfo.GetEntry(value);
+                creatureOutfitEntry = value;
                 SetVisualEmit(true);
             }
         }
 
-        public Creature2OutfitInfoEntry CreatureOutfitEntry { get; private set; }
+        private Creature2OutfitInfoEntry creatureOutfitEntry;
+
+        public ushort OutfitInfoId => (ushort)(CreatureOutfitEntry?.Id ?? 0u);
 
         public Faction Faction1 { get; set; }
         public Faction Faction2 { get; set; }
+
+        public byte QuestChecklistIdx { get; private set; }
 
         public ulong ActivePropId { get; private set; }
         public ushort WorldSocketId { get; private set; }
@@ -87,10 +107,10 @@ namespace NexusForever.Game.Entity
 
         public virtual uint Health
         {
-            get => GetStatInteger(Stat.Health) ?? 0u;
+            get => GetStatInteger(Static.Entity.Stat.Health) ?? 0u;
             protected set
             {
-                SetStat(Stat.Health, Math.Clamp(value, 0u, MaxHealth)); // TODO: Confirm MaxHealth is actually the maximum health would be at.
+                SetStat(Static.Entity.Stat.Health, Math.Clamp(value, 0u, MaxHealth)); // TODO: Confirm MaxHealth is actually the maximum health would be at.
                 EnqueueToVisible(new ServerEntityHealthUpdate
                 {
                     UnitId = Guid,
@@ -107,8 +127,8 @@ namespace NexusForever.Game.Entity
 
         public uint Shield
         {
-            get => GetStatInteger(Stat.Shield) ?? 0u;
-            set => SetStat(Stat.Shield, Math.Clamp(value, 0u, MaxShieldCapacity)); // TODO: Handle overshield
+            get => GetStatInteger(Static.Entity.Stat.Shield) ?? 0u;
+            set => SetStat(Static.Entity.Stat.Shield, Math.Clamp(value, 0u, MaxShieldCapacity)); // TODO: Handle overshield
         }
 
         public uint MaxShieldCapacity
@@ -117,22 +137,105 @@ namespace NexusForever.Game.Entity
             set => SetBaseProperty(Property.ShieldCapacityMax, value);
         }
 
-        public virtual uint Level
+        [Vital(Vital.Endurance)]
+        public float Endurance
         {
-            get => GetStatInteger(Stat.Level) ?? 1u;
-            set => SetStat(Stat.Level, value);
+            get => GetStatFloat(Static.Entity.Stat.Resource0) ?? 0u;
+            set
+            {
+                float newVal = Math.Clamp(value, 0f, GetPropertyValue(Property.ResourceMax0));
+                SetStat(Static.Entity.Stat.Resource0, newVal);
+            }
         }
 
-        public uint InterruptArmor
+        [Vital(Vital.Focus)]
+        public float Focus
         {
-            get => GetStatInteger(Stat.InterruptArmour) ?? 1u;
-            set => SetStat(Stat.InterruptArmour, value);
+            get => GetStatFloat(Static.Entity.Stat.Focus) ?? 0u;
+            set 
+            {
+                float newVal = Math.Clamp(value, 0f, GetPropertyValue(Property.BaseFocusPool));
+                SetStat(Static.Entity.Stat.Focus, newVal);
+            }
+        }
+
+        [Vital(Vital.Dash)]
+        public float Dash
+        {
+            get => GetStatFloat(Static.Entity.Stat.Dash) ?? 0f;
+            set
+            {
+                // TODO: Validate prior to setting
+                float newVal = Math.Clamp(value, 0f, GetPropertyValue(Property.ResourceMax7));
+                SetStat(Static.Entity.Stat.Dash, newVal);
+            }
+        }
+
+        [Vital(Vital.Resource1)]
+        [Vital(Vital.KineticEnergy)]
+        [Vital(Vital.Volatility)]
+        [Vital(Vital.Actuator)]
+        [Vital(Vital.Actuator2)]
+        public float Resource1
+        {
+            get => GetStatFloat(Static.Entity.Stat.Resource1) ?? 0f;
+            set
+            {
+                // TODO: Validate prior to setting
+                float newVal = Math.Clamp(value, 0f, GetPropertyValue(Property.ResourceMax1));
+                SetStat(Static.Entity.Stat.Resource1, newVal);
+            }
+        }
+
+        [Vital(Vital.Resource3)]
+        [Vital(Vital.SuitPower)]
+        public float Resource3
+        {
+            get => GetStatFloat(Static.Entity.Stat.Resource3) ?? 0f;
+            set
+            {
+                // TODO: Validate prior to setting
+                float newVal = Math.Clamp(value, 0f, GetPropertyValue(Property.ResourceMax3));
+                SetStat(Static.Entity.Stat.Resource3, newVal);
+            }
+        }
+
+        [Vital(Vital.Resource4)]
+        [Vital(Vital.SpellSurge)]
+        public float Resource4
+        {
+            get => GetStatFloat(Static.Entity.Stat.Resource4) ?? 0f;
+            set
+            {
+                // TODO: Validate prior to setting
+                float newVal = Math.Clamp(value, 0f, GetPropertyValue(Property.ResourceMax4));
+                SetStat(Static.Entity.Stat.Resource4, newVal);
+            }
+        }
+
+        [Vital(Vital.InterruptArmor)]
+        public float InterruptArmour
+        {
+            get => (float)(GetStatInteger(Static.Entity.Stat.InterruptArmour) ?? 0f);
+            set => SetStat(Static.Entity.Stat.InterruptArmour, (uint)value);
+        }
+
+        public int MaxInterruptArmour
+        {
+            get => (int)GetPropertyValue(Property.InterruptArmorThreshold);
+            set => SetBaseProperty(Property.InterruptArmorThreshold, value);
+        }
+
+        public virtual uint Level
+        {
+            get => GetStatInteger(Static.Entity.Stat.Level) ?? 1u;
+            set => SetStat(Static.Entity.Stat.Level, value);
         }
 
         public bool Sheathed
         {
-            get => Convert.ToBoolean(GetStatInteger(Stat.Sheathed) ?? 0u);
-            set => SetStat(Stat.Sheathed, Convert.ToUInt32(value));
+            get => Convert.ToBoolean(GetStatInteger(Static.Entity.Stat.Sheathed) ?? 0u);
+            set => SetStat(Static.Entity.Stat.Sheathed, Convert.ToUInt32(value));
         }
 
         /// <summary>
@@ -141,7 +244,7 @@ namespace NexusForever.Game.Entity
         /// <remarks>
         /// To set the stand state, see <see cref="SetStandState(StandState, uint)"/> or <see cref="Emote(uint)"/>.
         /// </remarks>
-        public StandState StandState => (StandState)(GetStatInteger(Stat.StandState) ?? 0u);
+        public StandState StandState => (StandState)(GetStatInteger(Static.Entity.Stat.StandState) ?? 0u);
 
         /// <summary>
         /// Collection of guids currently targeting this <see cref="IWorldEntity"/>.
@@ -175,12 +278,26 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Guid of the <see cref="IWorldEntity"/> that summoned this <see cref="IWorldEntity"/>.
+        /// </summary>
+        public uint? SummonerGuid { get; set; }
+
+        /// <summary>
+        /// An entity factory to summon child entities.
+        /// </summary>
+        /// <remarks>
+        /// Any entities summoned by this <see cref="IWorldEntity"/> will be removed when this <see cref="IWorldEntity"/> is removed.
+        /// </remarks>
+        public IEntitySummonFactory SummonFactory { get; private set; }
+
+        /// <summary>
         /// Collection of guids currently passengers on this <see cref="IWorldEntity"/>.
         /// </summary>
         public IEnumerable<uint> PlatformPassengerGuids => platformPassengerGuids;
         private readonly HashSet<uint> platformPassengerGuids = new();
 
-        protected readonly Dictionary<Stat, IStatValue> stats = new Dictionary<Stat, IStatValue>();
+        protected readonly Dictionary<Static.Entity.Stat, IStatValue> stats = [];
+        private readonly HashSet<Static.Entity.Stat> dirtyStats = [];
 
         private readonly Dictionary<Property, IPropertyValue> properties = new ();
         private readonly HashSet<Property> dirtyProperties = new();
@@ -192,42 +309,73 @@ namespace NexusForever.Game.Entity
         #region Dependency Injection
 
         public WorldEntity(
-            IMovementManager movementManager)
+            IMovementManager movementManager,
+            IEntitySummonFactory summonFactory)
         {
             MovementManager = movementManager;
             MovementManager.Initialise(this);
+
+            SummonFactory = summonFactory;
+            SummonFactory.Initialise(this);
         }
 
         #endregion
 
         /// <summary>
-        /// Initialise <see cref="IWorldEntity"/> with supplied data.
+        /// Initialise <see cref="IWorldEntity"/> with supplied <see cref="ICreatureInfo"/>.
         /// </summary>
-        public void Initialise(uint creatureId)
+        public virtual void Initialise(ICreatureInfo creatureInfo)
         {
-            CreatureId = creatureId;
+            CreatureInfo         = creatureInfo;
+            CreatureDisplayEntry = creatureInfo.GetDisplayInfoEntry();
+            CreatureOutfitEntry  = creatureInfo.GetOutfitInfoEntry();
+            Faction1             = creatureInfo.Entry.FactionId;
+            Faction2             = creatureInfo.Entry.FactionId;
+
+            SetStat(Static.Entity.Stat.Level, creatureInfo.GetLevel());
+
+            foreach (ICreatureInfoStat stat in creatureInfo.GetStatOverrides())
+                stats.Add(stat.Stat, new StatValue(stat));
+
+            CalculateDefaultProperties();
+
+            foreach (ICreatureInfoProperty property in creatureInfo.GetPropertyOverrides())
+                SetBaseProperty(property.Property, property.Value);
+
+            // TODO: handle this better
+            Health = MaxHealth;
+            Shield = MaxShieldCapacity;
+
+            InitialiseScriptCollection(null);
         }
 
         /// <summary>
         /// Initialise <see cref="IWorldEntity"/> from an existing database model.
         /// </summary>
-        public virtual void Initialise(EntityModel model)
+        public virtual void Initialise(ICreatureInfo creatureInfo, EntityModel model)
         {
-            EntityId      = model.Id;
-            CreatureId    = model.Creature;
-            Rotation      = new Vector3(model.Rx, model.Ry, model.Rz);
-            DisplayInfo   = model.DisplayInfo;
-            OutfitInfo    = model.OutfitInfo;
-            Faction1      = (Faction)model.Faction1;
-            Faction2      = (Faction)model.Faction2;
-            ActivePropId  = model.ActivePropId;
-            WorldSocketId = model.WorldSocketId;
-            Spline        = model.EntitySpline;
+            CreatureInfo         = creatureInfo;
+            EntityId             = model.Id;
+            Rotation             = new Vector3(model.Rx, model.Ry, model.Rz);
+            CreatureDisplayEntry = GameTableManager.Instance.Creature2DisplayInfo.GetEntry(model.DisplayInfo);
+            CreatureOutfitEntry  = GameTableManager.Instance.Creature2OutfitInfo.GetEntry(model.OutfitInfo);
+            Faction1             = (Faction)model.Faction1;
+            Faction2             = (Faction)model.Faction2;
+            QuestChecklistIdx    = model.QuestChecklistIdx;
+            ActivePropId         = model.ActivePropId;
+            WorldSocketId        = model.WorldSocketId;
+            Spline               = model.EntitySpline;
+
+            if (model.Mode != null)
+                MovementManager.SetMode(model.Mode.Value);
 
             foreach (EntityStatModel statModel in model.EntityStat)
-                stats.Add((Stat)statModel.Stat, new StatValue(statModel));
+                stats.Add((Static.Entity.Stat)statModel.Stat, new StatValue(statModel));
 
             CalculateDefaultProperties();
+
+            foreach (EntityPropertyModel propertyModel in model.EntityProperty)
+                SetBaseProperty(propertyModel.Property, propertyModel.Value);
 
             // TODO: handle this better
             Health = MaxHealth;
@@ -235,6 +383,19 @@ namespace NexusForever.Game.Entity
 
             if (model.EntityEmote != null)
                 Emote(model.EntityEmote.EmoteId);
+            List<string> scriptNames = model.EntityScript
+                .Select(e => e.ScriptName)
+                .ToList();
+            InitialiseScriptCollection(scriptNames.Count > 0 ? scriptNames : null);
+        }
+
+        /// <summary>
+        /// Initialise <see cref="IScriptCollection"/> for <see cref="IWorldEntity"/>.
+        /// </summary>
+        protected override void InitialiseScriptCollection(List<string> names)
+        {
+            scriptCollection = ScriptManager.Instance.InitialiseOwnedCollection<IWorldEntity>(this);
+            ScriptManager.Instance.InitialiseEntityScripts<IWorldEntity>(scriptCollection, this, names);
         }
 
         /// <summary>
@@ -248,12 +409,18 @@ namespace NexusForever.Game.Entity
             base.OnAddToMap(map, guid, vector);
 
             UpdateZone(vector);
+
+            if (SummonerGuid.HasValue)
+            {
+                IWorldEntity summoner = map.GetEntity<IWorldEntity>(SummonerGuid.Value);
+                summoner?.OnSummon(this);
+            }
         }
 
         /// <summary>
         /// Invoked when <see cref="IWorldEntity"/> is removed from <see cref="IBaseMap"/>.
         /// </summary>
-        public override void OnRemoveFromMap()
+        protected override void OnRemoveFromMap()
         {
             foreach (uint platformPassengerGuid in platformPassengerGuids.ToList())
             {
@@ -266,10 +433,20 @@ namespace NexusForever.Game.Entity
                 worldEntity.MovementManager.SetRotation(Rotation, false);
             }
 
+            SummonFactory.Unsummon();
+            if (SummonerGuid.HasValue)
+            {
+                IWorldEntity summoner = Map.GetEntity<IWorldEntity>(SummonerGuid.Value);
+                summoner?.OnUnsummon(this);
+            }
+
             base.OnRemoveFromMap();
         }
 
-        public override void OnRelocate(Vector3 vector)
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> is relocated.
+        /// </summary>
+        protected override void OnRelocate(Vector3 vector)
         {
             base.OnRelocate(vector);
             UpdateZone(vector);
@@ -308,6 +485,12 @@ namespace NexusForever.Game.Entity
                 EnqueueToVisible(BuildPropertyUpdates(), true);
                 dirtyProperties.Clear();
             }
+
+            if (dirtyStats.Count != 0)
+            {
+                BroadcastStatUpdates();
+                dirtyStats.Clear();
+            }
         }
 
         protected abstract IEntityModel BuildEntityModel();
@@ -339,8 +522,8 @@ namespace NexusForever.Game.Entity
                     .ToList(),
                 Faction1     = Faction1,
                 Faction2     = Faction2,
-                DisplayInfo  = DisplayInfo,
-                OutfitInfo   = OutfitInfo
+                DisplayInfo  = DisplayInfoId,
+                OutfitInfo   = OutfitInfoId,
             };
 
             // Plugs should not have this portion of the packet set by this Class. The Plug Class should set it itself.
@@ -372,11 +555,66 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
-        /// Invoked when <see cref="IWorldEntity"/> is cast activated.
+        /// Invoked when <see cref="WorldEntity"/> is cast activated.
         /// </summary>
-        public virtual void OnActivateCast(IPlayer activator)
+        public virtual void OnActivateCast(IPlayer activator, uint interactionId)
         {
-            // deliberately empty
+            // Handle CSI
+            uint spell4Id = 0;
+            for (int i = 0; i < CreatureInfo.Entry.Spell4IdActivate.Length; i++)
+            {
+                if (spell4Id > 0u || i == CreatureInfo.Entry.Spell4IdActivate.Length)
+                    break;
+
+                if (CreatureInfo.Entry.PrerequisiteIdActivateSpells[i] > 0 && PrerequisiteManager.Instance.Meets(activator, CreatureInfo.Entry.PrerequisiteIdActivateSpells[i]))
+                    spell4Id = CreatureInfo.Entry.Spell4IdActivate[i];
+
+                if (spell4Id == 0u && CreatureInfo.Entry.Spell4IdActivate[i] == 0u && i > 0)
+                    spell4Id = CreatureInfo.Entry.Spell4IdActivate[i - 1];
+            }
+
+            if (spell4Id == 0)
+                throw new InvalidOperationException($"Spell4Id should not be 0. Unhandled Creature ActivateCast {CreatureInfo.Entry.Id}");
+
+            SpellParameters parameters = new SpellParameters
+            {
+                PrimaryTargetId        = Guid,
+                ClientSideInteraction  = new ClientSideInteraction(activator, this, interactionId),
+                CastTimeOverride       = (int)CreatureInfo.Entry.ActivateSpellCastTime,
+                UserInitiatedSpellCast = true
+            };
+            activator.CastSpell(spell4Id, parameters);
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/>'s activate succeeds.
+        /// </summary>
+        public virtual void OnActivateSuccess(IPlayer activator)
+        {
+            if (CreatureInfo.Entry != null)
+            {
+                activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, CreatureInfo.Entry.Id, 1u);
+                activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, CreatureInfo.Entry.Id, QuestChecklistIdx);
+                activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, CreatureInfo.Entry.Id, 1u);
+
+                foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureInfo.Entry.Id))
+                {
+                    activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, 1u); // Updates the objective, but seems to disable all the other targets. TODO: Investigate
+
+                    Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroup, targetGroupId, 1);
+                    Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistIdx);
+                }
+            }
+
+            scriptCollection?.Invoke<IWorldEntityScript>(s => s.OnActivateSuccess(activator));
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/>'s activation fails.
+        /// </summary>
+        public virtual void OnActivateFail(IPlayer activator)
+        {
+            scriptCollection?.Invoke<IWorldEntityScript>(s => s.OnActivateFail(activator));
         }
 
         /// <summary>
@@ -397,15 +635,6 @@ namespace NexusForever.Game.Entity
                 return;
 
             emitVisual = status;
-        }
-
-        /// <summary>
-        /// Set visual info of <see cref="IWorldEntity"/> with supplied data.
-        /// </summary>
-        public void SetVisualInfo(uint displayInfo, ushort outfitInfo)
-        {
-            DisplayInfo = displayInfo;
-            OutfitInfo = outfitInfo;
         }
 
         /// <summary>
@@ -450,8 +679,8 @@ namespace NexusForever.Game.Entity
             {
                 UnitId      = Guid,
                 CreatureId  = CreatureId,
-                DisplayInfo = DisplayInfo,
-                OutfitInfo  = OutfitInfo,
+                DisplayInfo = DisplayInfoId,
+                OutfitInfo  = OutfitInfoId,
                 ItemVisuals = itemVisuals.Values
                     .Select(v => v.Build())
                     .ToList()
@@ -562,7 +791,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Calculate the primary value for <see cref="Property"/>.
         /// </summary>
-        protected void CalculateProperty(Property property)
+        public void CalculateProperty(Property property)
         {
             IPropertyValue propertyValue = GetProperty(property);
             CalculateProperty(propertyValue);
@@ -633,6 +862,10 @@ namespace NexusForever.Game.Entity
                     if (propertyValue.Value < Shield)
                         Shield = MaxShieldCapacity;
                     break;
+                case Property.InterruptArmorThreshold:
+                    if (propertyValue.Value < InterruptArmour)
+                        InterruptArmour = MaxInterruptArmour;
+                    break;
             }
         }
 
@@ -661,7 +894,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Return the <see cref="float"/> value of the supplied <see cref="Stat"/>.
         /// </summary>
-        protected float? GetStatFloat(Stat stat)
+        protected float? GetStatFloat(Static.Entity.Stat stat)
         {
             StatAttribute attribute = EntityManager.Instance.GetStatAttribute(stat);
             if (attribute?.Type != StatType.Float)
@@ -676,7 +909,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Return the <see cref="uint"/> value of the supplied <see cref="Stat"/>.
         /// </summary>
-        protected uint? GetStatInteger(Stat stat)
+        protected uint? GetStatInteger(Static.Entity.Stat stat)
         {
             StatAttribute attribute = EntityManager.Instance.GetStatAttribute(stat);
             if (attribute?.Type is not StatType.Integer and not StatType.Data)
@@ -691,7 +924,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Return the <see cref="uint"/> value of the supplied <see cref="Stat"/> as an <see cref="Enum"/>.
         /// </summary>
-        public T? GetStatEnum<T>(Stat stat) where T : struct, Enum
+        public T? GetStatEnum<T>(Static.Entity.Stat stat) where T : struct, Enum
         {
             uint? value = GetStatInteger(stat);
             if (value == null)
@@ -703,14 +936,18 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Set <see cref="Stat"/> to the supplied <see cref="float"/> value.
         /// </summary>
-        protected void SetStat(Stat stat, float value)
+        protected void SetStat(Static.Entity.Stat stat, float value)
         {
             StatAttribute attribute = EntityManager.Instance.GetStatAttribute(stat);
             if (attribute?.Type != StatType.Float)
                 throw new ArgumentException();
 
+            float previousValue = 0f;
             if (stats.TryGetValue(stat, out IStatValue statValue))
+            {
+                previousValue   = statValue.Value;
                 statValue.Value = value;
+            }
             else
             {
                 statValue = new StatValue(stat, value);
@@ -718,33 +955,24 @@ namespace NexusForever.Game.Entity
             }
 
             if (attribute.SendUpdate)
-            {
-                EnqueueToVisible(new ServerEntityStatUpdateFloat
-                {
-                    UnitId = Guid,
-                    Stat   = new StatValueUpdate
-                    {
-                        Stat  = statValue.Stat,
-                        Type  = statValue.Type,
-                        Value = statValue.Value
-                    }
-                }, true);
-            }
+                SetStatEmit(stat);
 
-            OnStatUpdate(statValue);
+            OnStatUpdate(statValue, previousValue);
         }
 
         /// <summary>
         /// Set <see cref="Stat"/> to the supplied <see cref="uint"/> value.
         /// </summary>
-        protected void SetStat(Stat stat, uint value, uint data = 0u)
+        protected void SetStat(Static.Entity.Stat stat, uint value, uint data = 0u)
         {
             StatAttribute attribute = EntityManager.Instance.GetStatAttribute(stat);
             if (attribute?.Type is not StatType.Integer and not StatType.Data)
                 throw new ArgumentException();
 
+            float previousValue = 0f;
             if (stats.TryGetValue(stat, out IStatValue statValue))
             {
+                previousValue   = statValue.Value;
                 statValue.Value = value;
                 if (attribute.Type == StatType.Data)
                     statValue.Data = data;
@@ -760,36 +988,105 @@ namespace NexusForever.Game.Entity
             }
 
             if (attribute.SendUpdate)
-            {
-                EnqueueToVisible(new ServerEntityStatUpdateInteger
-                {
-                    UnitId = Guid,
-                    Stat   = new StatValueUpdate
-                    {
-                        Stat  = statValue.Stat,
-                        Type  = statValue.Type,
-                        Value = statValue.Value
-                    }
-                }, true);
-            }
+                SetStatEmit(stat);
 
-            OnStatUpdate(statValue);
+            OnStatUpdate(statValue, previousValue);
         }
 
         /// <summary>
-        /// Set <see cref="Stat"/> to the supplied <see cref="Enum"/> value.
+        /// Set <see cref="IWorldEntity"/> to broadcast <see cref="Static.Entity.Stat"/> on next world update.
         /// </summary>
-        protected void SetStat<T>(Stat stat, T value) where T : Enum, IConvertible
+        private void SetStatEmit(Static.Entity.Stat stat)
         {
-            SetStat(stat, value.ToUInt32(null));
+            // don't broadcast stat changes if not in world, stats will be sent with creation packet.
+            if (!InWorld)
+                return;
+
+            dirtyStats.Add(stat);
+        }
+
+        private void BroadcastStatUpdates()
+        {
+            foreach (Static.Entity.Stat stat in dirtyStats)
+            {
+                if (!stats.TryGetValue(stat, out IStatValue statValue))
+                    return;
+
+                if (statValue.Type == StatType.Float)
+                {
+                    EnqueueToVisible(new ServerEntityStatUpdateFloat
+                    {
+                        UnitId = Guid,
+                        Stat   = new StatValueUpdate
+                        {
+                            Stat  = statValue.Stat,
+                            Type  = statValue.Type,
+                            Value = statValue.Value
+                        }
+                    }, true);
+                }
+                else
+                {
+                    EnqueueToVisible(new ServerEntityStatUpdateInteger
+                    {
+                        UnitId = Guid,
+                        Stat   = new StatValueUpdate
+                        {
+                            Stat  = statValue.Stat,
+                            Type  = statValue.Type,
+                            Value = statValue.Value
+                        }
+                    }, true);
+                }
+            }
         }
 
         /// <summary>
         /// Invoked when <see cref="IWorldEntity"/> has a <see cref="Stat"/> updated.
         /// </summary>
-        protected virtual void OnStatUpdate(IStatValue statValue)
+        protected virtual void OnStatUpdate(IStatValue statValue, float previousValue)
         {
             // deliberately empty
+        }
+
+        /// <summary>
+        /// Set <see cref="Stat"/> to the supplied <see cref="Enum"/> value.
+        /// </summary>
+        protected void SetStat<T>(Static.Entity.Stat stat, T value) where T : Enum, IConvertible
+        {
+            SetStat(stat, value.ToUInt32(null));
+        }
+
+        /// <summary>
+        /// Get the current value of the <see cref="Stat"/> mapped to <see cref="Vital"/>.
+        /// </summary>
+        public float GetVitalValue(Vital vital)
+        {
+            return EntityManager.Instance.GetVitalGetter(vital)?.Invoke(this) ?? 0f;
+        }
+
+        /// <summary>
+        /// Set the stat value for the provided <see cref="Vital"/>.
+        /// </summary>
+        public void SetVital(Vital vital, float value)
+        {
+            var vitalHandler = EntityManager.Instance.GetVitalSetter(vital);
+            if (vitalHandler == null)
+                return;
+
+            vitalHandler.Invoke(this, value);
+        }
+
+        /// <summary>
+        /// Modify the current stat value for the <see cref="Vital"/>.
+        /// </summary>
+        public void ModifyVital(Vital vital, float value)
+        {
+            var vitalHandler = EntityManager.Instance.GetVitalSetter(vital);
+            if (vitalHandler == null)
+                return;
+
+            vitalHandler.Invoke(this, GetVitalValue(vital) + value);
         }
 
         /// <summary>
@@ -894,7 +1191,7 @@ namespace NexusForever.Game.Entity
                 Text     = text,
                 Guid     = Guid,
                 // TODO: should this be based on the players session language?
-                FromName = GameTableManager.Instance.TextEnglish.GetEntry(CreatureEntry.LocalizedTextIdName)
+                FromName = GameTableManager.Instance.TextEnglish.GetEntry(CreatureInfo.Entry.LocalizedTextIdName)
             };
         }
 
@@ -903,7 +1200,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void NpcSay(string text, float range = 155f)
         {
-            if (CreatureEntry == null)
+            if (CreatureInfo == null)
                 return;
 
             Talk(BuildNpcChat(text, ChatChannelType.NPCSay), range);
@@ -914,7 +1211,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void NpcYell(string text, float range = 310f)
         {
-            if (CreatureEntry == null)
+            if (CreatureInfo == null)
                 return;
 
             Talk(BuildNpcChat(text, ChatChannelType.NPCYell), range);
@@ -928,10 +1225,11 @@ namespace NexusForever.Game.Entity
             if (Map == null)
                 throw new InvalidOperationException();
 
-            IEnumerable<IPlayer> players = Map.Search(
-                Position,
-                range,
-                new SearchCheckRange<IPlayer>(Position, range, exclude));
+            var check = new SearchCheckRange<IPlayer>();
+            check.Initialise(Position, range);
+
+            IEnumerable<IPlayer> players = Map.Search(Position, range, check)
+                .Where(e => e != exclude);
 
             IWritable message = builder.Build();
             foreach (IPlayer player in players)
@@ -1028,7 +1326,7 @@ namespace NexusForever.Game.Entity
         /// <param name="emoteId">The emote id to use if <paramref name="standState"/> is <see cref="StandState.Emote"/>.</param>
         public void SetStandState(StandState standState, uint emoteId = 0u)
         {
-            SetStat(Stat.StandState, (uint)standState, emoteId);
+            SetStat(Static.Entity.Stat.StandState, (uint)standState, emoteId);
 
             EnqueueToVisible(new ServerEntityStandState
             {
@@ -1036,6 +1334,32 @@ namespace NexusForever.Game.Entity
                 StandState = standState,
                 EmoteId    = emoteId
             });
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> summons another <see cref="IWorldEntity"/>.
+        /// </summary>
+        public virtual void OnSummon(IWorldEntity entity)
+        {
+            SummonFactory.TrackSummon(entity);
+            scriptCollection.Invoke<IWorldEntityScript>(s => s.OnSummon(entity));
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> unsummons another <see cref="IWorldEntity"/>.
+        /// </summary>
+        public virtual void OnUnsummon(IWorldEntity entity)
+        {
+            SummonFactory.UntrackSummon(entity);
+            scriptCollection.Invoke<IWorldEntityScript>(s => s.OnUnsummon(entity));
+        }
+
+        /// <summary>
+        /// Invoked when an <see cref="IEntityCommand"/> has finialised for <see cref="IWorldEntity"/>.
+        /// </summary>
+        public virtual void OnEntityCommandFinalise(IEntityCommand command)
+        {
+            InvokeScriptCollection<IWorldEntityScript>(s => s.OnEntityCommandFinalise(command));
         }
     }
 }

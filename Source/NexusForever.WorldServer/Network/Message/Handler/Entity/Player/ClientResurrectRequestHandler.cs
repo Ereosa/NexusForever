@@ -10,7 +10,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity.Player
             if (session.Player.TargetGuid == null)
                 return;
 
-            session.Player.ResurrectionManager.Resurrect(session.Player.TargetGuid.Value);
+            session.Player.ResurrectionManager.ResurrectTarget(session.Player.TargetGuid.Value);
         }
     }
 }

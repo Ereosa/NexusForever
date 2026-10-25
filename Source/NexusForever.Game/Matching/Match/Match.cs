@@ -219,7 +219,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Invoked when <see cref="IPlayer"/> exits the match.
         /// </summary>
-        public void MatchExit(IPlayer player, bool teleport)
+        public virtual void MatchExit(IPlayer player, bool teleport)
         {
             IMatchTeam team = GetTeam(player.Identity);
             if (team == null)
@@ -244,7 +244,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Remove character from match.
         /// </summary>
-        public void MatchLeave(Identity identity)
+        public virtual void MatchLeave(Identity identity)
         {
             IMatchTeam team = GetTeam(identity);
             if (team == null)
@@ -301,15 +301,27 @@ namespace NexusForever.Game.Matching.Match
         }
 
         /// <summary>
-        /// Get return <see cref="IMapPosition"/> for <see cref="IPlayer"/>.
+        /// Get return <see cref="IMapPosition"/> for supplied character.
         /// </summary>
         /// <remarks>
         /// Return position is the position of the player before entering the match.
         /// </remarks>
-        public IMapPosition GetReturnPosition(IPlayer player)
+        public IMapPosition GetReturnPosition(Identity identity)
         {
-            IMatchTeam team = GetTeam(player.Identity);
-            return team.GetReturnPosition(player.Identity);
+            IMatchTeam team = GetTeam(identity);
+            return team.GetReturnPosition(identity);
+        }
+
+        /// <summary>
+        /// Get <see cref="IMapEntrance"/> for supplied character.
+        /// </summary>
+        /// <remarks>
+        /// Map entrance position is the position the players team will be teleported to when the match starts.
+        /// </remarks>
+        public IMapEntrance GetMapEntrance(Identity identity)
+        {
+            IMatchTeam team = GetTeam(identity);
+            return team.MapEntrance;
         }
 
         protected void Broadcast(IWritable message)

@@ -22,6 +22,7 @@ namespace NexusForever.Game.PublicEvent
         public Guid Guid { get; } = Guid.NewGuid();
         public uint Id => template.Entry.Id;
         public bool IsFinalised { get; private set; }
+        public bool HasFinished { get; private set; }
         public uint Phase { get; private set; }
         public bool IsBusy { get; set; }
 
@@ -65,6 +66,8 @@ namespace NexusForever.Game.PublicEvent
 
         public void Dispose()
         {
+            entityFactory.RemoveEntities();
+
             if (scriptCollection != null)
                 ScriptManager.Instance.Unload(scriptCollection);
 
@@ -76,7 +79,7 @@ namespace NexusForever.Game.PublicEvent
         /// </summary>
         public void Update(double lastTick)
         {
-            if (IsFinalised)
+            if (HasFinished)
                 return;
 
             if (liveStatsTimer != null)
@@ -136,7 +139,8 @@ namespace NexusForever.Game.PublicEvent
 
             entityFactory.Initialise(this);
 
-            scriptCollection = scriptManager.InitialiseOwnedScripts<IPublicEvent>(this, Id);
+            scriptCollection = scriptManager.InitialiseOwnedCollection<IPublicEvent>(this);
+            scriptManager.InitialiseOwnedScripts<IPublicEvent>(scriptCollection, Id);
 
             if (template.HasLiveStats())
                 liveStatsTimer = new(TimeSpan.FromSeconds(5));
@@ -288,6 +292,20 @@ namespace NexusForever.Game.PublicEvent
             if (!memberTeams.TryGetValue(player.CharacterId, out IPublicEventTeam publicEventTeam))
                 return;
 
+            UpdateObjective(publicEventTeam, type, objectId, count);
+        }
+
+        /// <summary>
+        /// Update any objective for any team that meets the supplied <see cref="PublicEventObjectiveType"/>, objectId and count.
+        /// </summary>
+        public void UpdateObjective(PublicEventObjectiveType type, uint objectId, int count)
+        {
+            foreach (IPublicEventTeam publicEventTeam in teams.Values)
+                UpdateObjective(publicEventTeam, type, objectId, count);
+        }
+
+        private void UpdateObjective(IPublicEventTeam publicEventTeam, PublicEventObjectiveType type, uint objectId, int count)
+        {
             publicEventTeam.UpdateObjective(type, objectId, count);
             if (publicEventTeam.IsFinialised)
                 Finish(publicEventTeam.Team);
@@ -316,6 +334,28 @@ namespace NexusForever.Game.PublicEvent
         }
 
         /// <summary>
+        /// Set the dynamic max of a specific active objective, for example when participants join or leave.
+        /// </summary>
+        public void SetObjectiveDynamicMax<T>(T objectiveId, uint max) where T : Enum
+        {
+            SetObjectiveDynamicMax(objectiveId.As<T, uint>(), max);
+        }
+
+        /// <summary>
+        /// Set the dynamic max of a specific active objective, for example when participants join or leave.
+        /// </summary>
+        public void SetObjectiveDynamicMax(uint objectiveId, uint max)
+        {
+            if (!template.Objectives.TryGetValue(objectiveId, out PublicEventObjectiveEntry entry))
+                return;
+
+            if (!teams.TryGetValue(entry.PublicEventTeamId, out IPublicEventTeam publicEventTeam))
+                return;
+
+            publicEventTeam.SetObjectiveDynamicMax(entry.Id, max);
+        }
+
+        /// <summary>
         /// Activate objective with the supplied objectiveId and max count.
         /// </summary>
         /// <remarks>
@@ -341,6 +381,28 @@ namespace NexusForever.Game.PublicEvent
                 return;
 
             publicEventTeam.ActivateObjective(entry.Id, max);
+        }
+
+        /// <summary>
+        /// Reset objective with supplied objectiveId.
+        /// </summary>
+        public void ResetObjective<T>(T objectiveId) where T : Enum
+        {
+            ResetObjective(objectiveId.As<T, uint>());
+        }
+
+        /// <summary>
+        /// Reset objective with supplied objectiveId.
+        /// </summary>
+        public void ResetObjective(uint objectiveId)
+        {
+            if (!template.Objectives.TryGetValue(objectiveId, out PublicEventObjectiveEntry entry))
+                return;
+
+            if (!teams.TryGetValue(entry.PublicEventTeamId, out IPublicEventTeam publicEventTeam))
+                return;
+
+            publicEventTeam.ResetObjective(objectiveId);
         }
 
         /// <summary>
@@ -399,8 +461,11 @@ namespace NexusForever.Game.PublicEvent
         /// </summary>
         public void Finish(Static.PublicEvent.PublicEventTeam? winnerTeam)
         {
-            if (IsFinalised)
+            if (HasFinished)
                 return;
+
+            IsFinalised = template.InstantFinalise();
+            HasFinished = true;
 
             var teamStats = teams.Values
                 .Select(t => t.BuildTeamStats())
@@ -435,15 +500,11 @@ namespace NexusForever.Game.PublicEvent
             foreach (ulong characterId in toRemove)
                 RemoveCharacter(characterId);
 
-            entityFactory.RemoveEntities();
-
             IPublicEventTeam winner = null;
             if (winnerTeam.HasValue)
                 winner = GetTeam(winnerTeam.Value);
 
             Map.OnPublicEventFinish(this, winner);
-
-            IsFinalised = true;
 
             log.LogTrace($"Public event {Guid} has finished.");
         }

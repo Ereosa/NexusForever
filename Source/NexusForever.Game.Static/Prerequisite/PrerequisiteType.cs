@@ -17,6 +17,9 @@
         DeadState                   = 12, // Player death state not correct
         ItemEquipped                = 13, // Item equipment requirement not met
         ItemOnCharacter             = 14, // Inventory requirement not met
+        /// <summary>
+        /// Checks for whether or not the Player is affected by this spell. Used in cases to check for if player has AMP.
+        /// </summary>
         UnderSpell                  = 15, // Spell requirements not met
         DistanceToWorldLocation     = 16, // Distance requirements not met
         // 17 is unused in PrerequisiteType.tbl
@@ -226,7 +229,7 @@
         Datacube                    = 218, // Datacube requirement not met
         Volume                      = 219, // Volume requirement not met
         Unknown220                  = 220, // Exist in PrerequisiteType.tbl but does not have a description
-        Spell221                    = 221, // Spell requirement not met, Could be SpellBase
+        ActionSetSpell              = 221, // Spell requirement not met
         Unknown222                  = 222, // Requirements not met
         Unknown223                  = 223, // Requirements not met
         LevelGrantAbilityTierPoints = 224, // Level does not grant any ability tier points
@@ -274,7 +277,7 @@
         Unknown266                  = 266, // Exist in PrerequisiteType.tbl but does not have a description
         Unknown267                  = 267, // Exist in PrerequisiteType.tbl but does not have a description
         Unknown268                  = 268, // Exist in PrerequisiteType.tbl but does not have a description
-        Unknown269                  = 269, // Exist in PrerequisiteType.tbl but does not have a description
+        RapidTransport              = 269, // Exist in PrerequisiteType.tbl but does not have a description
         LoyaltyRewards              = 270, // Loyalty requirement not met
         Unknown271                  = 271, // Exist in PrerequisiteType.tbl but does not have a description
         Unknown272                  = 272, // Exist in PrerequisiteType.tbl but does not have a description

@@ -7,17 +7,17 @@ namespace NexusForever.Network.World.Message.Model.Shared
     {
         public uint UnitId { get; set; }
         public byte Ndx { get; set; }
-        public byte TargetFlags { get; set; }
+        public SpellEffectTargetFlags TargetFlags { get; set; }
         public ushort InstanceCount { get; set; }
         public CombatResult CombatResult { get; set; }
 
-        public List<EffectInfo> EffectInfoData { get; set; } = new();
+        public List<EffectInfo> EffectInfoData { get; set; } = new List<EffectInfo>();
 
         public void Write(GamePacketWriter writer)
         {
             writer.Write(UnitId);
             writer.Write(Ndx);
-            writer.Write(TargetFlags);
+            writer.Write(TargetFlags, 8u);
             writer.Write(InstanceCount);
             writer.Write(CombatResult, 4u);
 

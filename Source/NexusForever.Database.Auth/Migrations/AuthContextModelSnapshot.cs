@@ -529,6 +529,11 @@ namespace NexusForever.Database.Auth.Migrations
                         },
                         new
                         {
+                            Id = 38u,
+                            Name = "Command: EntitySummon"
+                        },
+                        new
+                        {
                             Id = 40u,
                             Name = "Category: EntitlementAccount"
                         },

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Entity.Movement.Command.Mode;
 
 namespace NexusForever.Database.World.Model
 {
@@ -23,9 +24,12 @@ namespace NexusForever.Database.World.Model
         public byte QuestChecklistIdx { get; set; }
         public ulong ActivePropId { get; set; }
         public ushort WorldSocketId { get; set; }
+        public ModeType? Mode { get; set; }
 
         public EntityEmoteModel EntityEmote { get; set; }
         public EntityEventModel EntityEvent { get; set; }
+        public ICollection<EntityPropertyModel> EntityProperty { get; set; } = [];
+        public ICollection<EntityScriptModel> EntityScript { get; set; } = [];
         public EntitySplineModel EntitySpline { get; set; }
         public EntityVendorModel EntityVendor { get; set; }
         public ICollection<EntityStatModel> EntityStat { get; set; } = new HashSet<EntityStatModel>();

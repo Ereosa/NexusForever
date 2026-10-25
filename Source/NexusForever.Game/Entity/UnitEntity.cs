@@ -1,20 +1,30 @@
-﻿using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Entity.Stat;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Abstract.Spell.Info;
+using NexusForever.Game.Abstract.Spell.Proc;
+using NexusForever.Game.Abstract.Spell.Target;
 using NexusForever.Game.Combat;
-using NexusForever.Game.Spell;
+using NexusForever.Game.Combat.CrowdControl;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Model.Shared;
+using NexusForever.Network.World.Message.Static;
+using NexusForever.Script;
 using NexusForever.Script.Template;
-using NexusForever.Shared.Game;
+using NexusForever.Script.Template.Collection;
+using NexusForever.Shared;
+using NexusForever.Network.World.Message.Model.Spell;
 
 namespace NexusForever.Game.Entity
 {
@@ -78,22 +88,35 @@ namespace NexusForever.Game.Entity
         private bool inCombat;
 
         public IThreatManager ThreatManager { get; private set; }
+        public IProcManager ProcManager { get; private set; }
+        public ICrowdControlManager CrowdControlManager { get; private set; }
 
-        /// <summary>
-        /// Initial stab at a timer to regenerate Health & Shield values.
-        /// </summary>
-        private UpdateTimer statUpdateTimer = new UpdateTimer(0.25); // TODO: Long-term this should be absorbed into individual timers for each Stat regeneration method
+        private IStatUpdateManager statUpdateManager;
 
-        private readonly List<ISpell> pendingSpells = new();
+        private readonly List<ISpell> pendingSpells = [];
+        private readonly Dictionary<uint, ISpell> spells = [];
 
-        private Dictionary<Property, Dictionary</*spell4Id*/uint, ISpellPropertyModifier>> spellProperties = new();
+        private readonly Dictionary<Property, Dictionary</*spell4Id*/uint, ISpellPropertyModifier>> spellProperties = [];
 
         #region Dependency Injection
 
-        public UnitEntity(IMovementManager movementManager)
-            : base(movementManager)
+        private readonly ISpellFactory spellFactory;
+
+        public UnitEntity(IMovementManager movementManager,
+            IEntitySummonFactory entitySummonFactory,
+            IStatUpdateManager statUpdateManager,
+            ISpellFactory spellFactory)
+            : base(movementManager, entitySummonFactory)
         {
+            this.statUpdateManager = statUpdateManager;
+            this.spellFactory      = spellFactory;
+
+            // TODO: find a better way to initialise unit managers...
             ThreatManager = new ThreatManager(this);
+            ProcManager   = LegacyServiceProvider.Provider.GetService<IProcManager>();
+            ProcManager.Initialise(this);
+            CrowdControlManager = LegacyServiceProvider.Provider.GetService<ICrowdControlManager>();
+            CrowdControlManager.Initialise(this);
 
             InitialiseHitRadius();
         }
@@ -104,43 +127,69 @@ namespace NexusForever.Game.Entity
         {
             base.Dispose();
 
-            foreach (ISpell spell in pendingSpells)
+            foreach (ISpell spell in spells.Values)
                 spell.Dispose();
         }
 
         private void InitialiseHitRadius()
         {
-            if (CreatureEntry == null)
-                return;
-
-            Creature2ModelInfoEntry modelInfoEntry = GameTableManager.Instance.Creature2ModelInfo.GetEntry(CreatureEntry.Creature2ModelInfoId);
-            if (modelInfoEntry != null)
-                HitRadius = modelInfoEntry.HitRadius * CreatureEntry.ModelScale;
+            if (CreatureInfo?.ModelEntry != null)
+                HitRadius = CreatureInfo.ModelEntry.HitRadius * CreatureInfo.Entry.ModelScale;
         }
 
         public override void Update(double lastTick)
         {
             base.Update(lastTick);
 
-            foreach (ISpell spell in pendingSpells.ToArray())
+            // new spells can be added during updates
+            // we need a pending queue to prevent issues with iterating over the spell dictionary
+            foreach (ISpell spell in pendingSpells)
+                spells.Add(spell.CastingId, spell);
+
+            pendingSpells.Clear();
+
+            foreach (ISpell spell in spells.Values)
             {
                 spell.Update(lastTick);
+                spell.LateUpdate(lastTick);
                 if (spell.IsFinished)
-                    pendingSpells.Remove(spell);
+                    spells.Remove(spell.CastingId);
             }
 
-            statUpdateTimer.Update(lastTick);
-            if (statUpdateTimer.HasElapsed)
+            statUpdateManager.Update(lastTick);
+
+            ProcManager.Update(lastTick);
+        }
+
+        public override ServerEntityCreate BuildCreatePacket(bool initialCommands)
+        {
+            ServerEntityCreate entityCreate = base.BuildCreatePacket(initialCommands);
+
+            foreach (ISpell spell in spells.Values)
             {
-                HandleStatUpdate(lastTick);
-                statUpdateTimer.Reset();
+                SpellInit spellInit = spell.BuildSpellInit();
+                entityCreate.SpellInitData.Add(spellInit);
             }
+
+            // TODO
+            // entityCreate.CurrentSpellUniqueId
+
+            return entityCreate;
+        }
+
+        /// <summary>
+        /// Initialise <see cref="IScriptCollection"/> for <see cref="IUnitEntity"/>.
+        /// </summary>
+        protected override void InitialiseScriptCollection(List<string> names)
+        {
+            scriptCollection = ScriptManager.Instance.InitialiseOwnedCollection<IUnitEntity>(this);
+            ScriptManager.Instance.InitialiseEntityScripts<IUnitEntity>(scriptCollection, this, names);
         }
 
         /// <summary>
         /// Remove tracked <see cref="IGridEntity"/> that is no longer in vision range.
         /// </summary>
-        public override void RemoveVisible(IGridEntity entity)
+        protected override void RemoveVisible(IGridEntity entity)
         {
             if (entity.Guid == TargetGuid)
                 SetTarget((IWorldEntity)null);
@@ -185,17 +234,6 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
-        /// Remove all <see cref="Property"/> modifiers by a Spell that is currently affecting this <see cref="IUnitEntity"/>
-        /// </summary>
-        public void RemoveSpellProperties(uint spell4Id)
-        {
-            List<Property> propertiesWithSpell = spellProperties.Where(i => i.Value.ContainsKey(spell4Id)).Select(p => p.Key).ToList();
-
-            foreach (Property property in propertiesWithSpell)
-                RemoveSpellProperty(property, spell4Id);
-        }
-
-        /// <summary>
         /// Return all <see cref="IPropertyModifier"/> for this <see cref="IUnitEntity"/>'s <see cref="Property"/>
         /// </summary>
         private IEnumerable<ISpellPropertyModifier> GetSpellPropertyModifiers(Property property)
@@ -227,24 +265,106 @@ namespace NexusForever.Game.Entity
                     }
                 }
             }
+
+            if (propertyValue.Property == Property.InterruptArmorThreshold)
+                propertyValue.Value += CrowdControlManager.GetTemporaryInterruptArmour();
+        }
+
+        /// Checks if this <see cref="IUnitEntity"/> is currently casting a spell.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsCasting()
+        {
+            foreach (ISpell spell in spells.Values)
+                if (spell.IsCasting)
+                    return true;
+
+            return false;
         }
 
         /// <summary>
-        /// Handles regeneration of Stat Values. Used to provide a hook into the Update method, for future implementation.
+        /// Return <see cref="ISpell"/> with the supplied casting id.
         /// </summary>
-        private void HandleStatUpdate(double lastTick)
+        public ISpell GetSpell(uint castingId)
         {
-            if (!IsAlive)
-                return;
+            return spells.TryGetValue(castingId, out ISpell spell) ? spell : null;
+        }
 
-            // TODO: This should probably get moved to a Calculation Library/Manager at some point. There will be different timers on Stat refreshes, but right now the timer is hardcoded to every 0.25s.
-            // Probably worth considering an Attribute-grouped Class that allows us to run differentt regeneration methods & calculations for each stat.
+        /// <summary>
+        /// Return <see cref="ISpell"/> with the supplied spell id.
+        /// </summary>
+        public ISpell GetSpellBySpellId(uint spellId)
+        {
+            return spells.Values.SingleOrDefault(s => s.Spell4Id == spellId);
+        }
 
-            if (Health < MaxHealth)
-                ModifyHealth((uint)(MaxHealth / 200f), DamageType.Heal, null);
+        /// <summary>
+        /// Return <see cref="ISpell"/> with the supplied base spell id.
+        /// </summary>
+        public ISpell GetSpellByBaseSpellId(uint baseSpellId)
+        {
+            return spells.Values.SingleOrDefault(s => s.Parameters.SpellInfo.BaseInfo.Entry.Id == baseSpellId);
+        }
 
-            if (Shield < MaxShieldCapacity)
-                Shield += (uint)(MaxShieldCapacity * GetPropertyValue(Property.ShieldRegenPct) * statUpdateTimer.Duration);
+        /// <summary>
+        /// Return a collection of <see cref="ISpell"/> that are part of the supplied spell group id.
+        /// </summary>
+        public IEnumerable<ISpell> GetSpellsByGroupId(uint spellGroupId)
+        {
+            foreach (ISpell spell in spells.Values)
+                if (spell.Parameters.SpellInfo.SpellGroups.Contains(spellGroupId))
+                    yield return spell;
+        }
+
+        /// <summary>
+        /// Return a collection of <see cref="ISpell"/> that are applying the supplied <see cref="SpellEffectType"/> to entity.
+        /// </summary>
+        public IEnumerable<ISpell> GetSpellsByEffect(SpellEffectType type)
+        {
+            foreach (ISpell spell in spells.Values)
+            {
+                ISpellTargetInfo target = spell.GetTarget(this);
+                if (target == null)
+                    continue;
+
+                if (target.GetEffectsByType(type).Any())
+                    yield return spell;
+            }
+        }
+
+        /// <summary>
+        /// Check if this <see cref="IUnitEntity"/> has a spell active with the provided <see cref="Spell4Entry"/> Id
+        /// </summary>
+        public bool HasSpell(uint spell4Id, out ISpell spell, bool isCasting = false)
+        {
+            spell = spells.Values.FirstOrDefault(i => i.IsCasting == isCasting && !i.IsFinished && i.Spell4Id == spell4Id);
+            return spell != null;
+        }
+
+        /// <summary>
+        /// Check if this <see cref="IUnitEntity"/> has a spell active with the provided <see cref="CastMethod"/>
+        /// </summary>
+        public bool HasSpell(CastMethod castMethod, out ISpell spell)
+        {
+            spell = spells.Values.FirstOrDefault(i => !i.IsCasting && !i.IsFinished && i.CastMethod == castMethod);
+            return spell != null;
+        }
+
+        /// <summary>
+        /// Check if this <see cref="IUnitEntity"/> has a spell active with the provided <see cref="Func"/> predicate.
+        /// </summary>
+        public bool HasSpell(Func<ISpell, bool> predicate, out ISpell spell)
+        {
+            spell = spells.Values.FirstOrDefault(predicate);
+            return spell != null;
+        }
+
+        /// <summary>
+        /// Cast a <see cref="ISpell"/> with the supplied spell id and <see cref="ISpellParameters"/>.
+        /// </summary>
+        public void CastSpell<T>(T spell4Id, ISpellParameters parameters) where T : Enum
+        {
+            CastSpell(spell4Id.As<T, uint>(), parameters);
         }
 
         /// <summary>
@@ -270,7 +390,7 @@ namespace NexusForever.Game.Entity
             if (parameters == null)
                 throw new ArgumentNullException();
 
-            ISpellBaseInfo spellBaseInfo = GlobalSpellManager.Instance.GetSpellBaseInfo(spell4BaseId);
+            ISpellBaseInfo spellBaseInfo = LegacyServiceProvider.Provider.GetService<ISpellInfoManager>().GetSpellBaseInfo(spell4BaseId);
             if (spellBaseInfo == null)
                 throw new ArgumentOutOfRangeException();
 
@@ -313,8 +433,22 @@ namespace NexusForever.Game.Entity
                     player.Dismount();
             }
 
-            var spell = new Spell.Spell(this, parameters);
-            spell.Cast();
+            CastMethod castMethod = (CastMethod)parameters.SpellInfo.BaseInfo.Entry.CastMethod;
+            if (parameters.ClientSideInteraction != null)
+                castMethod = CastMethod.ClientSideInteraction;
+
+            ISpell spell = spellFactory.CreateSpell(castMethod);
+            if (spell == null)
+                throw new ArgumentNullException();
+
+            spell.Initialise(this, parameters);
+            if (!spell.Cast())
+                return;
+
+            // Don't store spell if it failed to initialise
+            if (spell.IsFailed)
+                return;
+
             pendingSpells.Add(spell);
         }
 
@@ -323,7 +457,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void CancelSpellsOnMove()
         {
-            foreach (ISpell spell in pendingSpells)
+            foreach (ISpell spell in spells.Values)
                 if (spell.IsMovingInterrupted() && spell.IsCasting)
                     spell.CancelCast(CastResult.CasterMovement);
         }
@@ -334,7 +468,7 @@ namespace NexusForever.Game.Entity
         /// <param name="castingId">Casting ID of the spell to cancel</param>
         public void CancelSpellCast(uint castingId)
         {
-            ISpell spell = pendingSpells.SingleOrDefault(s => s.CastingId == castingId);
+            ISpell spell = spells.Values.SingleOrDefault(s => s.CastingId == castingId);
             spell?.CancelCast(CastResult.SpellCancelled);
         }
 
@@ -343,7 +477,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public ISpell GetActiveSpell(Func<ISpell, bool> func)
         {
-            return pendingSpells.FirstOrDefault(func);
+            return spells.Values.FirstOrDefault(func);
         }
 
         /// <summary>
@@ -354,16 +488,16 @@ namespace NexusForever.Game.Entity
             if (!IsAlive)
                 return false;
 
-            if (!target.IsValidAttackTarget() || !IsValidAttackTarget())
+            if (!target.IsValidAttackTarget(this) || !IsValidAttackTarget(target))
                 return false;
 
             return GetDispositionTo(target.Faction1) < Disposition.Friendly;
         }
 
         /// <summary>
-        /// Returns whether or not this <see cref="IUnitEntity"/> is an attackable target.
+        /// Returns whether or not this <see cref="IUnitEntity"/> is an attackable target for supplied <see cref="IUnitEntity"/>.
         /// </summary>
-        public bool IsValidAttackTarget()
+        public virtual bool IsValidAttackTarget(IUnitEntity attacker)
         {
             // TODO: Expand on this. There's bound to be flags or states that should prevent an entity from being attacked.
             return (this is IPlayer or INonPlayerEntity);
@@ -374,7 +508,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void TakeDamage(IUnitEntity attacker, IDamageDescription damageDescription)
         {
-            if (!IsAlive || !attacker.IsAlive)
+            if (!IsAlive || !attacker.IsAlive || attacker == this)
                 return;
 
             // TODO: Calculate Threat properly
@@ -390,45 +524,57 @@ namespace NexusForever.Game.Entity
         /// <remarks>
         /// If the <see cref="DamageType"/> is <see cref="DamageType.Heal"/> amount is added to current health otherwise subtracted.
         /// </remarks>
-        public virtual void ModifyHealth(uint amount, DamageType type, IUnitEntity source)
+        public virtual void ModifyHealth(uint amount, DamageType? type, IUnitEntity source)
         {
             long newHealth = Health;
-            if (type == DamageType.Heal)
+            if (type is DamageType.Heal or null)
                 newHealth += amount;
             else
                 newHealth -= amount;
 
             Health = (uint)Math.Clamp(newHealth, 0u, MaxHealth);
 
+            scriptCollection?.Invoke<IUnitScript>(s => s.OnHealthChange(source, amount, type));
+
             if (Health == 0)
-                OnDeath();
+                OnDeath(source);
         }
 
-        protected virtual void OnDeath()
+        protected virtual void OnDeath(IUnitEntity killer)
         {
             DeathState = EntityDeathState.JustDied;
 
-            foreach (ISpell spell in pendingSpells)
+            foreach (ISpell spell in spells.Values)
             {
                 if (spell.IsCasting)
                     spell.CancelCast(CastResult.CasterCannotBeDead);
             }
 
-            GenerateRewards();
+            GenerateRewards(killer);
             // TODO: schedule respawn
 
             ThreatManager.ClearThreatList();
+            MovementManager.Finalise();
+
+            scriptCollection?.Invoke<IUnitScript>(s => s.OnDeath());
 
             deathState = EntityDeathState.Dead;
         }
 
-        private void GenerateRewards()
+        private void GenerateRewards(IUnitEntity killer)
         {
+            foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
+                Map.PublicEventManager.UpdateObjective(PublicEventObjectiveType.KillTargetGroup, targetGroupId, 1);
+
+            // reward public event kill stat to player that landed the killing blow
+            if (killer is IPlayer killerPlayer)
+                Map.PublicEventManager.UpdateStat(killerPlayer, PublicEventStat.Kills, 1);
+
             foreach (IHostileEntity hostile in ThreatManager)
             {
                 IUnitEntity entity = GetVisible<IUnitEntity>(hostile.HatedUnitId);
-                if (entity is IPlayer player)
-                    RewardKiller(player);
+                if (entity is IPlayer hostilePlayer)
+                    RewardKiller(hostilePlayer);
             }
         }
 
@@ -515,9 +661,26 @@ namespace NexusForever.Game.Entity
             if (ThreatManager.IsThreatened == InCombat)
                 return;
 
-            InCombat   = ThreatManager.IsThreatened;
-            Sheathed   = !inCombat;
-            SetStandState(inCombat ? StandState.Stand : StandState.State0);
+            bool previousCombatState = InCombat;
+            InCombat = ThreatManager.IsThreatened;
+
+            if (!previousCombatState && InCombat)
+                scriptCollection?.Invoke<IUnitScript>(s => s.OnEnterCombat());
+            else if (previousCombatState && !InCombat)
+                scriptCollection?.Invoke<IUnitScript>(s => s.OnLeaveCombat());
+
+            Sheathed   = !InCombat;
+            SetStandState(InCombat ? StandState.Stand : StandState.State0);
+
+            statUpdateManager.OnCombatStateUpdate(InCombat);
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> has a <see cref="Stat"/> updated.
+        /// </summary>
+        protected override void OnStatUpdate(IStatValue statValue, float previousValue)
+        {
+            statUpdateManager.OnStatUpdate(statValue, previousValue);
         }
     }
 }

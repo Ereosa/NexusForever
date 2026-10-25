@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Static.Matching;
+﻿using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Static.Matching;
 
 namespace NexusForever.Game.Abstract.Matching.Match
 {
@@ -18,5 +19,10 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// Finish the match with the supplied <see cref="MatchWinner"/> and <see cref="MatchEndReason"/>
         /// </summary>
         void MatchFinish(MatchWinner matchWinner, MatchEndReason matchEndReason);
+
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> dies.
+        /// </summary>
+        void OnDeath(IPlayer player);
     }
 }

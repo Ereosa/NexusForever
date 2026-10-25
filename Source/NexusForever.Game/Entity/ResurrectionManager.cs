@@ -1,21 +1,17 @@
-﻿using NexusForever.Game.Abstract.Entity;
+﻿using Microsoft.Extensions.Logging;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Spell;
 using NexusForever.Game.Static.AccountInventory;
 using NexusForever.Game.Static.Entity;
-using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
-using NexusForever.Network.World.Message;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Shared.Game;
-using NLog;
 
 namespace NexusForever.Game.Entity
 {
     public class ResurrectionManager : IResurrectionManager
     {
-        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
-
         /// <summary>
         /// Determines if owner <see cref="IPlayer"/> can resurrect another player.
         /// </summary>
@@ -47,16 +43,34 @@ namespace NexusForever.Game.Entity
         }
 
         private ResurrectionType resurrectionType;
+        private bool hasResurrection;
         private bool hasCasterResurrectionRequest;
 
-        private UpdateTimer wakeHereTimer = new UpdateTimer(TimeSpan.FromMinutes(30d), false);
+        private readonly UpdateTimer wakeHereTimer = new UpdateTimer(TimeSpan.FromMinutes(30d), false);
+        private UpdateTimer timeUntilResurrectionTimer;
+        private UpdateTimer timeUntilForcedResurrectionTimer;
 
         private IPlayer owner;
 
+        #region Dependency Injection
+
+        private readonly ILogger<ResurrectionManager> log;
+        private readonly IGameTableManager gameTableManager;
+
+        public ResurrectionManager(
+            ILogger<ResurrectionManager> log,
+            IGameTableManager gameTableManager)
+        {
+            this.log              = log;
+            this.gameTableManager = gameTableManager;
+        }
+
+        #endregion
+
         /// <summary>
-        /// Create a new <see cref="IResurrectionManager"/> for <see cref="IPlayer"/>.
+        /// Initialise a new <see cref="IResurrectionManager"/> for <see cref="IPlayer"/>.
         /// </summary>
-        public ResurrectionManager(IPlayer owner)
+        public void Initalise(IPlayer owner)
         {
             this.owner = owner;
         }
@@ -84,54 +98,99 @@ namespace NexusForever.Game.Entity
         {
             // TODO: timer
             //wakeHereTimer.Update(lastTick);
+
+            if (timeUntilResurrectionTimer != null && timeUntilResurrectionTimer.IsTicking)
+                timeUntilResurrectionTimer.Update(lastTick);
+            
+            if (timeUntilForcedResurrectionTimer != null && timeUntilForcedResurrectionTimer.IsTicking)
+            {
+                timeUntilForcedResurrectionTimer.Update(lastTick);
+                if (timeUntilForcedResurrectionTimer.HasElapsed)
+                    ResurrectSelfForced();
+            }
         }
 
         /// <summary>
         /// Show resurrection options to owner <see cref="IPlayer"/>.
         /// </summary>
-        public void ShowResurrection()
+        public void ShowResurrection(ResurrectionType type, TimeSpan? timeUntilResurrection, TimeSpan? timeUntilForcedResurrection)
         {
-            if (ResurrectionType != ResurrectionType.None)
+            if (hasResurrection)
                 return;
 
+            hasResurrection = true;
+
             // delbrately not using property to prevent sending update packet
-            resurrectionType = GetResurrectionType();
+            resurrectionType = GetResurrectionType(type);
+
+            if (timeUntilResurrection != null)
+                timeUntilResurrectionTimer = new UpdateTimer(timeUntilResurrection.Value, true);
+
+            if (timeUntilForcedResurrection != null)
+                timeUntilForcedResurrectionTimer = new UpdateTimer(timeUntilForcedResurrection.Value, true);
 
             owner.Session.EnqueueMessageEncrypted(new ServerResurrectionShow
             {
                 GhostId             = owner.ControlGuid ?? 0u,
                 RezCost             = GetCostForResurrection(),
-                TimeUntilRezMs      = 0u,
+                TimeUntilRezMs      = timeUntilResurrectionTimer != null ? (uint)timeUntilResurrectionTimer.Duration * 1000u : 0u,
                 Dead                = true,
                 ShowRezFlags        = ResurrectionType,
                 HasCasterRezRequest = false,
-                TimeUntilForceRezMs = 0u,
+                TimeUntilForceRezMs = timeUntilForcedResurrection != null ? (uint)timeUntilForcedResurrectionTimer.Duration * 1000u : 0u, 
                 TimeUntilWakeHereMs = wakeHereTimer.IsTicking ? (uint)wakeHereTimer.Duration * 1000u : 0u
             });
 
-            log.Trace($"Player {owner.Guid} has resurrect options {resurrectionType}.");
+            log.LogTrace($"Player {owner.Guid} has resurrect options {resurrectionType}.");
         }
 
         private bool CanWakeHere()
         {
+            uint cost = GetCostForResurrection();
+            if (!owner.CurrencyManager.CanAfford(CurrencyType.Credits, cost))
+                return false;
+
             return !wakeHereTimer.IsTicking;
         }
 
-        private ResurrectionType GetResurrectionType()
+        private bool CanWakeHereServiceToken()
         {
-            ResurrectionType type = owner.Map.GetResurrectionType();
-            if (CanWakeHere())
-                type |= ResurrectionType.WakeHere;
+            uint cost = GetServiceTokenCostForResurrection();
+            return owner.Account.CurrencyManager.CanAfford(AccountCurrencyType.ServiceToken, cost);
+        }
 
-            return type |= ResurrectionType.WakeHereServiceToken;
+        private ResurrectionType GetResurrectionType(ResurrectionType type)
+        {
+            if ((type & ResurrectionType.WakeHere) != 0 && !CanWakeHere())
+            {
+                type &= ~ResurrectionType.WakeHere;
+                type |= ResurrectionType.Holocrypt;
+            }
+
+            if (CanWakeHereServiceToken())
+                type |= ResurrectionType.WakeHereServiceToken;
+
+            return type;
+        }
+
+        private void ResurrectSelfForced()
+        {
+            ResurrectSelf(ResurrectionType.Holocrypt);
+            owner.Session.EnqueueMessageEncrypted(new ServerResurrectionForced());
         }
 
         /// <summary>
         /// Resurrect owner <see cref="IPlayer"/> with the specified <see cref="ResurrectionType"/>.
         /// </summary>
-        public void Resurrect(ResurrectionType type)
+        public void ResurrectSelf(ResurrectionType type)
         {
+            if ((ResurrectionType & type) == 0)
+                return;
+
             if (owner.IsAlive)
+                return;
+
+            if (timeUntilResurrectionTimer != null && timeUntilResurrectionTimer.IsTicking)
                 return;
 
             switch (type)
@@ -148,18 +207,21 @@ namespace NexusForever.Game.Entity
                     if (!CanSpellCasterLocation())
                         return;
                     break;
-                default:
-                    throw new NotImplementedException();
+                /*default:
+                    throw new NotImplementedException();*/
             }
 
             // delbrately not using property to prevent sending update packet
             resurrectionType = ResurrectionType.None;
-            hasCasterResurrectionRequest = false;
 
-            owner.ModifyHealth(owner.MaxHealth / 2, DamageType.Heal, null);
-            owner.Shield = 0;
+            hasResurrection                  = false;
+            hasCasterResurrectionRequest     = false;
+            timeUntilResurrectionTimer       = null;
+            timeUntilForcedResurrectionTimer = null;
 
-            log.Trace($"Player {owner.Guid} has accepted resurrection.");
+            owner.Map.Resurrect(type, owner);
+
+            log.LogTrace($"Player {owner.Guid} has accepted resurrection.");
         }
 
         private bool HandleWakeHere()
@@ -168,9 +230,6 @@ namespace NexusForever.Game.Entity
                 return false;
 
             uint cost = GetCostForResurrection();
-            if (!owner.CurrencyManager.CanAfford(CurrencyType.Credits, cost))
-                return false;
-
             owner.CurrencyManager.CurrencySubtractAmount(CurrencyType.Credits, cost);
             
             // TODO: timer
@@ -200,7 +259,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Send resurrection request target <see cref="IPlayer>"/>.
         /// </summary>
-        public void Resurrect(uint targetUnitId)
+        public void ResurrectTarget(uint targetUnitId)
         {
             IPlayer target = owner.GetVisible<IPlayer>(targetUnitId);
             if (target == null || target.IsAlive)
@@ -223,15 +282,15 @@ namespace NexusForever.Game.Entity
                 PrimaryTargetId = target.Guid,
             });
 
-            log.Trace($"Player {owner.Guid} is resurrecting target player {targetUnitId}.");
+            log.LogTrace($"Player {owner.Guid} is resurrecting target player {targetUnitId}.");
         }
 
         /// <summary>
         /// Recieve resurrection request from <see cref="IPlayer"/>.
         /// </summary>
-        public void ResurrectRequest(uint unitId)
+        public void OnResurrectRequest(uint unitId)
         {
-            if (ResurrectionType == ResurrectionType.None)
+            if (!hasResurrection)
                 return;
 
             if (hasCasterResurrectionRequest)
@@ -246,7 +305,7 @@ namespace NexusForever.Game.Entity
                 UnitId = unitId
             });
 
-            log.Trace($"Player {owner.Guid} got resurrect request from player {unitId}.");
+            log.LogTrace($"Player {owner.Guid} got resurrect request from player {unitId}.");
         }
 
         private uint GetCostForResurrection()
@@ -257,7 +316,7 @@ namespace NexusForever.Game.Entity
 
         private uint GetServiceTokenCostForResurrection()
         {
-            GameFormulaEntry entry = GameTableManager.Instance.GameFormula.GetEntry(1315);
+            GameFormulaEntry entry = gameTableManager.GameFormula.GetEntry(1315);
             return entry.Dataint0;
         }
     }

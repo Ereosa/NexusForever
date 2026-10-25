@@ -20,14 +20,33 @@ namespace NexusForever.Game.Abstract.Map
         IPublicEventManager PublicEventManager { get; }
 
         /// <summary>
+        /// Enqueue <see cref="IGridEntity"/> to be added to <see cref="IBaseMap"/>.
+        /// </summary>
+        void EnqueueAdd(IGridEntity entity, Vector3 position, OnAddDelegate callback = null, OnExceptionDelegate exception = null);
+
+        /// <summary>
+        /// Enqueue <see cref="IPlayer"/> to be added to <see cref="IBaseMap"/>.
+        /// </summary>
+        /// <remarks>
+        /// Characters should not be added directly through this method.
+        /// Use <see cref="IPlayer.TeleportTo(IMapPosition, TeleportReason)"/> instead.
+        /// </remarks>
+        void EnqueueAdd(IPlayer player, Vector3 position, OnAddDelegate callback = null, OnGenericErrorDelegate error = null, OnExceptionDelegate exception = null);
+
+        /// <summary>
         /// Enqueue <see cref="IGridEntity"/> to be removed from <see cref="IBaseMap"/>.
         /// </summary>
-        void EnqueueRemove(IGridEntity entity);
+        void EnqueueRemove(IGridEntity entity, OnRemoveDelegate callback = null);
 
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> to be relocated in <see cref="IBaseMap"/> to <see cref="Vector3"/>.
         /// </summary>
-        void EnqueueRelocate(IGridEntity entity, Vector3 position);
+        void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null);
+
+        /// <summary>
+        /// Enqueue <see cref="IGridEntity"/> for visibility update.
+        /// </summary>
+        void EnqueueVisibilityUpdate(IGridEntity entity, OnVisibilityUpdateDelegate callback = null);
 
         /// <summary>
         /// Return all <see cref="IGridEntity"/>'s from <see cref="Vector3"/> in range that satisfy <see cref="ISearchCheck{T}"/>.
@@ -68,6 +87,16 @@ namespace NexusForever.Game.Abstract.Map
         /// Return <see cref="ResurrectionType"/> applicable to this map.
         /// </summary>
         ResurrectionType GetResurrectionType();
+
+        /// <summary>
+        /// Invoked when a <see cref="IPlayer"/> on the map dies.
+        /// </summary>
+        void OnDeath(IPlayer player);
+
+        /// <summary>
+        /// Resurrect <see cref="IPlayer"/> with supplied <see cref="ResurrectionType"/>.
+        /// </summary>
+        void Resurrect(ResurrectionType type, IPlayer player);
 
         /// <summary>
         /// Invoked when <see cref="IPublicEvent"/> finishes with the winning <see cref="IPublicEventTeam"/>.

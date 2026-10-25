@@ -7,6 +7,7 @@ using NexusForever.Database;
 using NexusForever.Database.Configuration.Model;
 using NexusForever.Game;
 using NexusForever.Game.Abstract.Chat.Format;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Abstract.PublicEvent;
@@ -22,7 +23,6 @@ using NexusForever.Game.Quest;
 using NexusForever.Game.RBAC;
 using NexusForever.Game.Reputation;
 using NexusForever.Game.Server;
-using NexusForever.Game.Spell;
 using NexusForever.Game.Storefront;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Text.Filter;
@@ -52,9 +52,11 @@ namespace NexusForever.WorldServer.Service
         private readonly IMatchingManager matchingManager;
         private readonly IMatchManager matchManager;
         private readonly IPublicEventTemplateManager publicEventManager;
+        private readonly ICreatureInfoManager creatureInfoManager;
         private readonly IChatFormatManager chatFormatManager;
         private readonly IWorldManager worldManager;
 
+        // TODO: this really should be split into multiple HostedServices
         public HostedService(
             ILogger<IHostedService> log,
             IServiceProvider serviceProvider,
@@ -65,22 +67,24 @@ namespace NexusForever.WorldServer.Service
             IMatchingManager matchingManager,
             IMatchManager matchManager,
             IPublicEventTemplateManager publicEventManager,
+            ICreatureInfoManager creatureInfoManager,
             IChatFormatManager chatFormatManager,
             IWorldManager worldManager)
         {
-            this.log               = log;
+            this.log = log;
 
             LegacyServiceProvider.Provider = serviceProvider;
 
-            this.scriptManager      = scriptManager;
-            this.loginQueueManager  = loginQueueManager;
-            this.networkManager     = networkManager;
-            this.messageManager     = messageManager;
-            this.matchingManager    = matchingManager;
-            this.matchManager       = matchManager;
-            this.publicEventManager = publicEventManager;
-            this.chatFormatManager  = chatFormatManager;
-            this.worldManager       = worldManager;
+            this.scriptManager       = scriptManager;
+            this.loginQueueManager   = loginQueueManager;
+            this.networkManager      = networkManager;
+            this.messageManager      = messageManager;
+            this.matchingManager     = matchingManager;
+            this.matchManager        = matchManager;
+            this.publicEventManager  = publicEventManager;
+            this.creatureInfoManager = creatureInfoManager;
+            this.chatFormatManager   = chatFormatManager;
+            this.worldManager        = worldManager;
         }
 
         #endregion
@@ -91,8 +95,6 @@ namespace NexusForever.WorldServer.Service
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             log.LogInformation("Starting...");
-
-            SharedConfiguration.Instance.Initialise<WorldServerConfiguration>();
 
             DatabaseManager.Instance.Initialise(SharedConfiguration.Instance.Get<DatabaseConfig>());
             DatabaseManager.Instance.Migrate();
@@ -111,6 +113,7 @@ namespace NexusForever.WorldServer.Service
             MapIOManager.Instance.Initialise();
             SearchManager.Instance.Initialise();
             EntityManager.Instance.Initialise();
+            creatureInfoManager.Initialise();
             EntityCommandManager.Instance.Initialise();
             EntityCacheManager.Instance.Initialise();
             FactionManager.Instance.Initialise();
@@ -124,7 +127,6 @@ namespace NexusForever.WorldServer.Service
 
             AssetManager.Instance.Initialise();
             ItemManager.Instance.Initialise();
-            GlobalSpellManager.Instance.Initialise();
             GlobalQuestManager.Instance.Initialise();
 
             GlobalStorefrontManager.Instance.Initialise();

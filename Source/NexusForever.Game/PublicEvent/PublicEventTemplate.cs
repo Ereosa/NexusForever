@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.PublicEvent;
+using NexusForever.Game.Abstract.PublicEvent;
+using NexusForever.Game.Static.PublicEvent;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 
@@ -58,12 +59,23 @@ namespace NexusForever.Game.PublicEvent
         public bool HasLiveStats()
         {
             return Entry.PublicEventTypeEnum
-                is Static.PublicEvent.PublicEventType.Warplot
-                or Static.PublicEvent.PublicEventType.BattlegroundVortex
-                or Static.PublicEvent.PublicEventType.BattlegroundHoldTheLine
-                or Static.PublicEvent.PublicEventType.BattlegroundCannon
-                or Static.PublicEvent.PublicEventType.BattlegroundSabotage
-                or Static.PublicEvent.PublicEventType.Arena;
+                is PublicEventType.Warplot
+                or PublicEventType.BattlegroundVortex
+                or PublicEventType.BattlegroundHoldTheLine
+                or PublicEventType.BattlegroundCannon
+                or PublicEventType.BattlegroundSabotage
+                or PublicEventType.Arena;
+        }
+
+        /// <summary>
+        /// Returns if the public event should be disposed when the event completes.
+        /// </summary>
+        public bool InstantFinalise()
+        {
+            return Entry.PublicEventTypeEnum
+                is PublicEventType.WorldEvent
+                or PublicEventType.LiveEvent
+                or PublicEventType.NonCombatEvent;
         }
     }
 }

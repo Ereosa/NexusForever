@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Static.Entity;
 using NexusForever.GameTable;
@@ -26,33 +27,34 @@ namespace NexusForever.Game.Entity
 
         #region Dependency Injection
 
-        public VehicleEntity(IMovementManager movementManager)
-            : base(movementManager)
+        public VehicleEntity(IMovementManager movementManager,
+            IEntitySummonFactory entitySummonFactory)
+            : base(movementManager, entitySummonFactory)
         {
         }
 
         #endregion
 
-        public void Initialise(uint creatureId, uint vehicleId, uint spell4Id)
+        public void Initialise(ICreatureInfo creatureInfo, uint vehicleId, uint spell4Id)
         {
-            Initialise(creatureId);
+            Initialise(creatureInfo);
 
-            VehicleEntry = GameTableManager.Instance.UnitVehicle.GetEntry(vehicleId != 0u ? vehicleId : CreatureEntry.UnitVehicleId);
+            VehicleEntry = GameTableManager.Instance.UnitVehicle.GetEntry(vehicleId != 0u ? vehicleId : CreatureInfo.Entry.UnitVehicleId);
             SpellEntry   = GameTableManager.Instance.Spell4.GetEntry(spell4Id);
 
             // temp
             SetBaseProperty(Property.BaseHealth, 800.0f);
 
-            SetStat(Stat.Health, 800u);
-            SetStat(Stat.Level, 3u);
-            SetStat(Stat.Sheathed, 800u);
+            SetStat(Static.Entity.Stat.Health, 800u);
+            SetStat(Static.Entity.Stat.Level, 3u);
+            SetStat(Static.Entity.Stat.Sheathed, 800u);
         }
 
         protected override IEntityModel BuildEntityModel()
         {
             return new VehicleEntityModel
             {
-                CreatureId    = CreatureEntry.Id,
+                CreatureId    = CreatureId,
                 UnitVehicleId = (ushort)VehicleEntry.Id,
                 Passengers    = passengers
                     .Select(p => new NetworkVehiclePassenger
@@ -65,7 +67,7 @@ namespace NexusForever.Game.Entity
             };
         }
 
-        public override void OnRemoveFromMap()
+        protected override void OnRemoveFromMap()
         {
             foreach (IVehiclePassenger passenger in passengers)
             {
@@ -76,12 +78,15 @@ namespace NexusForever.Game.Entity
             base.OnRemoveFromMap();
         }
 
-        public override void OnRelocate(Vector3 vector)
+        /// <summary>
+        /// Invoked when <see cref="IVehicleEntity"/> is relocated.
+        /// </summary>
+        protected override void OnRelocate(Vector3 vector)
         {
             foreach (IVehiclePassenger passenger in passengers)
             {
                 IPlayer entity = GetVisible<IPlayer>(passenger.Guid);
-                Map.EnqueueRelocate(entity, vector);
+                entity.RelocateOnMap(vector);
             }
 
             base.OnRelocate(vector);
@@ -187,15 +192,7 @@ namespace NexusForever.Game.Entity
             if (passenger.SeatType == VehicleSeatType.Pilot)
             {
                 player.SetControl(this);
-
-                EnqueueToVisible(new ServerEntityFaction
-                {
-                    UnitId  = Guid,
-                    Faction = player.Faction1
-                }, true);
-
-                Faction1 = player.Faction1;
-                Faction2 = player.Faction2;
+                SetTemporaryFaction(player.Faction1);
             }
 
             player.SetPlatform(this);
@@ -229,7 +226,10 @@ namespace NexusForever.Game.Entity
             player.SetPlatform(null);
            
             if (passenger.SeatType == VehicleSeatType.Pilot)
+            {
                 player.SetControl(player);
+                RemoveTemporaryFaction();
+            }
 
             passengers.Remove(passenger);
             OnPassengerRemove(player, passenger.SeatType, passenger.SeatPosition);

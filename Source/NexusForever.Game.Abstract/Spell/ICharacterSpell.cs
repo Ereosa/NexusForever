@@ -1,5 +1,6 @@
 ﻿using NexusForever.Database.Character;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Spell.Info;
 using NexusForever.Shared;
 
 namespace NexusForever.Game.Abstract.Spell
@@ -11,8 +12,15 @@ namespace NexusForever.Game.Abstract.Spell
         ISpellInfo SpellInfo { get; }
         IItem Item { get; }
         byte Tier { get; set; }
+        uint GlobalCooldownEnum { get; }
+
         uint AbilityCharges { get; }
         uint MaxAbilityCharges { get; }
+
+        /// <summary>
+        /// Used to call this spell from the <see cref="ISpellManager"/>. For use in continuous casting.
+        /// </summary>
+        public void SpellManagerCast();
 
         /// <summary>
         /// Used for when the client does not have continuous casting enabled

@@ -7,6 +7,8 @@ namespace NexusForever.Script.Template.Filter.Dynamic
 {
     public class ScriptFilterDynamicEntitySpline : IScriptFilterDynamicEntitySpline
     {
+        private HashSet<uint> creatureIds;
+
         #region Dependency Injection
 
         private readonly IDatabaseManager databaseManager;
@@ -19,18 +21,31 @@ namespace NexusForever.Script.Template.Filter.Dynamic
 
         #endregion
 
-        /// <summary>
-        /// Modify <see cref="IScriptFilterParameters"/> dynamically at runtime.
-        /// </summary>
-        public void Filter(IScriptFilterParameters parameters)
+        public void Initialise(Type scriptType)
         {
             ImmutableList<EntityModel> entities = databaseManager.GetDatabase<WorldDatabase>().GetEntitiesWithSpline();
             if (entities.Count == 0)
                 return;
 
-            parameters.CreatureId ??= new HashSet<uint>();
-            foreach (EntityModel model in entities)
-                parameters.CreatureId.Add(model.Creature);
+            creatureIds = entities
+                .Select(e => e.Creature)
+                .ToHashSet();
+        }
+
+        /// <summary>
+        /// Returns if <see cref="IScriptFilterSearch"/> can match dynamic filter.
+        /// </summary>
+        public bool Match(IScriptFilterSearch search)
+        {
+            if (creatureIds != null)
+            {
+                if (search.CreatureId == null)
+                    return false;
+
+                return creatureIds.Contains(search.CreatureId.Value);
+            }
+
+            return true;
         }
     }
 }

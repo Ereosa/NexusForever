@@ -1,5 +1,7 @@
-﻿using NexusForever.Game.Abstract.Combat;
+using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Abstract.Spell.Proc;
+using NexusForever.Game.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
 
@@ -28,6 +30,8 @@ namespace NexusForever.Game.Abstract.Entity
         bool InCombat { get; }
 
         public IThreatManager ThreatManager { get; }
+        public IProcManager ProcManager { get; }
+        public ICrowdControlManager CrowdControlManager { get; }
 
         /// <summary>
         /// Add a <see cref="Property"/> modifier given a Spell4Id and <see cref="ISpellPropertyModifier"/> instance.
@@ -39,10 +43,55 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         void RemoveSpellProperty(Property property, uint spell4Id);
 
-        /// <summary>
-        /// Remove all <see cref="Property"/> modifiers by a Spell that is currently affecting this <see cref="IUnitEntity"/>
+        /// Checks if this <see cref="IUnitEntity"/> is currently casting a spell.
         /// </summary>
-        void RemoveSpellProperties(uint spell4Id);
+        /// <returns></returns>
+        bool IsCasting();
+
+        /// <summary>
+        /// Return <see cref="ISpell"/> with the supplied casting id.
+        /// </summary>
+        ISpell GetSpell(uint castingId);
+
+        /// <summary>
+        /// Return <see cref="ISpell"/> with the supplied spell id.
+        /// </summary>
+        ISpell GetSpellBySpellId(uint spellId);
+
+        /// <summary>
+        /// Return <see cref="ISpell"/> with the supplied base spell id.
+        /// </summary>
+        ISpell GetSpellByBaseSpellId(uint baseSpellId);
+
+        /// <summary>
+        /// Return a collection of <see cref="ISpell"/> that are part of the supplied spell group id.
+        /// </summary>
+        IEnumerable<ISpell> GetSpellsByGroupId(uint spellGroupId);
+
+        /// <summary>
+        /// Return a collection of <see cref="ISpell"/> that are applying the supplied <see cref="SpellEffectType"/> to entity.
+        /// </summary>
+        IEnumerable<ISpell> GetSpellsByEffect(SpellEffectType type);
+
+        /// <summary>
+        /// Check if this <see cref="IUnitEntity"/> has a spell active with the provided <see cref="Spell4Entry"/> Id
+        /// </summary>
+        bool HasSpell(uint spell4Id, out ISpell spell, bool isCasting = false);
+
+        /// <summary>
+        /// Check if this <see cref="IUnitEntity"/> has a spell active with the provided <see cref="CastMethod"/>
+        /// </summary>
+        bool HasSpell(CastMethod castMethod, out ISpell spell);
+
+        /// <summary>
+        /// Check if this <see cref="IUnitEntity"/> has a spell active with the provided <see cref="Func"/> predicate.
+        /// </summary>
+        bool HasSpell(Func<ISpell, bool> predicate, out ISpell spell);
+
+        /// <summary>
+        /// Cast a <see cref="ISpell"/> with the supplied spell id and <see cref="ISpellParameters"/>.
+        /// </summary>
+        void CastSpell<T>(T spell4Id, ISpellParameters parameters) where T : Enum;
 
         /// <summary>
         /// Cast a <see cref="ISpell"/> with the supplied spell id and <see cref="ISpellParameters"/>.
@@ -76,9 +125,9 @@ namespace NexusForever.Game.Abstract.Entity
         bool CanAttack(IUnitEntity target);
 
         /// <summary>
-        /// Returns whether or not this <see cref="IUnitEntity"/> is an attackable target.
+        /// Returns whether or not this <see cref="IUnitEntity"/> is an attackable target for supplied <see cref="IUnitEntity"/>.
         /// </summary>
-        bool IsValidAttackTarget();
+        bool IsValidAttackTarget(IUnitEntity attacker);
 
         /// <summary>
         /// Deal damage to this <see cref="IUnitEntity"/> from the supplied <see cref="IUnitEntity"/>.
@@ -91,7 +140,7 @@ namespace NexusForever.Game.Abstract.Entity
         /// <remarks>
         /// If the <see cref="DamageType"/> is <see cref="DamageType.Heal"/> amount is added to current health otherwise subtracted.
         /// </remarks>
-        void ModifyHealth(uint amount, DamageType type, IUnitEntity source);
+        void ModifyHealth(uint amount, DamageType? type, IUnitEntity source);
 
         /// <summary>
         /// Set target to supplied target guid.

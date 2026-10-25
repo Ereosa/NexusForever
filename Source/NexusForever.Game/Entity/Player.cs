@@ -8,7 +8,9 @@ using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Entity.Stat;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map;
@@ -17,6 +19,7 @@ using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Abstract.Reputation;
+using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Achievement;
 using NexusForever.Game.Character;
 using NexusForever.Game.Chat;
@@ -24,6 +27,7 @@ using NexusForever.Game.Configuration.Model;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
+using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Reputation;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Chat;
@@ -33,6 +37,12 @@ using NexusForever.Game.Static.Option;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.RBAC;
 using NexusForever.Game.Static.Reputation;
+using NexusForever.Game.Static.PublicEvent;
+using NexusForever.Game.Static.PVP;
+using NexusForever.Game.Static.Quest;
+using NexusForever.Game.Static.RBAC;
+using NexusForever.Game.Static.Reputation;
+using NexusForever.Game.Static.Setting;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -42,11 +52,11 @@ using NexusForever.Network.Session;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
 using NexusForever.Network.World.Message.Model;
-using NexusForever.Network.World.Message.Model.Abilities;
 using NexusForever.Network.World.Message.Model.Chat;
 using NexusForever.Network.World.Message.Model.Info;
 using NexusForever.Network.World.Message.Model.Pregame;
 using NexusForever.Network.World.Message.Model.Housing;
+using NexusForever.Network.World.Message.Model.Pvp;
 using NexusForever.Network.World.Message.Model.Shared;
 using NexusForever.Network.World.Message.Static;
 using NexusForever.Script;
@@ -76,7 +86,7 @@ namespace NexusForever.Game.Entity
             Flags       = 0x0020,
             Innate      = 0x0080,
             Sex         = 0x0100,
-            Race        = 0x0200,
+            Race        = 0x0200
         }
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
@@ -160,17 +170,6 @@ namespace NexusForever.Game.Entity
         }
         private InputSets inputKeySet;
 
-        public byte InnateIndex
-        {
-            get => innateIndex;
-            set
-            {
-                innateIndex = value;
-                saveMask |= PlayerSaveMask.Innate;
-            }
-        }
-        private byte innateIndex;
-
         public override uint Level
         {
             get => base.Level;
@@ -210,6 +209,23 @@ namespace NexusForever.Game.Entity
         /// Returns if <see cref="IPlayer"/> has premium signature subscription.
         /// </summary>
         public bool SignatureEnabled => Account.RbacManager.HasPermission(Permission.Signature);
+
+        public PvPFlag PvPFlags
+        {
+            get => pvpFlags;
+            set
+            {
+                pvpFlags = value;
+
+                EnqueueToVisible(new ServerUnitPvpStateChange
+                {
+                    UnitId = Guid,
+                    State  = pvpFlags
+                });
+            }
+        }
+
+        private PvPFlag pvpFlags;
 
         public IGameSession Session { get; private set; }
 
@@ -260,27 +276,43 @@ namespace NexusForever.Game.Entity
         private readonly IEntityFactory entityFactory;
         private readonly IMatchingManager matchingManager;
         private readonly IMatchManager matchManager;
+        private readonly ICreatureInfoManager creatureInfoManager;
+
+        private readonly IStatUpdateManager<IPlayer> statUpdateManager;
 
         public Player(
             IMovementManager movementManager,
+            IEntitySummonFactory entitySummonFactory,
+            IStatUpdateManager<IPlayer> statUpdateManager,
+            ISpellFactory spellFactory,
             IInternalMessagePublisher messagePublisher,
             IEntityFactory entityFactory,
+            ICreatureInfoManager creatureInfoManager,
             IMatchingManager matchingManager,
             IMatchManager matchManager,
             ICurrencyManager currencyManager,
+            IResurrectionManager resurrectionManager,
+            IQuestManager questManager,
             IGuildManager guildManager,
             IResidenceManager residenceManager)
-            : base(movementManager)
+            : base(movementManager, entitySummonFactory, statUpdateManager, spellFactory)
         {
-            this.messagePublisher = messagePublisher;
-            this.entityFactory    = entityFactory;
-            this.matchingManager  = matchingManager;
-            this.matchManager     = matchManager;
+            this.messagePublisher    = messagePublisher;
+
+            // TODO: can this be replaced by IEntitySummonFactory?
+            this.entityFactory       = entityFactory;
+            this.creatureInfoManager = creatureInfoManager;
+            this.matchingManager     = matchingManager;
+            this.matchManager        = matchManager;
+
+            this.statUpdateManager   = statUpdateManager;
 
             // managers
-            CurrencyManager  = currencyManager;
-            GuildManager     = guildManager;
-            ResidenceManager = residenceManager;
+            CurrencyManager     = currencyManager;
+            GuildManager        = guildManager;
+            ResidenceManager    = residenceManager;
+            ResurrectionManager = resurrectionManager;
+            QuestManager        = questManager;
         }
 
         #endregion
@@ -305,30 +337,31 @@ namespace NexusForever.Game.Entity
             InputKeySet       = (InputSets)model.InputKeySet;
             Faction1          = (Faction)model.FactionId;
             Faction2          = (Faction)model.FactionId;
-            innateIndex       = model.InnateIndex;
             flags             = (CharacterFlag)model.Flags;
 
             CreateTime        = model.CreateTime;
             TimePlayedTotal   = model.TimePlayedTotal;
             TimePlayedLevel   = model.TimePlayedLevel;
 
-            foreach (CharacterStatModel statModel in model.Stat)
-            {
-                var statValue = new StatValue(statModel);
-                stats.Add((Stat)statModel.Stat, statValue);
-            }
+            statUpdateManager.Initialise(this);
 
-            //SetStat(Stat.Health, 1);
-            SetStat(Stat.Sheathed, 1u);
+            foreach (CharacterStatModel statModel in model.Stat)
+                stats.Add((Static.Entity.Stat)statModel.Stat, new StatValue(statModel));
+
+            SetStat(Static.Entity.Stat.Sheathed, 1u);
+
             // temp
-            SetStat(Stat.Dash, 200F);
+            SetStat(Static.Entity.Stat.Dash, 200F);
             // sprint
-            SetStat(Stat.Resource0, 500f);
+            SetStat(Static.Entity.Stat.Resource0, 500f);
 
             CalculateDefaultProperties();
             SetBaseCharacterProperties();
 
-            scriptCollection = ScriptManager.Instance.InitialiseEntityScripts<IPlayer>(this);
+            MaxInterruptArmour = 0;
+
+            scriptCollection = ScriptManager.Instance.InitialiseOwnedCollection<IPlayer>(this);
+            ScriptManager.Instance.InitialiseEntityScripts<IPlayer>(scriptCollection, this, null);
 
             // managers
             EntitlementManager      = new CharacterEntitlementManager(this, model);
@@ -345,7 +378,7 @@ namespace NexusForever.Game.Entity
             DatacubeManager         = new DatacubeManager(this, model);
             MailManager             = new MailManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
-            QuestManager            = new QuestManager(this, model);
+            QuestManager.Initialise(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             XpManager               = new XpManager(this, model);
@@ -358,7 +391,7 @@ namespace NexusForever.Game.Entity
             LogoutManager.OnTimerFinished += Logout;
 
             AppearanceManager       = new AppearanceManager(this, model);
-            ResurrectionManager     = new ResurrectionManager(this);
+            ResurrectionManager.Initalise(this);
 
             // do dependant stat balance after all stats and properties have been set
             SetDependantStatBalance(true);
@@ -391,6 +424,7 @@ namespace NexusForever.Game.Entity
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
             QuestManager.Update(lastTick);
+            ResurrectionManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
             if (relocationTimer.HasElapsed)
@@ -514,7 +548,7 @@ namespace NexusForever.Game.Entity
                     model.WorldId = (ushort)Map.Entry.Id;
                     entity.Property(p => p.WorldId).IsModified = true;
 
-                    model.WorldZoneId = (ushort)Zone.Id;
+                    model.WorldZoneId = (ushort)(Zone?.Id ?? 0);
                     entity.Property(p => p.WorldZoneId).IsModified = true;
                 }
 
@@ -536,12 +570,6 @@ namespace NexusForever.Game.Entity
                 {
                     model.Flags = (uint)Flags;
                     entity.Property(p => p.Flags).IsModified = true;
-                }
-
-                if ((saveMask & PlayerSaveMask.Innate) != 0)
-                {
-                    model.InnateIndex = InnateIndex;
-                    entity.Property(p => p.InnateIndex).IsModified = true;
                 }
 
                 if ((saveMask & PlayerSaveMask.Sex) != 0)
@@ -616,7 +644,7 @@ namespace NexusForever.Game.Entity
                     .ToList(),
                 GuildName = GuildManager.GuildAffiliation?.Name,
                 GuildType = GuildManager.GuildAffiliation?.Type ?? GuildType.None,
-                PvPFlag   = PvPFlag.Disabled,
+                PvPFlag   = PvPFlags,
 
                 // We use Group 1 as the "dominant group"
                 GroupId   = GroupAssociation
@@ -625,15 +653,6 @@ namespace NexusForever.Game.Entity
 
         public override void OnAddToMap(IBaseMap map, uint guid, Vector3 vector)
         {
-            IsLoading = true;
-
-            Session.EnqueueMessageEncrypted(new ServerChangeWorld
-            {
-                WorldId  = (ushort)map.Entry.Id,
-                Position = new Position(vector),
-                Yaw      = Rotation.X
-            });
-
             // this must come before OnAddToMap
             // the client UI initialises the Holomark checkboxes during OnDocumentReady
             SendCharacterFlagsUpdated();
@@ -643,22 +662,25 @@ namespace NexusForever.Game.Entity
             // resummon vanity pet if it existed before teleport
             if (pendingTeleport?.VanityPetId != null)
             {
-                var pet = entityFactory.CreateEntity<IPetEntity>();
-                pet.Initialise(this, pendingTeleport.VanityPetId.Value);
-
-                var position = new MapPosition
+                ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(pendingTeleport.VanityPetId.Value);
+                if (creatureInfo != null)
                 {
-                    Position = Position
-                };
-
-                if (map.CanEnter(pet, position))
-                    map.EnqueueAdd(pet, position);
+                    // TODO: this should really be replaced with EntitySummonFactory
+                    var pet = entityFactory.CreateEntity<IPetEntity>();
+                    pet.Initialise(this, creatureInfo);
+                    pet.AddToMap(map, Position);
+                }
             }
 
             SendPacketsAfterAddToMap();
 
             if (!IsAlive)
-                OnDeath();
+            {
+                if (pendingTeleport.Resurrect)
+                    Map.Resurrect(ResurrectionType.WakeHere, this);
+                else
+                    OnDeath(null);
+            }
 
             if (PreviousMap == null)
                 OnLogin();
@@ -670,7 +692,10 @@ namespace NexusForever.Game.Entity
             }).FireAndForgetAsync();
         }
 
-        public override void OnRelocate(Vector3 vector)
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> is relocated.
+        /// </summary>
+        protected override void OnRelocate(Vector3 vector)
         {
             base.OnRelocate(vector);
             saveMask |= PlayerSaveMask.Location;
@@ -729,50 +754,53 @@ namespace NexusForever.Game.Entity
             CostumeManager.SendInitialPackets();
             Account.CostumeManager.SendInitialPackets();
 
-            var playerCreate = new ServerPlayerCreate
+            if (PreviousMap == null)
             {
-                ItemProficiencies = GetItemProficiencies(),
-                FactionData       = new ServerPlayerCreate.Faction
+                var playerCreate = new ServerPlayerCreate
                 {
-                    FactionId          = Faction1, // This does not do anything for the player's "main" faction. Exiles/Dominion
-                    FactionReputations = ReputationManager
-                        .Select(r => new ServerPlayerCreate.Faction.FactionReputation
-                        {
-                            FactionId = r.Id,
-                            Value     = r.Amount
-                        })
-                        .ToList()
-                },
-                ActiveCostumeIndex    = CostumeManager.CostumeIndex ?? -1,
-                InputKeySet           = (uint)InputKeySet,
-                CharacterEntitlements = EntitlementManager
-                    .Select(e => new ServerPlayerCreate.CharacterEntitlement
+                    ItemProficiencies = GetItemProficiencies(),
+                    FactionData       = new ServerPlayerCreate.Faction
                     {
-                        Entitlement = e.Type,
-                        Count       = e.Amount
-                    })
-                    .ToList(),
-                TradeskillMaterials   = SupplySatchelManager.BuildNetworkPacket(),
-                Xp                    = XpManager.TotalXp,
-                RestBonusXp           = XpManager.RestBonusXp
-            };
+                        FactionId          = Faction1, // This does not do anything for the player's "main" faction. Exiles/Dominion
+                        FactionReputations = ReputationManager
+                            .Select(r => new ServerPlayerCreate.Faction.FactionReputation
+                            {
+                                FactionId = r.Id,
+                                Value     = r.Amount
+                            })
+                            .ToList()
+                    },
+                    ActiveCostumeIndex    = CostumeManager.CostumeIndex ?? -1,
+                    InputKeySet           = (uint)InputKeySet,
+                    CharacterEntitlements = EntitlementManager
+                        .Select(e => new ServerPlayerCreate.CharacterEntitlement
+                        {
+                            Entitlement = e.Type,
+                            Count       = e.Amount
+                        })
+                        .ToList(),
+                    TradeskillMaterials   = SupplySatchelManager.BuildNetworkPacket(),
+                    Xp                    = XpManager.TotalXp,
+                    RestBonusXp           = XpManager.RestBonusXp
+                };
 
-            foreach (ICurrency currency in CurrencyManager)
-                playerCreate.Money[(byte)currency.Id - 1] = currency.Amount;
+                foreach (ICurrency currency in CurrencyManager)
+                    playerCreate.Money[(byte)currency.Id - 1] = currency.Amount;
 
-            foreach (IItem item in Inventory
-                .Where(b => b.Location != InventoryLocation.Ability)
-                .SelectMany(i => i))
-            {
-                playerCreate.Inventory.Add(new InventoryItem
+                foreach (IItem item in Inventory
+                    .Where(b => b.Location != InventoryLocation.Ability)
+                    .SelectMany(i => i))
                 {
-                    Item   = item.Build(),
-                    Reason = ItemUpdateReason.NoReason
-                });
-            }
+                    playerCreate.Inventory.Add(new InventoryItem
+                    {
+                        Item   = item.Build(),
+                        Reason = ItemUpdateReason.NoReason
+                    });
+                }
 
-            playerCreate.SpecIndex = SpellManager.ActiveActionSet;
-            Session.EnqueueMessageEncrypted(playerCreate);
+                playerCreate.SpecIndex = SpellManager.ActiveActionSet;
+                Session.EnqueueMessageEncrypted(playerCreate);
+            }
 
             TitleManager.SendTitles();
             SpellManager.SendInitialPackets();
@@ -785,11 +813,6 @@ namespace NexusForever.Game.Entity
             AchievementManager.SendInitialPackets(null);
             Account.RewardPropertyManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
-
-            Session.EnqueueMessageEncrypted(new ServerStanceChanged
-            {
-                InnateIndex = InnateIndex
-            });
 
             Session.EnqueueMessageEncrypted(new ServerPhaseVisibilityWorldLocation
             {
@@ -807,13 +830,36 @@ namespace NexusForever.Game.Entity
             return (ItemProficiency)classEntry.StartingItemProficiencies;
         }
 
-        public override void OnRemoveFromMap()
+        protected override void OnRemoveFromMap()
         {
             DestroyDependents();
             base.OnRemoveFromMap();
         }
 
-        public override void AddVisible(IGridEntity entity)
+        /// <summary>
+        /// Returns if <see cref="IGridEntity"/> can see supplied <see cref="IGridEntity"/>.
+        /// </summary>
+        protected override bool CanSeeEntity(IGridEntity entity)
+        {
+            bool? canSeeMe = entity.InvokeScriptCollection<bool, ICanSeeMeScript>(c => c.CanSeeMe(this));
+            if (canSeeMe != null && !canSeeMe.Value)
+                return false;
+
+            // TODO: implement me...
+            /*if (entity is IWorldEntity worldEntity && worldEntity.CreatureInfo != null)
+            {
+                if (worldEntity.CreatureInfo.PrerequisiteVisibilityEntry != null
+                    && !PrerequisiteManager.Instance.Meets(this, worldEntity.CreatureInfo.PrerequisiteVisibilityEntry.Id))
+                        return false;
+            }*/
+
+            return base.CanSeeEntity(entity);
+        }
+
+        /// <summary>
+        /// Add tracked <see cref="IGridEntity"/> that is in vision range.
+        /// </summary>
+        protected override void AddVisible(IGridEntity entity)
         {
             base.AddVisible(entity);
 
@@ -846,7 +892,10 @@ namespace NexusForever.Game.Entity
             }
         }
 
-        public override void RemoveVisible(IGridEntity entity)
+        /// <summary>
+        /// Remove tracked <see cref="IGridEntity"/> that is no longer in vision range.
+        /// </summary>
+        protected override void RemoveVisible(IGridEntity entity)
         {
             base.RemoveVisible(entity);
 
@@ -991,8 +1040,10 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Returns if <see cref="IPlayer"/> can teleport.
         /// </summary>
-        public bool CanTeleport() => pendingTeleport == null;
+        public bool CanTeleport() => pendingTeleport == null && !pendingLocalTeleport;
+
         private PendingTeleport pendingTeleport;
+        private bool pendingLocalTeleport;
 
         /// <summary>
         /// Teleport <see cref="IPlayer"/> to supplied location.
@@ -1051,19 +1102,97 @@ namespace NexusForever.Game.Entity
             {
                 Reason      = reason,
                 MapPosition = mapPosition,
-                VanityPetId = vanityPetId
+                VanityPetId = vanityPetId,
+                Resurrect   = reason == TeleportReason.EndMatch && !IsAlive
             };
 
             SetControl(null);
 
-            MapManager.Instance.AddToMap(this, mapPosition);
+            IMapPosition source = null;
+            if (Map != null)
+            {
+                source = new MapPosition
+                {
+                    Info = new MapInfo
+                    {
+                        Entry   = Map.Entry,
+                        MapLock = (Map as IMapInstance)?.MapLock
+                    },
+                    Position = Position
+                };
+            }
+
+            MapManager.Instance.AddToMap(this, source, mapPosition, OnAddToMap, OnTeleportToFailed, OnTeleportToFailed);
+
             log.Trace($"Teleporting {Name}({CharacterId}) to map: {mapPosition.Info.Entry.Id}, instance: {mapPosition.Info.MapLock?.InstanceId ?? null}.");
+        }
+
+        /// <summary>
+        /// Show loading screen for supplied <see cref="IMapPosition"/>.
+        /// </summary>
+        public void ShowLoadingScreen(IMapPosition position)
+        {
+            IsLoading = true;
+
+            Session.EnqueueMessageEncrypted(new ServerChangeWorld
+            {
+                WorldId  = (ushort)position.Info.Entry.Id,
+                Position = new Position(position.Position)
+            });
+        }
+
+        /// <summary>
+        /// Teleport <see cref="IPlayer"/> to supplied location.
+        /// </summary>
+        public void TeleportToLocal(Vector3 position, bool showLoadingScreen = true, Action<Vector3> callback = null)
+        {
+            if (!CanTeleport())
+            {
+                SendGenericError(GenericError.InstanceTransferPending);
+                return;
+            }
+
+            pendingLocalTeleport = true;
+
+            if (showLoadingScreen)
+                Session.EnqueueMessageEncrypted(new ServerLoadingScreen());
+
+            if (callback != null)
+            {
+                RelocateOnMap(position, (vector) =>
+                {
+                    OnTeleportToLocal(vector);
+                    callback.Invoke(vector);
+                });
+            }
+            else
+                RelocateOnMap(position, OnTeleportToLocal);
+
+            log.Trace($"Teleporting {Name}({CharacterId}) to location {position.X}, {position.Y}, {position.Z}.");
+        }
+
+        private void OnTeleportToLocal(Vector3 position)
+        {
+            SetControl(null);
+
+            MovementManager.SetPosition(position, false);
+            MovementManager.BroadcastNetworkEntityCommands();
+
+            SetControl(this);
+
+            if (VanityPetGuid != null)
+            {
+                IPetEntity pet = Map.GetEntity<IPetEntity>(VanityPetGuid.Value);
+                pet?.RelocateOnMap(position);
+            }
+
+            pendingLocalTeleport = false;
         }
 
         /// <summary>
         /// Invoked when <see cref="IPlayer"/> teleport fails.
         /// </summary>
-        public void OnTeleportToFailed(GenericError error)
+        private void OnTeleportToFailed(GenericError error)
         {
             if (Map != null)
             {
@@ -1085,6 +1214,16 @@ namespace NexusForever.Game.Entity
 
                 log.Trace($"Error {error} occured during teleport for {Name}({CharacterId}), client will be disconnected!");
             }
+        }
+
+        private void OnTeleportToFailed(Exception ex)
+        {
+            Session.EnqueueMessageEncrypted(new ServerForceKick
+            {
+                Reason = ForceKickReason.WorldDisconnect
+            });
+
+            log.Trace(ex, $"Exception occured during teleport for {Name}({CharacterId}), client will be disconnected!");
         }
 
         /// <summary>
@@ -1422,7 +1561,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Invoked when <see cref="IWorldEntity"/> has a <see cref="Stat"/> updated.
         /// </summary>
-        protected override void OnStatUpdate(IStatValue statValue)
+        protected override void OnStatUpdate(IStatValue statValue, float previousValue)
         {
             messagePublisher.PublishAsync(new PlayerStatUpdatedMessage
             {
@@ -1437,9 +1576,11 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public override bool CanAttack(IUnitEntity target)
         {
-            // TODO: Disable when PvP is available.
-            if (target is IPlayer)
-                return false;
+            if (target is IPlayer player)
+            {
+                if (player.PvPFlags == PvPFlag.Disabled)
+                    return false;
+            }
 
             return base.CanAttack(target);
         }
@@ -1450,9 +1591,14 @@ namespace NexusForever.Game.Entity
         /// <remarks>
         /// If the <see cref="DamageType"/> is <see cref="DamageType.Heal"/> amount is added to current health otherwise subtracted.
         /// </remarks>
-        public override void ModifyHealth(uint amount, DamageType type, IUnitEntity source)
+        public override void ModifyHealth(uint amount, DamageType? type, IUnitEntity source)
         {
             base.ModifyHealth(amount, type, source);
+
+            if (type == DamageType.Heal)
+                Map.PublicEventManager.UpdateStat(this, PublicEventStat.HealingReceived, amount);
+            else if (type != null)
+                Map.PublicEventManager.UpdateStat(this, PublicEventStat.DamageReceived, amount);
 
             Session.EnqueueMessageEncrypted(new ServerPlayerHealthUpdate
             {
@@ -1470,27 +1616,17 @@ namespace NexusForever.Game.Entity
                 OnResurrection(source);
         }
 
-        protected override void OnDeath()
+        protected override void OnDeath(IUnitEntity killer)
         {
-            base.OnDeath();
+            base.OnDeath(killer);
 
             Dismount();
             RemoveControlUnit();
 
-            // TODO: Replace with DelayEvent (of 2 seconds) with map updates.
+            UpdateRangeChecks();
 
-            IGhostEntity ghost = entityFactory.CreateEntity<IGhostEntity>();
-            ghost.Initialise(this);
-
-            Map.EnqueueAdd(ghost, new MapPosition
-            {
-                Info = new MapInfo
-                {
-                    Entry   = Map.Entry,
-                    MapLock = Map is IMapInstance instance ? instance.MapLock : null
-                },
-                Position = Position
-            });
+            Map.PublicEventManager.UpdateStat(this, PublicEventStat.Deaths, 1);
+            Map.OnDeath(this);
         }
 
         protected override void RewardKiller(IPlayer player)
@@ -1502,6 +1638,8 @@ namespace NexusForever.Game.Entity
         {
             DeathState = null;
             RemoveControlUnit();
+
+            UpdateRangeChecks();
         }
     }
 }

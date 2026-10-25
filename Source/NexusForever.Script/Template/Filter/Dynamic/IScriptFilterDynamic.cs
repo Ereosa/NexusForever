@@ -3,7 +3,7 @@
     public interface IScriptFilterDynamic
     {
         /// <summary>
-        /// Modify <see cref="IScriptFilterParameters"/> dynamically at runtime.
+        /// Returns if <see cref="IScriptFilterSearch"/> can match dynamic filter.
         /// </summary>
         void Filter(IScriptFilterParameters parameters);
     }

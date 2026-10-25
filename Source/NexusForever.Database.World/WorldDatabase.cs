@@ -41,11 +41,14 @@ namespace NexusForever.Database.World
             return entities
                 .Include(e => e.EntityEmote)
                 .Include(e => e.EntityEvent)
+                .Include(e => e.EntityProperty)
+                .Include(e => e.EntityScript)
                 .Include(e => e.EntitySpline)
+                .Include(e => e.EntityStat)
                 .Include(e => e.EntityVendor)
                 .Include(e => e.EntityVendorCategory)
-                .Include(e => e.EntityVendorItem)
-                .Include(e => e.EntityStat);
+                .Include(e => e.EntityVendorItem);
+                
         }
 
         public ImmutableList<EntityModel> GetEntities(ushort world)
@@ -132,6 +135,22 @@ namespace NexusForever.Database.World
         {
             using var context = new WorldContext(config);
             return context.MapEntrance
+                .AsNoTracking()
+                .ToImmutableList();
+        }
+
+        public ImmutableList<CreatureInfoPropertyModel> GetCreateInfoProperties()
+        {
+            using var context = new WorldContext(config);
+            return context.CreatureInfoProperty
+                .AsNoTracking()
+                .ToImmutableList();
+        }
+
+        public ImmutableList<CreatureInfoStatModel> GetCreateInfoStats()
+        {
+            using var context = new WorldContext(config);
+            return context.CreatureInfoStat
                 .AsNoTracking()
                 .ToImmutableList();
         }

@@ -1,4 +1,5 @@
 ﻿using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Movement.Command;
 using NexusForever.Game.Abstract.Entity.Movement.Command.Position;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Static.Entity.Movement.Spline;
@@ -75,13 +76,16 @@ namespace NexusForever.Script.Main.Example
         /// <summary>
         /// Invoked when <see cref="IPositionCommand"/> is finalised.
         /// </summary>
-        public void OnPositionEntityCommandFinalise(IPositionCommand command)
+        public void OnEntityCommandFinalise(IEntityCommand command)
         {
+            if (command is not IPositionCommand)
+                return;
+
             // previous movement has finished, schedule a new one
             ScheduleRandomMovement();
         }
 
-        private void OnEvent(uint? id)
+        private void OnEvent(IScriptEvent @event, uint? id)
         {
             switch (id)
             {

@@ -11,6 +11,8 @@ using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Reputation;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Option;
+using NexusForever.Game.Static.PVP;
+using NexusForever.Game.Static.Setting;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Session;
 using NexusForever.Network.World.Message.Static;
@@ -31,7 +33,6 @@ namespace NexusForever.Game.Abstract.Entity
         Static.PlayerPath.Path Path { get; set; }
         DateTime PathActivatedTime { get; }
         InputSets InputKeySet { get; set; }
-        byte InnateIndex { get; set; }
 
         DateTime CreateTime { get; }
         double TimePlayedTotal { get; }
@@ -61,6 +62,8 @@ namespace NexusForever.Game.Abstract.Entity
         /// Returns if <see cref="IPlayer"/> has premium signature subscription.
         /// </summary>
         bool SignatureEnabled { get; }
+
+        PvPFlag PvPFlags { get; set; }
 
         IGameSession Session { get; }
 
@@ -141,9 +144,14 @@ namespace NexusForever.Game.Abstract.Entity
         void TeleportTo(IMapPosition mapPosition, TeleportReason reason = TeleportReason.Relocate);
 
         /// <summary>
-        /// Invoked when <see cref="IPlayer"/> teleport fails.
+        /// Show loading screen for supplied <see cref="IMapPosition"/>.
         /// </summary>
-        void OnTeleportToFailed(GenericError error);
+        void ShowLoadingScreen(IMapPosition position);
+
+        /// <summary>
+        /// Teleport <see cref="IPlayer"/> to supplied location.
+        /// </summary>
+        void TeleportToLocal(Vector3 position, bool showLoadingScreen = true, Action<Vector3> callback = null);
 
         /// <summary>
         /// Invoked when <see cref="IPlayer"/> has finished loading and is ready to enter world.

@@ -45,12 +45,14 @@ internal class Program
         builder.AddProject<Projects.NexusForever_AuthServer>("auth-server")
             .WithNexusForeverTcp(IPAddress.Any, 23115)
             .WithNexusForeverDatabase("Auth", DatabaseProvider.MySql, authdb.Resource)
+            .WithNexusForeverTelemetry()
             .WaitFor(authdb)
             .WaitForCompletion(dbMigration);
 
         builder.AddProject<Projects.NexusForever_StsServer>("sts-server")
             .WithNexusForeverTcp(IPAddress.Any, 6600)
             .WithNexusForeverDatabase("Auth", DatabaseProvider.MySql, authdb.Resource)
+            .WithNexusForeverTelemetry()
             .WaitFor(authdb)
             .WaitForCompletion(dbMigration);
 
@@ -61,6 +63,7 @@ internal class Program
             .WithNexusForeverDatabase("Character", DatabaseProvider.MySql, characterdb.Resource)
             .WithNexusForeverDatabase("World", DatabaseProvider.MySql, worlddb.Resource)
             .WithNexusForeverMessageBroker("WorldServer_1", BrokerProvider.RabbitMQ, rmq.Resource)
+            .WithNexusForeverTelemetry()
             .WithEnvironment("Realm:RealmId", "1")
             .WaitFor(authdb)
             .WaitFor(characterdb)
@@ -93,6 +96,7 @@ internal class Program
             .WithNexusForeverHttp(4000)
             .WithNexusForeverDatabase("Auth", DatabaseProvider.MySql, authdb.Resource)
             .WithNexusForeverDatabase("Character:0", DatabaseProvider.MySql, characterdb.Resource)
+            .WithNexusForeverTelemetry()
             .WithEnvironment("Database:Character:0:RealmId", "1")
             .WaitFor(authdb)
             .WaitFor(characterdb)
@@ -102,6 +106,7 @@ internal class Program
             .WithNexusForeverDatabase("Group", DatabaseProvider.MySql, groupdb.Resource)
             .WithNexusForeverMessageBroker("GroupServer", BrokerProvider.RabbitMQ, rmq.Resource)
             .WithNexusForeverApi("Character", characterApi.Resource)
+            .WithNexusForeverTelemetry()
             .WaitFor(rmq)
             .WaitFor(groupdb)
             .WaitForCompletion(dbMigration)
@@ -111,6 +116,7 @@ internal class Program
             .WithNexusForeverDatabase("Chat", DatabaseProvider.MySql, chatdb.Resource)
             .WithNexusForeverMessageBroker("ChatServer", BrokerProvider.RabbitMQ, rmq.Resource)
             .WithNexusForeverApi("Character", characterApi.Resource)
+            .WithNexusForeverTelemetry()
             .WaitFor(rmq)
             .WaitFor(chatdb)
             .WaitForCompletion(dbMigration)

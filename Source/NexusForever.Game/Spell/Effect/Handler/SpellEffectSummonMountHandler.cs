@@ -1,0 +1,80 @@
+﻿using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
+using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Abstract.Spell.Effect;
+using NexusForever.Game.Abstract.Spell.Effect.Data;
+using NexusForever.Game.Abstract.Spell.Target;
+using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Spell;
+using NexusForever.Game.Static.Spell.Effect;
+
+namespace NexusForever.Game.Spell.Effect.Handler
+{
+    [SpellEffectHandler(SpellEffectType.SummonMount)]
+    public class SpellEffectSummonMountHandler : ISpellEffectApplyHandler<ISpellEffectSummonMountData>, ISpellEffectRemoveHandler<ISpellEffectSummonMountData>
+    {
+        #region Dependency Injection
+
+        private readonly IEntityFactory entityFactory;
+        private readonly ICreatureInfoManager creatureInfoManager;
+
+        public SpellEffectSummonMountHandler(
+            IEntityFactory entityFactory,
+            ICreatureInfoManager creatureInfoManager)
+        {
+            this.entityFactory       = entityFactory;
+            this.creatureInfoManager = creatureInfoManager;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Handle <see cref="ISpell"/> effect apply on <see cref="IUnitEntity"/> target.
+        /// </summary>
+        public SpellEffectExecutionResult Apply(ISpellExecutionContext executionContext, IUnitEntity target, ISpellTargetEffectInfo info, ISpellEffectSummonMountData data)
+        {
+            // TODO: handle NPC mounting?
+            if (target is not IPlayer player)
+                return SpellEffectExecutionResult.PreventEffect;
+
+            if (!player.CanMount())
+                return SpellEffectExecutionResult.PreventEffect;
+
+            ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(data.CreatureId);
+            if (creatureInfo == null)
+                return SpellEffectExecutionResult.PreventEffect;
+
+            var mount = entityFactory.CreateEntity<IMountEntity>();
+            mount.Initialise(player, executionContext.Spell.Parameters.SpellInfo.Entry.Id, creatureInfo, data.VehicleId, data.ItemDisplayId);
+            mount.EnqueuePassengerAdd(player, VehicleSeatType.Pilot, 0);
+
+            // usually for hover boards
+            /*if (info.Entry.DataBits04 > 0u)
+            {
+                mount.SetAppearance(new ItemVisual
+                {
+                    Slot      = ItemSlot.Mount,
+                    DisplayId = (ushort)info.Entry.DataBits04
+                });
+            }*/
+
+            mount.AddToMap(player.Map, player.Position);
+
+            // FIXME: also cast 52539,Riding License - Riding Skill 1 - SWC - Tier 1,34464
+            // FIXME: also cast 80530,Mount Sprint  - Tier 2,36122
+
+            player.CastSpell(52539, new SpellParameters());
+            player.CastSpell(80530, new SpellParameters());
+
+            return SpellEffectExecutionResult.Ok;
+        }
+
+        public void Remove(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, ISpellEffectSummonMountData data)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            player.Dismount();
+        }
+    }
+}

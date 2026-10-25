@@ -7,7 +7,7 @@
         /// </summary>
         public Stream Load(string path)
         {
-            return File.Open(path, FileMode.Open, FileAccess.Read);
+            return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         }
     }
 }

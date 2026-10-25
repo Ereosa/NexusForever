@@ -2,15 +2,18 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Numerics;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
-using NexusForever.Game.Abstract.PublicEvent;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Map.Search;
+using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Configuration.Model;
-using NexusForever.Game.Map.Instance;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Map;
+using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable.Model;
 using NexusForever.IO.Map;
 using NexusForever.Network.Message;
@@ -81,7 +84,8 @@ namespace NexusForever.Game.Map
 
         protected virtual void InitialiseScriptCollection()
         {
-            scriptCollection = ScriptManager.Instance.InitialiseOwnedScripts<IBaseMap>(this, Entry.Id);
+            scriptCollection = ScriptManager.Instance.InitialiseOwnedCollection<IBaseMap>(this);
+            ScriptManager.Instance.InitialiseOwnedScripts<IBaseMap>(scriptCollection, Entry.Id);
         }
 
         /// <summary>
@@ -103,53 +107,68 @@ namespace NexusForever.Game.Map
             foreach (IGridAction action in pendingActions.Dequeue(
                 SharedConfiguration.Instance.Get<MapConfig>().GridActionThreshold ?? 100u))
             {
-                switch (action)
+                try
                 {
-                    case GridActionAdd actionAdd:
+                    switch (action)
                     {
-                        if (CanAddEntity(actionAdd.Entity, actionAdd.Vector))
-                            AddEntity(actionAdd.Entity, actionAdd.Vector);
-                        else
+                        case IGridActionAdd actionAdd:
                         {
-                            // retry threshold to prevent any issues with stuck actions
-                            actionAdd.RequeueCount++;
-                            if (actionAdd.RequeueCount > (SharedConfiguration.Instance.Get<MapConfig>().GridActionMaxRetry ?? 5u))
+                            if (!ProcessGridActionAdd(actionAdd))
                             {
-                                log.Error($"Failed to add entity to map {Entry.Id} at position X: {actionAdd.Vector.X}, Y: {actionAdd.Vector.Y}, Z: {actionAdd.Vector.Z}!");
+                                actionAdd.RequeueCount++;
+                                if (actionAdd.RequeueCount > (SharedConfiguration.Instance.Get<MapConfig>().GridActionMaxRetry ?? 5u))
+                                    throw new TimeoutException($"Failed to add player to map {Entry.Id} at position X: {actionAdd.Vector.X}, Y: {actionAdd.Vector.Y}, Z: {actionAdd.Vector.Z}!");
+                                else
+                                    newActions.Add(action);
                             }
-                            else
-                                newActions.Add(action);
+                            break;
                         }
-
-                        break;
-                    }
-                    case GridActionPending actionPending:
-                    {
-                        if (actionPending.Entity.Map == null)
+                        case IGridActionRelocate actionRelocate:
                         {
-                            newActions.Add(new GridActionAdd
-                            {
-                                Entity = actionPending.Entity,
-                                Vector = actionPending.Vector
-                            });
+                            RelocateEntity(actionRelocate.Entity, actionRelocate.Vector);
+                            actionRelocate.Callback?.Invoke(actionRelocate.Vector);
+                            break;
                         }
-                        else
-                            newActions.Add(actionPending);
-
-                        break;
+                        case IGridActionRemove actionRemove:
+                        {
+                            RemoveEntity(actionRemove.Entity);
+                            actionRemove.Callback?.Invoke();
+                            break;
+                        }
+                        case IGridActionVisibilityUpdate actionVisionUpdate:
+                            actionVisionUpdate.Callback?.Invoke();
+                            break;
                     }
-                    case GridActionRelocate actionRelocate:
-                        RelocateEntity(actionRelocate.Entity, actionRelocate.Vector);
-                        break;
-                    case GridActionRemove actionRemove:
-                        RemoveEntity(actionRemove.Entity);
-                        break;
+                }
+                catch (Exception ex)
+                {
+                    log.Error(ex, $"Failed to process grid action for map {Entry.Id}!");
+                    action.Exception?.Invoke(ex);
                 }
             }
 
             // new actions are added to the queue after processing so they are processed starting next update
             foreach (IGridAction action in newActions)
                 pendingActions.Enqueue(action);
+        }
+
+        private bool ProcessGridActionAdd(IGridActionAdd actionAdd)
+        {
+            if (!CanAddEntity(actionAdd.Entity, actionAdd.Vector))
+                return false;
+
+            if (actionAdd is IGridActionPlayerAdd actionPlayerAdd)
+            {
+                GenericError? error = CanEnter(actionAdd.Entity as IPlayer, actionAdd.Vector);
+                if (error != null)
+                {
+                    actionPlayerAdd.Error?.Invoke(error.Value);
+                    return true;
+                }
+            }
+
+            AddEntity(actionAdd.Entity, actionAdd.Vector, actionAdd.Callback);
+            return true;
         }
 
         private void UpdateGrids(double lastTick)
@@ -176,41 +195,46 @@ namespace NexusForever.Game.Map
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> to be added to <see cref="IBaseMap"/>.
         /// </summary>
+        public void EnqueueAdd(IGridEntity entity, Vector3 position, OnAddDelegate callback = null, OnExceptionDelegate exception = null)
+        {
+            entity.OnEnqueueAddToMap();
+
+            pendingActions.Enqueue(new GridActionAdd
+            {
+                Entity    = entity,
+                Vector    = position,
+                Callback  = callback,
+                Exception = exception
+            });
+        }
+
+        /// <summary>
+        /// Enqueue <see cref="IPlayer"/> to be added to <see cref="IBaseMap"/>.
+        /// </summary>
         /// <remarks>
         /// Characters should not be added directly through this method.
         /// Use <see cref="IPlayer.TeleportTo(IMapPosition, TeleportReason)"/> instead.
         /// </remarks>
-        public void EnqueueAdd(IGridEntity entity, IMapPosition position)
+        public void EnqueueAdd(IPlayer player, Vector3 position, OnAddDelegate callback = null, OnGenericErrorDelegate error = null, OnExceptionDelegate exception = null)
         {
-            entity.OnEnqueueAddToMap();
+            player.OnEnqueueAddToMap();
 
-            if (entity.Map != null)
+            pendingActions.Enqueue(new GridActionPlayerAdd
             {
-                // entity is on an existing map, will need to be removed before add
-                entity.RemoveFromMap();
-
-                pendingActions.Enqueue(new GridActionPending
-                {
-                    Entity = entity,
-                    Vector = position.Position
-                });
-            }
-            else
-            {
-                pendingActions.Enqueue(new GridActionAdd
-                {
-                    Entity = entity,
-                    Vector = position.Position
-                });
-            }
+                Entity    = player,
+                Vector    = position,
+                Callback  = callback,
+                Error     = error,
+                Exception = exception
+            });
         }
 
         /// <summary>
         /// Returns if <see cref="IGridEntity"/> can be added to <see cref="IBaseMap"/>.
         /// </summary>
-        public virtual bool CanEnter(IGridEntity entity, IMapPosition position)
+        protected virtual bool CanEnter(IGridEntity entity, Vector3 position)
         {
-            if (!IsValidPosition(position.Position))
+            if (!IsValidPosition(position))
                 return false;
 
             return true;
@@ -219,9 +243,9 @@ namespace NexusForever.Game.Map
         /// <summary>
         /// Returns if <see cref="IPlayer"/> can be added to <see cref="IBaseMap"/>.
         /// </summary>
-        public virtual GenericError? CanEnter(IPlayer player, IMapPosition position)
+        protected virtual GenericError? CanEnter(IPlayer player, Vector3 position)
         {
-            if (!IsValidPosition(position.Position))
+            if (!IsValidPosition(position))
                 return GenericError.InstanceInvalidDestination;
 
             return null;
@@ -243,24 +267,39 @@ namespace NexusForever.Game.Map
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> to be removed from <see cref="IBaseMap"/>.
         /// </summary>
-        public void EnqueueRemove(IGridEntity entity)
+        public void EnqueueRemove(IGridEntity entity, OnRemoveDelegate callback = null)
         {
             entity.OnEnqueueRemoveFromMap();
+
             pendingActions.Enqueue(new GridActionRemove
             {
-                Entity = entity
+                Entity   = entity,
+                Callback = callback
             });
         }
 
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> to be relocated in <see cref="IBaseMap"/> to <see cref="Vector3"/>.
         /// </summary>
-        public void EnqueueRelocate(IGridEntity entity, Vector3 position)
+        public void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null)
         {
             pendingActions.Enqueue(new GridActionRelocate
             {
-                Entity = entity,
-                Vector = position
+                Entity   = entity,
+                Vector   = position,
+                Callback = callback
+            });
+        }
+
+        /// <summary>
+        /// Enqueue <see cref="IGridEntity"/> for visibility update.
+        /// </summary>
+        public void EnqueueVisibilityUpdate(IGridEntity entity, OnVisibilityUpdateDelegate callback = null)
+        {
+            pendingActions.Enqueue(new GridActionVisibilityUpdate
+            {
+                Entity   = entity,
+                Callback = callback
             });
         }
 
@@ -399,7 +438,7 @@ namespace NexusForever.Game.Map
         private void ActivateGrid(uint gridX, uint gridZ)
         {
             // instance grids are not unloaded, the entire instance is unloaded instead during inactivity
-            var grid = new MapGrid(gridX, gridZ, this is not MapInstance);
+            var grid = new MapGrid(gridX, gridZ, this is not IMapInstance);
             grids[gridZ * MapDefines.WorldGridCount + gridX] = grid;
             activeGrids.Add(grid.Coord);
 
@@ -410,18 +449,17 @@ namespace NexusForever.Game.Map
 
         protected virtual void SpawnGrid(uint gridX, uint gridZ)
         {
+            var creatureInfoManager = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>();
+
             foreach (EntityModel model in entityCache.GetEntities(gridX, gridZ))
             {
+                ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(model.Creature);
+                if (creatureInfo == null)
+                    continue;
+
                 IWorldEntity entity = entityFactory.CreateWorldEntity(model.Type);
-                entity.Initialise(model);
-
-                var position = new MapPosition
-                {
-                    Position = new Vector3(model.X, model.Y, model.Z)
-                };
-
-                if (CanEnter(entity, position))
-                    EnqueueAdd(entity, position);
+                entity.Initialise(creatureInfo, model);
+                entity.AddToMap(this, new Vector3(model.X, model.Y, model.Z));
             }
         }
 
@@ -432,7 +470,7 @@ namespace NexusForever.Game.Map
             // if the grid doesn't exist we can't add the new entity to it
             IMapGrid grid = GetGrid(vector);
             if (grid == null)
-                return false;
+                throw new InvalidOperationException($"Failed to get grid for map {Entry.Id} at at position X: {vector.X}, Y: {vector.Y}, Z: {vector.Z}!");
 
             // if the grid is unloading we can't add the new entity to it
             // we will need to wait for the grid to fully unload
@@ -442,7 +480,7 @@ namespace NexusForever.Game.Map
             return true;
         }
 
-        protected virtual void AddEntity(IGridEntity entity, Vector3 vector)
+        protected virtual void AddEntity(IGridEntity entity, Vector3 vector, OnAddDelegate add = null)
         {
             Debug.Assert(entity.Map == null);
 
@@ -452,7 +490,7 @@ namespace NexusForever.Game.Map
             uint guid = entityCounter.Dequeue();
             entities.Add(guid, entity);
 
-            entity.OnAddToMap(this, guid, vector);
+            add?.Invoke(this, guid, vector);
 
             PublicEventManager.OnAddToMap(entity);
             scriptCollection?.Invoke<IMapScript>(s => s.OnAddToMap(entity));
@@ -460,7 +498,7 @@ namespace NexusForever.Game.Map
             log.Trace($"Added entity {entity.Guid} to map {Entry.Id} at {vector.X},{vector.Y},{vector.Z}.");
         }
 
-        protected virtual void RemoveEntity(IGridEntity entity)
+        protected virtual void RemoveEntity(IGridEntity entity, OnRemoveDelegate remove = null)
         {
             Debug.Assert(entity.Map != null);
 
@@ -474,7 +512,7 @@ namespace NexusForever.Game.Map
             scriptCollection?.Invoke<IMapScript>(s => s.OnRemoveFromMap(entity));
             PublicEventManager.OnRemoveFromMap(entity);
 
-            entity.OnRemoveFromMap();
+            remove?.Invoke();
         }
 
         protected virtual void RelocateEntity(IGridEntity entity, Vector3 vector)
@@ -493,8 +531,6 @@ namespace NexusForever.Game.Map
             }
             else
                 oldGrid.RelocateEntity(entity, vector);
-
-            entity.OnRelocate(vector);
         }
 
         /// <summary>
@@ -507,12 +543,58 @@ namespace NexusForever.Game.Map
         }
 
         /// <summary>
+        /// Invoked when a <see cref="IPlayer"/> on the map dies.
+        /// </summary>
+        public virtual void OnDeath(IPlayer player)
+        {
+            ResurrectionType type = GetResurrectionType();
+
+            if ((type & ResurrectionType.WakeHere | ResurrectionType.WakeHereServiceToken) != 0)
+            {
+                // TODO: Replace with DelayEvent (of 2 seconds) with map updates.
+                IGhostEntity ghost = entityFactory.CreateEntity<IGhostEntity>();
+                ghost.Initialise(player);
+                ghost.AddToMap(this, player.Position);
+            }
+            else
+                player.ResurrectionManager.ShowResurrection(type, null, null);
+        }
+
+        /// <summary>
         /// Return <see cref="ResurrectionType"/> applicable to this map.
         /// </summary>
         public virtual ResurrectionType GetResurrectionType()
         {
-            // TODO: add support for Holocrypts and instances
-            return ResurrectionType.None;
+            // TODO: add support for Holocrypts
+            return ResurrectionType.WakeHere | ResurrectionType.WakeHereServiceToken;
+        }
+
+        /// <summary>
+        /// Resurrect <see cref="IPlayer"/> with supplied <see cref="ResurrectionType"/>.
+        /// </summary>
+        public virtual void Resurrect(ResurrectionType type, IPlayer player)
+        {
+            switch (type)
+            {
+                /*case ResurrectionType.Holocrypt:
+                    OnResurrectHolocrypt(player);
+                    break;*/
+                default:
+                    OnResurrect(player);
+                    break;
+            }
+        }
+
+        private void OnResurrectHolocrypt(IPlayer player)
+        {
+            // TODO: add support for Holocrypts
+            throw new NotImplementedException();
+        }
+
+        private void OnResurrect(IPlayer player)
+        {
+            player.ModifyHealth(player.MaxHealth / 2, DamageType.Heal, null);
+            player.Shield = 0;
         }
 
         /// <summary>

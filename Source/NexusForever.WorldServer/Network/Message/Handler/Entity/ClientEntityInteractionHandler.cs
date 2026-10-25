@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
@@ -35,8 +36,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
             {
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);
+
                 foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
+                {
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, targetGroupId, 1u);
+                    entity.Map.PublicEventManager.UpdateObjective(session.Player, PublicEventObjectiveType.TalkTo, targetGroupId, 1);
+                }
             }
 
             switch (entityInteraction.Type)
