@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NexusForever.Network.World.Message.Static;
+using System;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Item;
@@ -24,8 +25,16 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Item
             if (!session.Player.Map.LootManager.HasItemLoot(item.Id))
                 return;
 
-            if (session.Player.Inventory.ItemUse(item))
-                session.Player.Map.LootManager.GenerateLoot(session.Player, item);
+            // loot bags are single use, ItemUse treats unstackable items without charges as reusable (quest clickies)
+            if (item.Info.Entry.MaxStackCount > 1 || item.Info.Entry.MaxCharges > 0)
+            {
+                if (!session.Player.Inventory.ItemUse(item))
+                    return;
+            }
+            else
+                session.Player.Inventory.ItemDelete(useLootBag.ItemLocation, ItemUpdateReason.ConsumeCharge);
+
+            session.Player.Map.LootManager.GenerateLoot(session.Player, item);
         }
     }
 }
