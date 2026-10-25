@@ -143,6 +143,16 @@ namespace NexusForever.Game.Abstract.Entity
         void TeleportTo(ushort worldId, float x, float y, float z, IMapLock mapLock = null, TeleportReason reason = TeleportReason.Relocate);
 
         /// <summary>
+        /// Position the player arrived at on the current map, used to recall players that are stuck.
+        /// </summary>
+        Vector3 MapEntryPosition { get; }
+
+        /// <summary>
+        /// Client player.moveSpeed option: 0 = walk, 1 = run with shift to sprint, 2 = sprint whenever out of combat.
+        /// </summary>
+        uint MoveSpeedOption { get; set; }
+
+        /// <summary>
         /// Teleport <see cref="IPlayer"/> to supplied location.
         /// </summary>
         void TeleportTo(WorldEntry entry, Vector3 position, IMapLock mapLock = null, TeleportReason reason = TeleportReason.Relocate);

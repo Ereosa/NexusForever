@@ -441,6 +441,7 @@ namespace NexusForever.Game.Entity
 
             base.Update(lastTick);
 
+            UpdateAutoSprint(lastTick);
             TitleManager.Update(lastTick);
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
@@ -677,8 +678,54 @@ namespace NexusForever.Game.Entity
             };
         }
 
+        /// <summary>
+        /// Position the player arrived at on the current map, used to recall players that are stuck.
+        /// </summary>
+        public Vector3 MapEntryPosition { get; private set; }
+
+        /// <summary>
+        /// Client player.moveSpeed option: 0 = walk, 1 = run with shift to sprint, 2 = sprint whenever out of combat.
+        /// </summary>
+        /// <remarks>
+        /// The client defaults to 2 and only sends shift sprint (<see cref="Network.World.Message.Model.Spell.ClientSetSprintState"/>) in combat or with option 1,
+        /// out of combat sprint for option 2 is applied by the server.
+        /// </remarks>
+        public uint MoveSpeedOption { get; set; } = 2u;
+
+        /// <summary>
+        /// Sprint - Tier 2, the out of combat sprint (game formula 1227).
+        /// </summary>
+        private const uint OutOfCombatSprintSpell4Id = 80529;
+
+        private readonly UpdateTimer autoSprintTimer = new(TimeSpan.FromSeconds(0.5d));
+
+        /// <summary>
+        /// Keep the out of combat sprint active while the player.moveSpeed option asks for it.
+        /// </summary>
+        private void UpdateAutoSprint(double lastTick)
+        {
+            autoSprintTimer.Update(lastTick);
+            if (!autoSprintTimer.HasElapsed)
+                return;
+
+            autoSprintTimer.Reset();
+
+            bool wanted = MoveSpeedOption == 2u && IsAlive && !InCombat && PlatformGuid == null && CanTeleport();
+            bool active = HasSpell(OutOfCombatSprintSpell4Id, out ISpell spell);
+            if (wanted && !active)
+            {
+                ISpellParameters parameters = LegacyServiceProvider.Provider.GetService<IFactory<ISpellParameters>>().Resolve();
+                parameters.UserInitiatedSpellCast = false;
+                CastSpell(OutOfCombatSprintSpell4Id, parameters);
+            }
+            else if (!wanted && active && MoveSpeedOption == 2u)
+                spell.Finish();
+        }
+
         public override void OnAddToMap(IBaseMap map, uint guid, Vector3 vector)
         {
+            MapEntryPosition = vector;
+
             // this must come before OnAddToMap
             // the client UI initialises the Holomark checkboxes during OnDocumentReady
             SendCharacterFlagsUpdated();

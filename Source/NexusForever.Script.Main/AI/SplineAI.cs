@@ -10,11 +10,11 @@ namespace NexusForever.Script.Main.AI
 {
     [ScriptFilterDynamic<IScriptFilterDynamicEntitySpline>]
     //[ScriptFilterIgnore]
-    public class SplineAI : IWorldEntityScript, IOwnedScript<ICreatureEntity>
+    public class SplineAI : IWorldEntityScript, IOwnedScript<IWorldEntity>
     {
-        private ICreatureEntity owner;
+        private IWorldEntity owner;
 
-        public void OnLoad(ICreatureEntity owner)
+        public void OnLoad(IWorldEntity owner)
         {
             this.owner = owner;
         }

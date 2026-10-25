@@ -32,7 +32,7 @@ namespace NexusForever.Script.Template.Filter.Dynamic
         /// <summary>
         /// Environmental hazards (security beams, traps) only move along their path and hurt what they touch, they never chase players.
         /// </summary>
-        private static bool IsEnvironmentalHazard(Creature2Entry entry)
+        public static bool IsEnvironmentalHazard(Creature2Entry entry)
         {
             // townie, object and trap archetypes, combat archetypes flagged as hazards are bosses and adds that do fight
             return entry.Creature2ArcheTypeId is 25u or 27u or 29u

@@ -188,6 +188,10 @@ namespace NexusForever.Script.Main.AI
             if (unit.Faction1 == 0 || entity.GetDispositionTo(unit.Faction1) != Disposition.Hostile)
                 return;
 
+            // environmental hazards (security beams, traps) aren't something creatures fight
+            if (unit.CreatureInfo?.Entry != null && ScriptFilterDynamicCombatAI.IsEnvironmentalHazard(unit.CreatureInfo.Entry))
+                return;
+
             var spellParameters = spellParametersFactory.Resolve();
             entity.CastSpell(41368, spellParameters);
 
