@@ -1,5 +1,7 @@
 using System.Numerics;
+using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Loot;
 using NexusForever.Game.Abstract.Map.Search;
 using NexusForever.Game.Abstract.PublicEvent;
@@ -26,6 +28,14 @@ namespace NexusForever.Game.Abstract.Map
         /// Enqueue <see cref="IGridEntity"/> to be added to <see cref="IBaseMap"/>.
         /// </summary>
         void EnqueueAdd(IGridEntity entity, Vector3 position, OnAddDelegate callback = null, OnExceptionDelegate exception = null);
+
+        /// <summary>
+        /// Spawn a new entity from the supplied <see cref="EntityModel"/> after a delay, used for entities that respawn after being removed (eg: harvesting nodes).
+        /// </summary>
+        /// <remarks>
+        /// The entity isn't spawned with its grid while the respawn is pending.
+        /// </remarks>
+        void ScheduleRespawn(ICreatureInfo creatureInfo, EntityModel model, TimeSpan delay);
 
         /// <summary>
         /// Enqueue <see cref="IPlayer"/> to be added to <see cref="IBaseMap"/>.
