@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Numerics;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
@@ -766,6 +767,75 @@ namespace NexusForever.Game.Challenges
                 challenge.InvokeScripts(s => s.OnEntityKilled(entity));
 
             OnTarget(entity, ChallengeType.Combat, ChallengeType.Collect, ChallengeType.General);
+
+            // Combat challenges whose target group isn't a list of creatures (factions, races, groups of other kinds)
+            ImmutableList<uint> creatureGroups = AssetManager.Instance.GetTargetGroupsForCreatureId(entity.CreatureId);
+            foreach (uint zoneId in zoneIds.ToList())
+            {
+                if (!index.Value.ByZone.TryGetValue(zoneId, out List<ChallengeEntry> entries))
+                    continue;
+
+                foreach (ChallengeEntry entry in entries)
+                {
+                    if ((ChallengeType)entry.ChallengeTypeEnum != ChallengeType.Combat
+                        || entry.Target == 0u
+                        || creatureGroups.Contains(entry.Target))
+                        continue;
+
+                    // groups made only of the unknown kind count any kill in the challenge area
+                    if (HasKnownMembers(entry.Target, 0) && !MatchesTargetGroup(entity, entry.Target, 0))
+                        continue;
+
+                    Progress(entry, 1u, 0u);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns if a target group has members of a known kind, directly or through the groups it contains.
+        /// </summary>
+        private static bool HasKnownMembers(uint targetGroupId, int depth)
+        {
+            TargetGroupEntry targetGroup = GameTableManager.Instance.TargetGroup.GetEntry(targetGroupId);
+            if (targetGroup == null || depth > 4)
+                return false;
+
+            return (TargetGroupType)targetGroup.Type switch
+            {
+                TargetGroupType.OtherTargetGroup or TargetGroupType.OtherTargetGroupCreatures
+                    => targetGroup.DataEntries.Where(d => d != 0u).Any(e => HasKnownMembers(e, depth + 1)),
+                TargetGroupType.Unknown9 => false,
+                _ => true
+            };
+        }
+
+        /// <summary>
+        /// Returns if the supplied unit belongs to a target group of a kind that isn't a creature list.
+        /// </summary>
+        /// <remarks>
+        /// TargetGroup types: 1 and 2 creature ids (matched through <see cref="AssetManager"/>), 3 faction ids, 12 creature race ids,
+        /// 10 and 11 other target groups. Type 9 holds ids of an unknown kind (Skeech Slayer, Cavern Clearing, The Stillstalker Den),
+        /// these challenges are all in caves or dens of their target, so a group made only of them counts any kill in the challenge area.
+        /// </remarks>
+        private static bool MatchesTargetGroup(IUnitEntity entity, uint targetGroupId, int depth)
+        {
+            TargetGroupEntry targetGroup = GameTableManager.Instance.TargetGroup.GetEntry(targetGroupId);
+            if (targetGroup == null || depth > 4)
+                return false;
+
+            IEnumerable<uint> entries = targetGroup.DataEntries.Where(d => d != 0u);
+            switch ((TargetGroupType)targetGroup.Type)
+            {
+                case TargetGroupType.FactionIdGroup:
+                    return entries.Contains((uint)entity.Faction1);
+                case TargetGroupType.CreatureRaceIdGroup:
+                    return entity.CreatureInfo?.Entry != null && entries.Contains(entity.CreatureInfo.Entry.UnitRaceId);
+                case TargetGroupType.OtherTargetGroup:
+                case TargetGroupType.OtherTargetGroupCreatures:
+                    return entries.Any(e => MatchesTargetGroup(entity, e, depth + 1));
+                default:
+                    return false;
+            }
         }
 
         /// <summary>
