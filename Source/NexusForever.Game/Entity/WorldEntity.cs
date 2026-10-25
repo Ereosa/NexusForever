@@ -606,6 +606,8 @@ namespace NexusForever.Game.Entity
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, CreatureInfo.Entry.Id, 1u);
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, CreatureInfo.Entry.Id, 1u);
 
+                activator.PathMissionManager.OnEntityActivated(this);
+
                 if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
                     activator.PathSoldierManager.OnActivate(this);
 

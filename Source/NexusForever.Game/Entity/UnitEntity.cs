@@ -615,6 +615,8 @@ namespace NexusForever.Game.Entity
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
             }
 
+            player.PathMissionManager.OnCreatureKilled(this);
+
             scriptCollection?.Invoke<IUnitScript>(s => s.OnRewardKiller(player));
 
             // TODO: Reward XP

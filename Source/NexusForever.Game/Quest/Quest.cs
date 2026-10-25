@@ -390,6 +390,7 @@ namespace NexusForever.Game.Quest
             }
 
             State = QuestState.Completed;
+            player.PathMissionManager.OnQuestCompleted(Id);
 
             // mark repeatable quests for reset
             switch ((QuestRepeatPeriod)Info.Entry.QuestRepeatPeriodEnum)

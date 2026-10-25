@@ -57,6 +57,21 @@ namespace NexusForever.Game.Abstract.Entity
         void OnZoneMapUpdate(uint mapZoneId, bool complete);
 
         /// <summary>
+        /// Invoked when the player gets kill credit for an entity.
+        /// </summary>
+        void OnCreatureKilled(IWorldEntity entity);
+
+        /// <summary>
+        /// Invoked when the player successfully activates an entity.
+        /// </summary>
+        void OnEntityActivated(IWorldEntity entity);
+
+        /// <summary>
+        /// Invoked when the player completes a quest.
+        /// </summary>
+        void OnQuestCompleted(uint questId);
+
+        /// <summary>
         /// Returns if the player has completed the supplied mission.
         /// </summary>
         bool IsMissionComplete(uint missionId);

@@ -35,7 +35,14 @@ namespace NexusForever.Game.Entity
             PathMissionType.ScientistScan,
             PathMissionType.ScientistScanChecklist,
             PathMissionType.SoldierHoldout,
-            PathMissionType.SettlerHub
+            PathMissionType.SettlerHub,
+            PathMissionType.SettlerScout,
+            PathMissionType.SettlerSheriff,
+            PathMissionType.SoldierAssassinate,
+            PathMissionType.SoldierSWAT,
+            PathMissionType.SoldierDemolition,
+            PathMissionType.SoldierRescue,
+            PathMissionType.ExplorerActivateChecklist
         ];
 
         public PathEpisodeEntry CurrentEpisode { get; private set; }
@@ -333,6 +340,31 @@ namespace NexusForever.Game.Entity
                 }
                 case PathMissionType.ScientistScan:
                     return mission.Progress >= 100u;
+                case PathMissionType.SoldierAssassinate:
+                    return mission.Progress >= (GameTableManager.Instance.PathSoldierAssassinate.GetEntry(mission.Entry.ObjectId)?.Count ?? uint.MaxValue);
+                case PathMissionType.SoldierSWAT:
+                    return mission.Progress >= (GameTableManager.Instance.PathSoldierSWAT.GetEntry(mission.Entry.ObjectId)?.Count ?? uint.MaxValue);
+                case PathMissionType.SoldierDemolition:
+                case PathMissionType.SoldierRescue:
+                {
+                    PathSoldierActivateEntry entry = GameTableManager.Instance.PathSoldierActivate.GetEntry(mission.Entry.ObjectId);
+                    if (entry == null)
+                        return false;
+
+                    // client GetNumCompleted, checklist activates count each objective bit
+                    uint completed = entry.SoldierActivateModeEnum != 0u ? (uint)BitOperations.PopCount(mission.Progress) : mission.Progress;
+                    return completed >= entry.Count;
+                }
+                case PathMissionType.ExplorerActivateChecklist:
+                {
+                    PathExplorerActivateEntry entry = GameTableManager.Instance.PathExplorerActivate.GetEntry(mission.Entry.ObjectId);
+                    return entry != null && BitOperations.PopCount(mission.Progress) >= entry.Count;
+                }
+                case PathMissionType.SettlerSheriff:
+                {
+                    uint needed = (uint)GetSheriffQuests(mission.Entry.ObjectId).Count(q => q != 0u);
+                    return needed > 0u && BitOperations.PopCount(mission.Progress) >= needed;
+                }
                 case PathMissionType.SettlerHub:
                 {
                     PathSettlerHubEntry hub = GameTableManager.Instance.PathSettlerHub.GetEntry(mission.Entry.ObjectId);
@@ -452,6 +484,86 @@ namespace NexusForever.Game.Entity
             }
 
             UpdateMission(mission, mission.Progress | (1u << (int)nodeIndex), mission.State);
+        }
+
+        private static uint[] GetSheriffQuests(uint pathSettlerSheriffId)
+        {
+            PathSettlerSheriffEntry entry = GameTableManager.Instance.PathSettlerSheriff.GetEntry(pathSettlerSheriffId);
+            if (entry == null)
+                return [];
+
+            return
+            [
+                entry.Quest2IdSheriff00, entry.Quest2IdSheriff01, entry.Quest2IdSheriff02, entry.Quest2IdSheriff03,
+                entry.Quest2IdSheriff04, entry.Quest2IdSheriff05, entry.Quest2IdSheriff06, entry.Quest2IdSheriff07
+            ];
+        }
+
+        private IEnumerable<IPathMission> GetActiveMissions(PathMissionType type)
+        {
+            return missions.Values
+                .Where(m => !m.Completed && m.Type == type && m.Entry.PathTypeEnum == (uint)player.Path)
+                .ToList();
+        }
+
+        private static bool MatchesTarget(uint creatureId, uint targetGroupId, IWorldEntity entity)
+        {
+            if (creatureId != 0u && creatureId == entity.CreatureId)
+                return true;
+
+            return targetGroupId != 0u && AssetManager.Instance.GetTargetGroupsForCreatureId(entity.CreatureId).Contains(targetGroupId);
+        }
+
+        public void OnCreatureKilled(IWorldEntity entity)
+        {
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.SoldierAssassinate))
+            {
+                PathSoldierAssassinateEntry entry = GameTableManager.Instance.PathSoldierAssassinate.GetEntry(mission.Entry.ObjectId);
+                if (entry != null && MatchesTarget(entry.Creature2Id, entry.TargetGroupId, entity))
+                    UpdateMission(mission, Math.Min(entry.Count, mission.Progress + 1u), mission.State | 1u);
+            }
+
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.SoldierSWAT))
+            {
+                PathSoldierSWATEntry entry = GameTableManager.Instance.PathSoldierSWAT.GetEntry(mission.Entry.ObjectId);
+                if (entry != null && MatchesTarget(entry.Creature2Id, entry.TargetGroupId, entity))
+                    UpdateMission(mission, Math.Min(entry.Count, mission.Progress + 1u), mission.State | 1u);
+            }
+        }
+
+        public void OnEntityActivated(IWorldEntity entity)
+        {
+            foreach (PathMissionType type in new[] { PathMissionType.SoldierDemolition, PathMissionType.SoldierRescue })
+            {
+                foreach (IPathMission mission in GetActiveMissions(type))
+                {
+                    PathSoldierActivateEntry entry = GameTableManager.Instance.PathSoldierActivate.GetEntry(mission.Entry.ObjectId);
+                    if (entry == null || !MatchesTarget(entry.Creature2Id, entry.TargetGroupId, entity))
+                        continue;
+
+                    uint progress = entry.SoldierActivateModeEnum != 0u
+                        ? mission.Progress | entity.QuestChecklistMask
+                        : Math.Min(entry.Count, mission.Progress + 1u);
+                    UpdateMission(mission, progress, mission.State | 1u);
+                }
+            }
+
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.ExplorerActivateChecklist))
+            {
+                PathExplorerActivateEntry entry = GameTableManager.Instance.PathExplorerActivate.GetEntry(mission.Entry.ObjectId);
+                if (entry != null && MatchesTarget(entry.Creature2Id, entry.TargetGroupId, entity))
+                    UpdateMission(mission, mission.Progress | entity.QuestChecklistMask, mission.State);
+            }
+        }
+
+        public void OnQuestCompleted(uint questId)
+        {
+            foreach (IPathMission mission in GetActiveMissions(PathMissionType.SettlerSheriff))
+            {
+                int index = Array.IndexOf(GetSheriffQuests(mission.Entry.ObjectId), questId);
+                if (index >= 0)
+                    UpdateMission(mission, mission.Progress | (1u << index), mission.State);
+            }
         }
 
         public void OnZoneMapUpdate(uint mapZoneId, bool complete)
