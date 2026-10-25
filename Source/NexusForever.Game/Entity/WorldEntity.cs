@@ -365,8 +365,13 @@ namespace NexusForever.Game.Entity
             CreatureInfo         = creatureInfo;
             EntityId             = model.Id;
             Rotation             = new Vector3(model.Rx, model.Ry, model.Rz);
-            CreatureDisplayEntry = GameTableManager.Instance.Creature2DisplayInfo.GetEntry(model.DisplayInfo);
-            CreatureOutfitEntry  = GameTableManager.Instance.Creature2OutfitInfo.GetEntry(model.OutfitInfo);
+            // spawns added by hand (not captured) often leave the display and outfit at 0, use the creature's own groups then
+            CreatureDisplayEntry = model.DisplayInfo != 0u
+                ? GameTableManager.Instance.Creature2DisplayInfo.GetEntry(model.DisplayInfo)
+                : creatureInfo?.GetDisplayInfoEntry();
+            CreatureOutfitEntry  = model.OutfitInfo != 0u
+                ? GameTableManager.Instance.Creature2OutfitInfo.GetEntry(model.OutfitInfo)
+                : creatureInfo?.GetOutfitInfoEntry();
             Faction1             = (Faction)model.Faction1;
             Faction2             = (Faction)model.Faction2;
             QuestChecklistIdx    = model.QuestChecklistIdx;
