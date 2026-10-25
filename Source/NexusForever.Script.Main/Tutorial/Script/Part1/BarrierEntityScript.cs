@@ -25,7 +25,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part1
             if (quest == null)
                 return true;
 
-            return !quest.GetQuestObjective(21324).IsComplete();
+            // objective 2 (activate the hoverboard projector) is the same for both factions
+            return !(quest.GetQuestObjectiveByIndex(2)?.IsComplete() ?? false);
         }
     }
 }

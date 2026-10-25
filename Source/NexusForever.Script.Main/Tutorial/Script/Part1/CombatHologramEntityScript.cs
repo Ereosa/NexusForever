@@ -17,7 +17,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part1
             Vector3 position = activator.Faction2 switch
             {
                 Faction.Exile => new Vector3(-172.937f, -879.5415f, 263.561f),
-                _             => throw new NotImplementedException()
+                // WorldLocation2 52853, the Dominion side of the combat simulation
+                _             => new Vector3(25.59f, -877.18f, 228.47f)
             };
 
             activator.TeleportToLocal(position);
