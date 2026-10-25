@@ -1,6 +1,7 @@
 using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 using NexusForever.Shared;
@@ -8,28 +9,34 @@ using NexusForever.Shared;
 namespace NexusForever.Script.Main.Tutorial.Script.Part2
 {
     /// <summary>
-    /// Housing NPCs in A Claim to Stake that show off a decoration, sky or music when talked to.
+    /// Protostar housing NPCs in A Claim to Stake.
     /// </summary>
     /// <remarks>
-    /// In retail this came from a dialog option, which the server doesn't support yet, so the demo plays on talk.
+    /// Talking to one starts its 2 second "Inquiring About ..." activate cast. On success the NPC counts towards the
+    /// quest once per player and shows off its example (decoration, sky or music).
     /// </remarks>
-    [ScriptFilterCreatureId(DecorationsExpert, SkySpecialist, MusicManager)]
+    [ScriptFilterCreatureId(LandscapeArchitect, DecorationsExpert, SkySpecialist, MusicManager)]
     public class HousingShowcaseEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
     {
-        private const uint DecorationsExpert = 73662;
-        private const uint SkySpecialist     = 73663;
-        private const uint MusicManager      = 73664;
+        private const uint LandscapeArchitect = 73422;
+        private const uint DecorationsExpert  = 73662;
+        private const uint SkySpecialist      = 73663;
+        private const uint MusicManager       = 73664;
+        private const uint DecorDemo          = 73690;
+
+        private const uint LandscapeArchitectTargetGroup = 14368;
+        private const uint DecorationsExpertTargetGroup  = 14369;
 
         private enum SpellId
         {
-            SkyboxChange       = 85631,
-            MusicChange        = 85632,
-            DecorStatue        = 85662,
-            DecorFountain      = 85672,
-            DecorTikiBar       = 85673,
-            DecorLoppAltar     = 86878,
-            DecorLoppPlushie   = 86879,
-            DecorGardenArch    = 86880
+            SkyboxChange     = 85631,
+            MusicChange      = 85632,
+            DecorStatue      = 85662,
+            DecorFountain    = 85672,
+            DecorTikiBar     = 85673,
+            DecorLoppAltar   = 86878,
+            DecorLoppPlushie = 86879,
+            DecorGardenArch  = 86880
         }
 
         // the six decorations experts stand at different plots, each shows a different example
@@ -44,6 +51,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         ];
 
         private IWorldEntity owner;
+        private readonly HashSet<ulong> credited = [];
 
         #region Dependency Injection
 
@@ -68,19 +76,64 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         /// <summary>
         /// Invoked when <see cref="IPlayer"/> talks to <see cref="IWorldEntity"/>.
         /// </summary>
-        public void OnTalkTo(IPlayer player)
+        public bool OnTalkTo(IPlayer player)
         {
-            SpellId spell = owner.CreatureId switch
+            owner.OnActivateCast(player, 0u);
+            return true;
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> is successfully activated by <see cref="IPlayer"/>.
+        /// </summary>
+        public void OnActivateSuccess(IPlayer activator)
+        {
+            if (credited.Add(activator.CharacterId))
             {
-                SkySpecialist => SpellId.SkyboxChange,
-                MusicManager  => SpellId.MusicChange,
-                _             => decorations.MinBy(d => Vector3.Distance(d.Position, owner.Position)).Spell
+                switch (owner.CreatureId)
+                {
+                    case LandscapeArchitect:
+                        activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, LandscapeArchitectTargetGroup, 1u);
+                        break;
+                    case DecorationsExpert:
+                        activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, DecorationsExpertTargetGroup, 1u);
+                        break;
+                    default:
+                        activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, owner.CreatureId, 1u);
+                        break;
+                }
+            }
+
+            PlayDemo(activator);
+        }
+
+        private void PlayDemo(IPlayer player)
+        {
+            uint targetId = owner.Guid;
+            SpellId? spell = owner.CreatureId switch
+            {
+                SkySpecialist     => SpellId.SkyboxChange,
+                MusicManager      => SpellId.MusicChange,
+                DecorationsExpert => decorations.MinBy(d => Vector3.Distance(d.Position, owner.Position)).Spell,
+                // TODO: Landscape Architect plot example
+                _                 => null
             };
+
+            if (spell == null)
+                return;
+
+            // the decoration examples swap the visuals of the "Decor Demo" display standing next to the expert
+            if (owner.CreatureId == DecorationsExpert)
+            {
+                IWorldEntity display = player.GetVisibleCreature<IWorldEntity>(DecorDemo)
+                    .MinBy(d => Vector3.Distance(d.Position, owner.Position));
+                if (display != null)
+                    targetId = display.Guid;
+            }
 
             ISpellParameters parameters = spellParameterFactory.Resolve();
             parameters.UserInitiatedSpellCast = false;
-            parameters.PrimaryTargetId        = owner.Guid;
-            player.CastSpell((uint)spell, parameters);
+            parameters.PrimaryTargetId        = targetId;
+            player.CastSpell((uint)spell.Value, parameters);
         }
     }
 }

@@ -16,8 +16,10 @@ namespace NexusForever.Script.Template
         /// <summary>
         /// Invoked when <see cref="IPlayer"/> talks to <see cref="IWorldEntity"/>.
         /// </summary>
-        void OnTalkTo(IPlayer player)
+        /// <returns>True if the script handled the interaction, this skips the default talk objective updates and dialog.</returns>
+        bool OnTalkTo(IPlayer player)
         {
+            return false;
         }
 
         /// <summary>

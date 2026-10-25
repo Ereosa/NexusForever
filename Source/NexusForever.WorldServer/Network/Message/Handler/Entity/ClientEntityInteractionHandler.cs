@@ -33,6 +33,15 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
         public void HandleMessage(IWorldSession session, ClientEntityInteract entityInteraction)
         {
             IWorldEntity entity = session.Player.GetVisible<IWorldEntity>(entityInteraction.UnitId);
+
+            if (entityInteraction.Type == InteractionType.TalkTo && entity != null)
+            {
+                bool handled = false;
+                entity.InvokeScriptCollection<IWorldEntityScript>(s => handled |= s.OnTalkTo(session.Player));
+                if (handled)
+                    return;
+            }
+
             if (entity != null)
             {
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
@@ -53,8 +62,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                     {
                         DialogUnitId = entityInteraction.UnitId
                     });
-
-                    entity?.InvokeScriptCollection<IWorldEntityScript>(s => s.OnTalkTo(session.Player));
                     break;
                 }
                 case InteractionType.Vendor: // Handle Vendor

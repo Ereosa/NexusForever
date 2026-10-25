@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Newtonsoft.Json.Linq;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Chat;
@@ -37,6 +37,11 @@ namespace NexusForever.Game.Entity
 {
     public abstract class WorldEntity : GridEntity, IWorldEntity
     {
+        /// <summary>
+        /// Generic Quest Spell - Activating - Activate (2 second cast).
+        /// </summary>
+        private const uint GenericActivateSpell4Id = 116;
+
         public abstract EntityType Type { get; }
         public EntityCreateFlag CreateFlags { get; set; }
 
@@ -572,6 +577,10 @@ namespace NexusForever.Game.Entity
                 if (spell4Id == 0u && CreatureInfo.Entry.Spell4IdActivate[i] == 0u && i > 0)
                     spell4Id = CreatureInfo.Entry.Spell4IdActivate[i - 1];
             }
+
+            // creatures with an activate cast time but no activate spell use the generic "Activating" quest spell
+            if (spell4Id == 0 && CreatureInfo.Entry.ActivateSpellCastTime > 0)
+                spell4Id = GenericActivateSpell4Id;
 
             if (spell4Id == 0)
                 throw new InvalidOperationException($"Spell4Id should not be 0. Unhandled Creature ActivateCast {CreatureInfo.Entry.Id}");
