@@ -34,6 +34,13 @@ namespace NexusForever.Script.Template
         }
 
         /// <summary>
+        /// Invoked when <see cref="IPlayer"/> tries to board <see cref="IWorldEntity"/>, a vehicle spawned in the world (eg: the capital tour rides).
+        /// </summary>
+        void OnBoard(IPlayer player)
+        {
+        }
+
+        /// <summary>
         /// Invoked when <see cref="IWorldEntity"/> is unsuccessfully activated by <see cref="IPlayer"/>.
         /// </summary>
         void OnActivateFail(IPlayer activator)

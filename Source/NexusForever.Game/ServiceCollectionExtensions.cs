@@ -40,6 +40,7 @@ namespace NexusForever.Game
             sc.AddSingletonLegacy<IDamageCalculator, DamageCalculator>();
 
             sc.AddTransient<IRapidTransportCostCalculator, RapidTransportCostCalculator>();
+            sc.AddTransient<Abstract.Taxi.ICityTourManager, Taxi.CityTourManager>();
 
             sc.AddGameAchievement();
             sc.AddGameCharacter();
