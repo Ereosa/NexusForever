@@ -90,6 +90,7 @@ namespace NexusForever.Script.Instance.Dungeon.StormtalonsLair
             switch ((Phase)phase)
             {
                 case Phase.Rush:
+                    PlaceDoors();
                     Activate(Objective.Rush);
                     Activate(Objective.RescuePrisoners);
                     Activate(Objective.TaintedStems);
@@ -131,6 +132,29 @@ namespace NexusForever.Script.Instance.Dungeon.StormtalonsLair
                     CompleteExpedition([], [], 2265, 2266, 2274, true);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Doors (guessed positions: no door position exists in the client data or the archives, they stand on the way into each boss
+        /// room, 28-30 m before the boss, the rooms' sizes guessed from the Jabbithole sightings): the Blade-Wind Door shuts the
+        /// Invoker's fight, the Aethros entrance shuts his fight and the Aethros Door on his far side opens when he dies, the Stormtalon
+        /// Door shuts the last fight. Every door opens when its boss dies or leaves combat, and after 10 minutes shut whatever happens.
+        /// </summary>
+        private void PlaceDoors()
+        {
+            Vector3 entrance   = new(15.8f, 8.9f, -5.3f);       // WorldLocation2 1275, the map entrance
+            Vector3 invoker    = new(-87f, -11.9f, 125f);
+            Vector3 aethros    = new(-70.9f, -45.6f, 218.2f);
+            Vector3 stormtalon = new(55.4f, -9.6f, 256.7f);
+
+            (Vector3 position, float yaw) = DoorOnWay(entrance, invoker, 28f);
+            AddEncounterDoor(35180, position, yaw, Invoker);
+            (position, yaw) = DoorOnWay(invoker, aethros, 30f);
+            AddEncounterDoor(40735, position, yaw, Aethros);
+            (position, yaw) = DoorOnWay(stormtalon, aethros, 30f);
+            AddProgressionDoor(36078, position, yaw, Aethros);
+            (position, yaw) = DoorOnWay(aethros, stormtalon, 30f);
+            AddEncounterDoor(36079, position, yaw, Stormtalon);
         }
 
         public override void OnEntityDeath(IUnitEntity entity)

@@ -117,6 +117,7 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
             switch ((Phase)phase)
             {
                 case Phase.Thunderfoot:
+                    PlaceDoors();
                     Activate(Objective.KillThunderfoot);
                     Activate(Objective.StewShaman);
                     Activate(Objective.ShinyObjects);
@@ -259,6 +260,23 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
                     Walk(platform, path, 8f);
             }
             Update(Objective.Platform);
+        }
+
+        /// <summary>
+        /// Doors (guessed positions: no door position exists in the client data or the archives): the cave door stands 20 m into the
+        /// cave from where the hauling platform arrives and opens once Bosun Octog is dead, the Mordechai Door shuts his fight 30 m
+        /// before him. Every door opens when its boss dies or leaves combat, and after 10 minutes shut (40 for the cave door) whatever
+        /// happens.
+        /// </summary>
+        private void PlaceDoors()
+        {
+            Vector3 platformEnd = new(-1271.2f, -725.4f, -795.2f); // end of the hauling platform's Spline2 7037
+            Vector3 mordechai   = new(-730.9f, -690.4f, -468.9f);
+
+            (Vector3 position, float yaw) = DoorOnWay(mordechai, platformEnd, 20f);
+            AddProgressionDoor(32942, position, yaw + MathF.PI, Octog);
+            (position, yaw) = DoorOnWay(platformEnd, mordechai, 30f);
+            AddEncounterDoor(32943, position, yaw, Mordechai);
         }
 
         public override void OnEntityDeath(IUnitEntity entity)

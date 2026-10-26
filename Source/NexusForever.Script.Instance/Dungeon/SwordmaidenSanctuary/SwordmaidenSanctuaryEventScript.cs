@@ -107,6 +107,7 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
             switch ((Phase)phase)
             {
                 case Phase.Shallaos:
+                    PlaceDoors();
                     Activate(Objective.KillShallaos);
                     foreach (uint objectiveId in Objective.Optional)
                         Activate(objectiveId);
@@ -236,6 +237,40 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
 
             turnstiles.Add(objectiveId);
             Update(objectiveId);
+        }
+
+        /// <summary>
+        /// Doors (guessed positions: no door position exists in the client data or the archives): the Torine Route Doors close the three
+        /// wings at their turnstile locations (WorldLocation2 22139-22141) until Deadringer Shallaos falls; a boss door shuts each
+        /// boss' fight 25-30 m before the boss on the way in. Every door opens when its boss dies or leaves combat, and after 10 minutes
+        /// shut (40 for the route doors) whatever happens.
+        /// </summary>
+        private void PlaceDoors()
+        {
+            const uint routeDoor = 39856;
+            const uint bossDoor  = 44332;
+            Vector3 entrance = new(4259.7f, -840.5f, -4245.1f); // WorldLocation2 16348, the map entrance
+            Vector3 hub      = RelicCenter;
+            Vector3 terrace  = new(4229.3f, -811.3f, -2883f);   // WorldLocation2 22139, Lifeweaver Terrace
+            Vector3 moldwood = new(3821.3f, -808.7f, -3323.2f); // WorldLocation2 22140, the Moldwood Corruption
+            Vector3 temple   = new(4666.4f, -811.7f, -3318.4f); // WorldLocation2 22141, the Temple of the Life-Speaker
+
+            foreach (Vector3 wing in new[] { terrace, moldwood, temple })
+            {
+                (Vector3 position, float yaw) = DoorOnWay(hub, wing, 0f);
+                AddProgressionDoor(routeDoor, position, yaw, Shallaos);
+            }
+
+            (Vector3 Position, float Yaw) door = DoorOnWay(entrance, new Vector3(4258.9f, -801f, -3893.5f), 30f);
+            AddEncounterDoor(bossDoor, door.Position, door.Yaw, Shallaos);
+            door = DoorOnWay(terrace, new Vector3(4048.2f, -773f, -2559.8f), 30f);
+            AddEncounterDoor(bossDoor, door.Position, door.Yaw, Ondu);
+            door = DoorOnWay(moldwood, new Vector3(3606.1f, -728.5f, -3484.2f), 30f);
+            AddEncounterDoor(bossDoor, door.Position, door.Yaw, Skash);
+            door = DoorOnWay(temple, new Vector3(5042.2f, -758f, -3319.8f), 30f);
+            AddEncounterDoor(bossDoor, door.Position, door.Yaw, Rayna);
+            door = DoorOnWay(hub, new Vector3(4248.7f, -783f, -3309.9f), 25f);
+            AddEncounterDoor(bossDoor, door.Position, door.Yaw, Selene);
         }
 
         public override void OnEntityDeath(IUnitEntity entity)
