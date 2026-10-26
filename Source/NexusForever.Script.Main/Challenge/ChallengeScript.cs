@@ -39,6 +39,10 @@ namespace NexusForever.Script.Main.Challenge
         {
         }
 
+        public virtual void OnEntitySpellHit(uint spell4Id, IUnitEntity target)
+        {
+        }
+
         public virtual void OnStop(bool completed)
         {
         }
