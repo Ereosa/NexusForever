@@ -21,6 +21,11 @@ namespace NexusForever.Game.Abstract.Loot
         IEnumerable<ILootInstance> GetLootInstances(uint ownerUnitId);
 
         /// <summary>
+        /// Remove all loot instances associated with the specified unit, used when the unit leaves the map.
+        /// </summary>
+        void RemoveLootInstances(uint ownerUnitId);
+
+        /// <summary>
         /// Get the loot item instance for the specified owner unit and loot id.
         /// </summary>
         /// <param name="ownerUnitId">The id of the unit that owns the loot instances.</param>

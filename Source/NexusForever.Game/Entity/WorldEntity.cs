@@ -446,6 +446,9 @@ namespace NexusForever.Game.Entity
                 worldEntity.MovementManager.SetRotation(Rotation, false);
             }
 
+            // the guid is reused once this entity is gone, so its loot can't outlive it
+            Map.LootManager?.RemoveLootInstances(Guid);
+
             SummonFactory.Unsummon();
             if (SummonerGuid.HasValue)
             {
