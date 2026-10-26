@@ -571,22 +571,31 @@ namespace NexusForever.Game.Entity
             {
                 if ((saveMask & PlayerSaveMask.Location) != 0)
                 {
-                    model.LocationX = Position.X;
+                    // logging out mid-flight puts the player at the taxi's destination instead of in the air
+                    Vector3 position = Position;
+                    Vector3 rotation = Rotation;
+                    if (PlatformGuid != null && GetVisible<IGridEntity>(PlatformGuid.Value) is ITaxiEntity taxi)
+                    {
+                        position = taxi.Destination;
+                        rotation = taxi.DestinationRotation;
+                    }
+
+                    model.LocationX = position.X;
                     entity.Property(p => p.LocationX).IsModified = true;
 
-                    model.LocationY = Position.Y;
+                    model.LocationY = position.Y;
                     entity.Property(p => p.LocationY).IsModified = true;
 
-                    model.LocationZ = Position.Z;
+                    model.LocationZ = position.Z;
                     entity.Property(p => p.LocationZ).IsModified = true;
 
-                    model.RotationX = Rotation.X;
+                    model.RotationX = rotation.X;
                     entity.Property(p => p.RotationX).IsModified = true;
 
-                    model.RotationY = Rotation.Y;
+                    model.RotationY = rotation.Y;
                     entity.Property(p => p.RotationY).IsModified = true;
 
-                    model.RotationZ = Rotation.Z;
+                    model.RotationZ = rotation.Z;
                     entity.Property(p => p.RotationZ).IsModified = true;
 
                     model.WorldId = (ushort)Map.Entry.Id;
