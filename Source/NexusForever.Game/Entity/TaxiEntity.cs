@@ -26,8 +26,9 @@ namespace NexusForever.Game.Entity
         public uint OwnerGuid { get; private set; }
 
         private readonly Queue<ushort> splines = new();
-        private Vector3 destination;
-        private Vector3 destinationRotation;
+        public Vector3 Destination { get; private set; }
+        public Vector3 DestinationRotation { get; private set; }
+
         private bool flying;
 
         #region Dependency Injection
@@ -49,8 +50,8 @@ namespace NexusForever.Game.Entity
 
             OwnerGuid                = owner.Guid;
             Rotation                 = owner.Rotation;
-            this.destination         = destination;
-            this.destinationRotation = destinationRotation;
+            Destination              = destination;
+            DestinationRotation      = destinationRotation;
 
             foreach (ushort splineId in splineIds)
                 splines.Enqueue(splineId);
@@ -84,6 +85,13 @@ namespace NexusForever.Game.Entity
             LaunchNextSpline();
         }
 
+        protected override void OnPassengerRemove(IPlayer player, VehicleSeatType seatType, byte seatPosition)
+        {
+            // rider logged out or was removed mid-flight, the taxi is removed with its last passenger
+            if (player.Guid == OwnerGuid)
+                flying = false;
+        }
+
         private void LaunchNextSpline()
         {
             if (splines.TryDequeue(out ushort splineId))
@@ -96,7 +104,7 @@ namespace NexusForever.Game.Entity
         {
             base.OnEntityCommandFinalise(command);
 
-            if (flying && command is PositionSplineCommand { IsFinalised: true })
+            if (flying && !PendingRemoval && command is PositionSplineCommand { IsFinalised: true })
                 LaunchNextSpline();
         }
 
@@ -114,8 +122,8 @@ namespace NexusForever.Game.Entity
             // the taxi is removed with its last passenger
             PassengerRemove(player);
 
-            player.Rotation = destinationRotation;
-            player.TeleportToLocal(destination, false);
+            player.Rotation = DestinationRotation;
+            player.TeleportToLocal(Destination, false);
         }
     }
 }

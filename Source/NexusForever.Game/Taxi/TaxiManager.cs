@@ -168,6 +168,10 @@ namespace NexusForever.Game.Taxi
             if (taxiRouteIds.Count == 0)
                 return;
 
+            // the taxi window can stay open during the flight, further purchases are ignored until landing
+            if (IsRidingTaxi())
+                return;
+
             var routes = new List<TaxiRouteEntry>();
             foreach (uint taxiRouteId in taxiRouteIds)
             {
@@ -195,12 +199,6 @@ namespace NexusForever.Game.Taxi
             if (!player.IsAlive || player.InCombat || !player.CanTeleport())
             {
                 player.SendGenericError(GenericError.EmbarkPlayerUnableToEmbark);
-                return;
-            }
-
-            if (player.PlatformGuid != null && player.GetVisible<IGridEntity>(player.PlatformGuid.Value) is ITaxiEntity)
-            {
-                player.SendGenericError(GenericError.EmbarkCannotDoWhileOnTaxi);
                 return;
             }
 
@@ -275,6 +273,11 @@ namespace NexusForever.Game.Taxi
             }
             else
                 StartFlight(path[0].SourceLocation.WorldId, splines, finalPosition, finalRotation);
+        }
+
+        private bool IsRidingTaxi()
+        {
+            return player.PlatformGuid != null && player.GetVisible<IGridEntity>(player.PlatformGuid.Value) is ITaxiEntity;
         }
 
         private bool IsNearVendor(uint taxiNodeId)
