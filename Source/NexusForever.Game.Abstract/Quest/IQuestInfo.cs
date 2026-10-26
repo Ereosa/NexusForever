@@ -35,5 +35,10 @@ namespace NexusForever.Game.Abstract.Quest
         /// Return money rewarded on completion.
         /// </summary>
         uint GetRewardMoney();
+
+        /// <summary>
+        /// Return the factions and reputation rewarded on completion.
+        /// </summary>
+        IEnumerable<(uint FactionId, float Amount)> GetRewardReputation();
     }
 }

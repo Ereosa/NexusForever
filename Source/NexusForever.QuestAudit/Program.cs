@@ -38,9 +38,31 @@ namespace NexusForever.QuestAudit
         private static readonly List<string> noTargetTexts = [];
 
         // target-less activate objectives the server handles by their short text (QuestObjectiveInfo: area verbs, Listen to, Follow, Use/Open/Select)
-        private static readonly string[] areaVerbs = ["Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow", "Attend", "Discover", "Learn the fate", "Learn more about the", "See all"];
+        private static readonly string[] areaVerbs = ["Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow", "Attend", "Discover", "Learn the fate", "Learn more about the", "See all", "Base jump"];
 
-        private static bool TextHandled(QuestObjectiveEntry objective, out string how)
+        /// <summary>
+        /// Mirrors Quest.MirrorSiblingObjectives: a target-less step with the same short text as a sibling with a target (type 5),
+        /// or a hidden step without short text of the same count.
+        /// </summary>
+        private static bool IsMirroredSibling(Quest2Entry quest, QuestObjectiveEntry objective)
+        {
+            bool hidden = (objective.Flags & 0x08) != 0u;
+            foreach (uint id in quest.Objectives)
+            {
+                QuestObjectiveEntry source = objectives.GetEntry(id);
+                if (source == null || source.Id == objective.Id || source.LocalizedTextIdShort == 0u
+                    || (source.Data == 0u && source.TargetGroupIdRewardPane == 0u))
+                    continue;
+
+                if (objective.Type == 5u && objective.LocalizedTextIdShort == source.LocalizedTextIdShort)
+                    return true;
+                if (hidden && objective.LocalizedTextIdShort == 0u && objective.Count == source.Count)
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool TextHandled(QuestObjectiveEntry objective, out string how, Quest2Entry quest = null)
         {
             how = null;
             uint textId = objective.LocalizedTextIdShort != 0u ? objective.LocalizedTextIdShort : objective.LocalizedTextIdFull;
@@ -68,7 +90,8 @@ namespace NexusForever.QuestAudit
             else if (Regex.IsMatch(t, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase)) how = "Public event";
             else if (Regex.IsMatch(t, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase)) how = "Wait";
             else if (t.Trim().Length == 0 || Regex.IsMatch(t.Trim(), @"(Despawned$|^Other Objectives completed|^Vis prerequisites|^Virtual Item Remove|^Detonation Delay$)", RegexOptions.IgnoreCase)) how = "Script step";
-            else if (Regex.IsMatch(t, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && factionNames.Any(n => t.Contains(n, StringComparison.OrdinalIgnoreCase))) how = "Reputation";
+            else if (Regex.IsMatch(t, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && (factionNames.Any(n => t.Contains(n, StringComparison.OrdinalIgnoreCase))
+                || (quest != null && (quest.Faction2IdRewardReputation00 != 0u || quest.Faction2IdRewardReputation01 != 0u)))) how = "Reputation";
             else if (Regex.IsMatch(t, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? .+$", RegexOptions.IgnoreCase)) how = "Hunt near";
             else if (Regex.Match(t.Trim(), @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content && ContentKnown(content.Groups["name"].Value)) how = "Complete content";
             else if (smallMarker) how = "Use at marker";
@@ -321,10 +344,16 @@ namespace NexusForever.QuestAudit
                             stat.DataZeroSpell++;
                         else if (objective.TargetGroupIdRewardPane != 0u && rewardPaneTypes.Contains(objective.Type))
                             stat.DataZeroPane++;
-                        else if (objective.Type is 5 or 12 && TextHandled(objective, out string how))
+                        else if (objective.Type is 5 or 12 && TextHandled(objective, out string how, quest))
                         {
                             stat.DataZeroText++;
                             textHandled[how] = textHandled.GetValueOrDefault(how) + 1;
+                        }
+                        else if (objective.Type is 5 or 10 && IsMirroredSibling(quest, objective))
+                        {
+                            // Quest.MirrorSiblingObjectives keeps it in step with a sibling that has a target
+                            stat.DataZeroText++;
+                            textHandled["Mirrored sibling"] = textHandled.GetValueOrDefault("Mirrored sibling") + 1;
                         }
                         else if (scriptedQuests.Contains(quest.Id))
                         {
@@ -332,7 +361,8 @@ namespace NexusForever.QuestAudit
                             stat.DataZeroText++;
                             textHandled["Quest script"] = textHandled.GetValueOrDefault("Quest script") + 1;
                         }
-                        else if (hidden && objective.LocalizedTextIdFull == 0u)
+                        // Quest.IsServerObjective: hidden steps without a target complete with the visible ones
+                        else if (hidden && objective.TargetGroupIdRewardPane == 0u)
                             stat.DataZeroServer++;
                         else
                         {

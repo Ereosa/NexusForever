@@ -57,7 +57,7 @@ namespace NexusForever.Game.Quest
         /// </summary>
         private static readonly string[] areaVerbs =
         [
-            "Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow", "Attend", "Discover", "Learn the fate", "Learn more about the", "See all"
+            "Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow", "Attend", "Discover", "Learn the fate", "Learn more about the", "See all", "Base jump"
         ];
 
         private bool? isAreaObjective;
@@ -308,8 +308,9 @@ namespace NexusForever.Game.Quest
             else if (Regex.Match(text, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event\b", RegexOptions.IgnoreCase) is { Success: true } publicEvent)
                 // id 1: taking part is enough, otherwise the event must be won
                 textTrigger = (QuestTextTrigger.PublicEvent, publicEvent.Groups[1].Value.StartsWith("Participate", StringComparison.OrdinalIgnoreCase) ? 1u : 0u, publicEvent.Groups["zone"].Value.Trim());
-            else if (Regex.IsMatch(text, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && FindReputationFaction(text) is uint faction)
-                textTrigger = (QuestTextTrigger.Reputation, faction, null);
+            // a text naming a place rather than a faction ("Earn Celestion Reputation") is the reputation the quest itself rewards (id 0)
+            else if (Regex.IsMatch(text, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase))
+                textTrigger = (QuestTextTrigger.Reputation, FindReputationFaction(text) ?? 0u, null);
             else if (Regex.Match(text, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? (?<name>.+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } hunt)
                 textTrigger = (QuestTextTrigger.HuntNear, 0u, hunt.Groups["name"].Value);
             // internal script steps (no text, or developer notes such as "Dorian Despawned", "Other Objectives completed; wait 2 seconds"),

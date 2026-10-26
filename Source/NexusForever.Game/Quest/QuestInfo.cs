@@ -151,5 +151,32 @@ namespace NexusForever.Game.Quest
             GameFormulaEntry entry = GameTableManager.Instance.GameFormula.GetEntry(530);
             return (uint)(MathF.Pow(Entry.ConLevel, entry.Datafloat0) * DifficultyEntry.CashRewardMultiplier);
         }
+
+        /// <summary>
+        /// Return the factions and reputation rewarded on completion.
+        /// </summary>
+        /// <remarks>
+        /// Like experience the amount is the quest level's base reputation (XpPerLevel) scaled by the difficulty, unless overridden.
+        /// Quests of difficulty 6 (multiplier 0) carry the base amount as their override (Survival of the Fittest, level 18: 226),
+        /// which backs the formula. That a second faction without an override receives the same amount is a guess.
+        /// </remarks>
+        public IEnumerable<(uint FactionId, float Amount)> GetRewardReputation()
+        {
+            float amount = (GameTableManager.Instance.XpPerLevel.GetEntry(Entry.ConLevel)?.BaseRepRewardPerLevel ?? 0u)
+                * (DifficultyEntry?.RepRewardMultiplier ?? 0f);
+
+            if (Entry.Faction2IdRewardReputation00 != 0u)
+            {
+                float reward = Entry.RewardReputationOverride00 != 0f ? Entry.RewardReputationOverride00 : amount;
+                if (reward > 0f)
+                    yield return (Entry.Faction2IdRewardReputation00, reward);
+            }
+            if (Entry.Faction2IdRewardReputation01 != 0u)
+            {
+                float reward = Entry.RewardReputationOverride01 != 0f ? Entry.RewardReputationOverride01 : amount;
+                if (reward > 0f)
+                    yield return (Entry.Faction2IdRewardReputation01, reward);
+            }
+        }
     }
 }
