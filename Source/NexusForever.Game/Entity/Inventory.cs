@@ -907,7 +907,7 @@ namespace NexusForever.Game.Entity
 
         private void ApplyProperties(IItem item)
         {
-            foreach (KeyValuePair<Property, float> property in item.Info.Properties)
+            foreach (KeyValuePair<Property, float> property in item.Properties)
                 player.AddItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id, property.Value);
 
             // TODO: Add properties from item's runes
@@ -915,7 +915,7 @@ namespace NexusForever.Game.Entity
 
         private void RemoveProperties(IItem item)
         {
-            foreach (KeyValuePair<Property, float> property in item.Info.Properties)
+            foreach (KeyValuePair<Property, float> property in item.Properties)
                 player.RemoveItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id);
 
             // TODO: Remove properties from item's runes

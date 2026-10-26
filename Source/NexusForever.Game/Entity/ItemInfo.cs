@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Crafting;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Item;
 using NexusForever.GameTable;
@@ -64,15 +65,49 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         private void CalculateProperties()
         {
-            ItemPower = CalculateItemPower();
+            ItemPower  = CalculateItemPower(Entry.PowerLevel);
+            Properties = CalculateProperties(Entry.PowerLevel, 0ul, null);
+        }
+
+        /// <summary>
+        /// Calculate item properties for an item instance with a different power level or circuit crafted properties.
+        /// </summary>
+        /// <param name="powerLevel">Power level of the item, circuit crafted items take this from their power core.</param>
+        /// <param name="circuitData">Circuit data of the item, see <see cref="CircuitCrafting"/>.</param>
+        /// <param name="circuitMultipliers">Budget multiplier for each item stat slot from charging sockets.</param>
+        public ImmutableDictionary<Property, float> CalculateProperties(uint powerLevel, ulong circuitData, IReadOnlyList<float> circuitMultipliers)
+        {
+            var context = new PropertyContext
+            {
+                PowerLevel  = powerLevel,
+                ItemPower   = CalculateItemPower(powerLevel),
+                CircuitData = circuitData,
+                Multipliers = circuitMultipliers
+            };
 
             var builder = new ItemInfoPropertyBuilder();
             if (BudgetEntry != null && StatEntry != null)
-                CalculateExplicitProperties(builder);
+                CalculateExplicitProperties(builder, context);
 
-            CalculateImplicitProperties(builder);
+            CalculateImplicitProperties(builder, context);
 
-            Properties = builder.Properties.ToImmutable();
+            return builder.Properties.ToImmutable();
+        }
+
+        private class PropertyContext
+        {
+            public uint PowerLevel { get; init; }
+            public float ItemPower { get; init; }
+            public ulong CircuitData { get; init; }
+            public IReadOnlyList<float> Multipliers { get; init; }
+
+            /// <summary>
+            /// Return the budget multiplier of the item stat slot.
+            /// </summary>
+            public float GetMultiplier(int slot)
+            {
+                return Multipliers != null && slot < Multipliers.Count ? Multipliers[slot] : 1f;
+            }
         }
 
         /// <summary>
@@ -81,11 +116,11 @@ namespace NexusForever.Game.Entity
         /// <remarks>
         /// This is used in the item budget calculations.
         /// </remarks>
-        private float CalculateItemPower()
+        public float CalculateItemPower(uint powerLevel)
         {
             float Calculate(GameFormulaEntry formulaEntry)
             {
-                float relativePowerLevel = Entry.PowerLevel - formulaEntry.Dataint0;
+                float relativePowerLevel = powerLevel - formulaEntry.Dataint0;
                 return (MathF.Pow(MathF.E, formulaEntry.Datafloat01 * relativePowerLevel) * formulaEntry.Datafloat0) + (MathF.Pow(relativePowerLevel, formulaEntry.Datafloat03) * formulaEntry.Datafloat02);
             }
 
@@ -93,7 +128,7 @@ namespace NexusForever.Game.Entity
             if (FamilyEntry.Id == 33u)
             {
                 // runes
-                formulaEntry = Entry.PowerLevel switch
+                formulaEntry = powerLevel switch
                 {
                     < 50u  => GameTableManager.Instance.GameFormula.GetEntry(991),
                     < 130u => GameTableManager.Instance.GameFormula.GetEntry(65),
@@ -102,7 +137,7 @@ namespace NexusForever.Game.Entity
             }
             else
             {
-                formulaEntry = Entry.PowerLevel switch
+                formulaEntry = powerLevel switch
                 {
                     < 50u  => GameTableManager.Instance.GameFormula.GetEntry(1028),
                     < 130u => GameTableManager.Instance.GameFormula.GetEntry(1027),
@@ -116,40 +151,46 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Calculate item properties with explicit item budget and stats.
         /// </summary>
-        private void CalculateExplicitProperties(ItemInfoPropertyBuilder builder)
+        private void CalculateExplicitProperties(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
-            CalculatePropertyBudgets(builder);
-            CalculatePropertyValues(builder);
+            CalculatePropertyBudgets(builder, context);
+            CalculatePropertyValues(builder, context);
         }
 
-        private void CalculatePropertyBudgets(ItemInfoPropertyBuilder builder)
+        private void CalculatePropertyBudgets(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
+            void AddBudget(Property property, float budget)
+            {
+                builder.Budgets[property] = builder.Budgets.TryGetValue(property, out float existing) ? existing + budget : budget;
+            }
+
             for (int i = 0; i < StatEntry.ItemStatTypeEnum.Length; i++)
             {
-                float budget = BudgetEntry.Budgets[i];
+                // charging a socket while circuit crafting scales the budget of its slot
+                float budget = BudgetEntry.Budgets[i] * context.GetMultiplier(i);
 
                 switch (StatEntry.ItemStatTypeEnum[i])
                 {
                     case ItemStatType.None:
                         continue;
                     case ItemStatType.Standard:
-                        builder.Budgets.Add((Property)StatEntry.ItemStatData[i], budget);
+                        AddBudget((Property)StatEntry.ItemStatData[i], budget);
                         break;
                     // TODO: the data value is the RandomStatGroupId, choose a random stat?
                     case ItemStatType.RandomStatGroup:
                         break;
-                    case ItemStatType.Unknown4:
+                    case ItemStatType.Crafted:
                     {
-                        // this one is weird...
-                        // there is additional code if offset 0x60 in item template is set but from what I can see this is never set
-                        // due to this I'm just hard coding the else condition which sets the type to 0, basically removing it 
-                        continue;
+                        // property chosen for the socket while circuit crafting, items that weren't circuit crafted don't have one
+                        if (CircuitCrafting.TryGetSlotProperty(context.CircuitData, i, out Property property))
+                            AddBudget(property, budget);
+                        break;
                     }
                 }
             }
         }
 
-        private void CalculatePropertyValues(ItemInfoPropertyBuilder builder)
+        private void CalculatePropertyValues(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
             foreach ((Property property, float budget) in builder.Budgets)
             {
@@ -163,29 +204,29 @@ namespace NexusForever.Game.Entity
 
                 UnitProperty2Entry entry = GameTableManager.Instance.UnitProperty2.GetEntry((uint)property);
                 if (entry != null && (entry.Flags & UnitPropertyFlags.Unknown04) != 0)
-                    builder.Properties[property] = (budget * ItemPower) * entry.ValuePerPoint;
+                    builder.Properties[property] = (budget * context.ItemPower) * entry.ValuePerPoint;
             }
         }
 
         /// <summary>
         /// Calculate item properties without explicit item budget and stats.
         /// </summary>
-        private void CalculateImplicitProperties(ItemInfoPropertyBuilder builder)
+        private void CalculateImplicitProperties(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
             if (Entry.ItemImbuementId != 0u)
             {
                 // TODO
             }
 
-            if (SlotEntry != null && Entry.PowerLevel != 0u)
+            if (SlotEntry != null && context.PowerLevel != 0u)
             {
                 if (IsEquippableIntoSlot(EquippedItem.Shields) && (SecondaryItemFlags & SecondaryItemFlags.Unknown0400) != 0u)
-                    CalculateShield(builder);
+                    CalculateShield(builder, context);
                 else
                 {
-                    CalculatePrimary(builder);
-                    CalculateArmor(builder);
-                    CalculateMaxHealth(builder);
+                    CalculatePrimary(builder, context);
+                    CalculateArmor(builder, context);
+                    CalculateMaxHealth(builder, context);
                 }
             }
 
@@ -198,14 +239,14 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Calculate item shield properties (ShieldCapacityMax, ShieldMitigationMax, ShieldRegenPct and ShieldRebootTime).
         /// </summary>
-        private void CalculateShield(ItemInfoPropertyBuilder builder)
+        private void CalculateShield(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
             float CalculateShieldCapacityMax(float budget)
             {
                 GameFormulaEntry formulaEntry = GameTableManager.Instance.GameFormula.GetEntry(548);
                 GameFormulaEntry budgetEntry = GameTableManager.Instance.GameFormula.GetEntry(1260);
 
-                float shield = (formulaEntry.Datafloat03 * formulaEntry.Datafloat0) + (Entry.PowerLevel * formulaEntry.Datafloat02);
+                float shield = (formulaEntry.Datafloat03 * formulaEntry.Datafloat0) + (context.PowerLevel * formulaEntry.Datafloat02);
                 float modifier = ((budgetEntry.Datafloat01 - budgetEntry.Datafloat0) * budget) + budgetEntry.Datafloat0;
                 return shield * modifier;
             }
@@ -241,11 +282,11 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Calculate item primary properties (AssaultRating, SupportRating, PvPOffensiveRating and PvPDefensiveRating).
         /// </summary>
-        private void CalculatePrimary(ItemInfoPropertyBuilder builder)
+        private void CalculatePrimary(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
             float CalculatePrimaryBaseValue(GameFormulaEntry formulaEntry)
             {
-                float power = Entry.PowerLevel - formulaEntry.Dataint0;
+                float power = context.PowerLevel - formulaEntry.Dataint0;
                 return (MathF.Pow(MathF.E, power * formulaEntry.Datafloat01) * formulaEntry.Datafloat0) + (MathF.Pow(power, formulaEntry.Datafloat03) * formulaEntry.Datafloat02);
             }
 
@@ -256,9 +297,9 @@ namespace NexusForever.Game.Entity
             float value = CalculatePrimaryBaseValue(formulaEntry);
 
             float support = Entry.SupportPowerPercentage;
-            // TODO: research more
-            /*if (dword60)
-                support = MathF.Abs(support) * (((dword60_6 * (1.0f / 255.0f)) * 2.0f) - 1.0f);*/
+            // circuit crafted items have the assault and support power split chosen while crafting
+            if (context.CircuitData != 0ul)
+                support = MathF.Abs(support) * CircuitCrafting.GetApSpSplit(context.CircuitData);
 
             GameFormulaEntry formulaEntry2 = GameTableManager.Instance.GameFormula.GetEntry(1265);
 
@@ -281,33 +322,33 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Calculate item armor property.
         /// </summary>
-        private void CalculateArmor(ItemInfoPropertyBuilder builder)
+        private void CalculateArmor(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
             if (FamilyEntry.Id != 1u)
                 return;
 
-            GameFormulaEntry formulaEntry = Entry.PowerLevel switch
+            GameFormulaEntry formulaEntry = context.PowerLevel switch
             {
                 < 50u  => GameTableManager.Instance.GameFormula.GetEntry(547),
                 < 120u => GameTableManager.Instance.GameFormula.GetEntry(1286),
                 _      => GameTableManager.Instance.GameFormula.GetEntry(1287)
             };
 
-            float armor = ((formulaEntry.Datafloat0 * formulaEntry.Datafloat03) + (formulaEntry.Datafloat02 * (Entry.PowerLevel - formulaEntry.Dataint0))) * (CategoryEntry.ArmorModifier * SlotEntry.ArmorModifier);
+            float armor = ((formulaEntry.Datafloat0 * formulaEntry.Datafloat03) + (formulaEntry.Datafloat02 * (context.PowerLevel - formulaEntry.Dataint0))) * (CategoryEntry.ArmorModifier * SlotEntry.ArmorModifier);
             builder.Properties[Property.Armor] = armor;
         }
 
         /// <summary>
         /// Calculate item max health property.
         /// </summary>
-        private void CalculateMaxHealth(ItemInfoPropertyBuilder builder)
+        private void CalculateMaxHealth(ItemInfoPropertyBuilder builder, PropertyContext context)
         {
             if (FamilyEntry.Id != 1u)
                 return;
 
             GameFormulaEntry formulaEntry = GameTableManager.Instance.GameFormula.GetEntry(67);
 
-            float health = ((formulaEntry.Datafloat03 * formulaEntry.Datafloat0) + (Entry.PowerLevel * formulaEntry.Datafloat02)) * (SlotEntry.ArmorModifier * SlotEntry.ItemLevelModifier);
+            float health = ((formulaEntry.Datafloat03 * formulaEntry.Datafloat0) + (context.PowerLevel * formulaEntry.Datafloat02)) * (SlotEntry.ArmorModifier * SlotEntry.ItemLevelModifier);
             builder.Properties[Property.BaseHealth] = health;
         }
 
@@ -373,7 +414,7 @@ namespace NexusForever.Game.Entity
                 vendorBuyCurrency[1] = CurrencyType.None;
 
                 // calculated purchase price
-                vendorBuyAmount[0] = (uint)MathF.Floor(CalculateVendorAmount());
+                vendorBuyAmount[0] = (uint)MathF.Floor(CalculateVendorAmount(Entry.PowerLevel));
             }
         }
 
@@ -409,15 +450,18 @@ namespace NexusForever.Game.Entity
 
                 // calculated sell price
                 GameFormulaEntry formulaEntry = GameTableManager.Instance.GameFormula.GetEntry(1026);
-                vendorSellAmount[0] = (uint)MathF.Floor(CalculateVendorAmount() * formulaEntry.Datafloat0);
+                vendorSellAmount[0] = (uint)MathF.Floor(CalculateVendorAmount(Entry.PowerLevel) * formulaEntry.Datafloat0);
             }
         }
 
-        private float CalculateVendorAmount()
+        /// <summary>
+        /// Calculate the vendor price for the item at the supplied power level, ignoring any explicit price.
+        /// </summary>
+        public float CalculateVendorAmount(uint powerLevel)
         {
             GameFormulaEntry formulaEntry = GameTableManager.Instance.GameFormula.GetEntry(1078);
 
-            float v15 = (Entry.PowerLevel - formulaEntry.Datafloat0);
+            float v15 = (powerLevel - formulaEntry.Datafloat0);
             float v14 = MathF.Pow(MathF.E, v15 * formulaEntry.Datafloat01);
             float v16 = (v14 * formulaEntry.Datafloat0) + (MathF.Pow(v15, formulaEntry.Datafloat03) * formulaEntry.Datafloat02);
 

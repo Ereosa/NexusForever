@@ -2058,6 +2058,18 @@ namespace NexusForever.Database.Character.Migrations
                         .HasDefaultValue(0u)
                         .HasColumnName("charges");
 
+                    b.Property<ulong>("CircuitData")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("circuitData");
+
+                    b.Property<byte[]>("CircuitMultipliers")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(20)")
+                        .HasDefaultValue(null)
+                        .HasColumnName("circuitMultipliers");
+
                     b.Property<float>("Durability")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("float")
@@ -2085,6 +2097,12 @@ namespace NexusForever.Database.Character.Migrations
                     b.Property<ulong?>("OwnerId")
                         .HasColumnType("bigint(20) unsigned")
                         .HasColumnName("ownerId");
+
+                    b.Property<uint>("PowerCoreItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("powerCoreItemId");
 
                     b.Property<uint>("StackCount")
                         .ValueGeneratedOnAdd()

@@ -11,6 +11,9 @@
         public uint Charges { get; set; }
         public float Durability { get; set; }
         public uint ExpirationTimeLeft { get; set; }
+        public ulong CircuitData { get; set; }
+        public byte[] CircuitMultipliers { get; set; }
+        public uint PowerCoreItemId { get; set; }
 
         public CharacterModel Character { get; set; }
         public CharacterMailAttachmentModel MailAttachment { get; set; }
