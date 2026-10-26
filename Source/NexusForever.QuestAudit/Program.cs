@@ -57,11 +57,14 @@ namespace NexusForever.QuestAudit
             else if (creature && t.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase)) how = "Learn more about";
             else if (Regex.IsMatch(t, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase)) how = "Public event";
             else if (Regex.IsMatch(t, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase)) how = "Wait";
+            else if (Regex.IsMatch(t, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && factionNames.Any(n => t.Contains(n, StringComparison.OrdinalIgnoreCase))) how = "Reputation";
+            else if (Regex.IsMatch(t, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? .+$", RegexOptions.IgnoreCase)) how = "Hunt near";
             else if (Regex.Match(t.Trim(), @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content && ContentKnown(content.Groups["name"].Value)) how = "Complete content";
             return how != null;
         }
 
         private static List<string> contentNames;
+        private static List<string> factionNames;
 
         /// <summary>
         /// Mirrors QuestManager.ContentNameMatches: a matching map name, a kind of content ("a Prime Dungeon") or quest titles ("... quests").
@@ -120,6 +123,11 @@ namespace NexusForever.QuestAudit
             var pathRewards   = new GameTable<PathRewardEntry>(Path.Combine(tbl, "PathReward.tbl"));
             var spellEffects  = new GameTable<Spell4EffectsEntry>(Path.Combine(tbl, "Spell4Effects.tbl"));
             text = new TextTable(Path.Combine(tbl, "en-US.bin"));
+            factionNames = new GameTable<Faction2Entry>(Path.Combine(tbl, "Faction2.tbl")).Entries
+                .Where(f => f != null)
+                .Select(f => Regex.Replace(text.GetEntry(f.LocalizedTextIdName) ?? "", "^The ", ""))
+                .Where(n => !string.IsNullOrWhiteSpace(n) && n.Length > 3)
+                .ToList();
             publicEventObjectives = new GameTable<PublicEventObjectiveEntry>(Path.Combine(tbl, "PublicEventObjective.tbl")).Entries
                 .ToLookup(o => o.PublicEventId);
             // [ScriptFilterOwnerId] of the public event scripts in the source next to the tool

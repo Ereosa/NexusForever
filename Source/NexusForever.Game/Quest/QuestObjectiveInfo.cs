@@ -162,6 +162,21 @@ namespace NexusForever.Game.Quest
                 && Entry.TargetGroupIdRewardPane == 0u;
         }
 
+        /// <summary>
+        /// Return the faction whose name the text contains, the longest name for nested factions ("Algoroc Accord" over "Algoroc").
+        /// </summary>
+        private static uint? FindReputationFaction(string text)
+        {
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            return GameTableManager.Instance.Faction2.Entries
+                .Where(f => f != null)
+                .Select(f => (f.Id, Name: Regex.Replace(textTable?.GetEntry(f.LocalizedTextIdName) ?? "", "^The ", "")))
+                .Where(f => !string.IsNullOrWhiteSpace(f.Name) && f.Name.Length > 3 && text.Contains(f.Name, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.Name.Length)
+                .Select(f => (uint?)f.Id)
+                .FirstOrDefault();
+        }
+
         private string GetShortText()
         {
             TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
@@ -247,6 +262,10 @@ namespace NexusForever.Game.Quest
             else if (Regex.Match(text, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event\b", RegexOptions.IgnoreCase) is { Success: true } publicEvent)
                 // id 1: taking part is enough, otherwise the event must be won
                 textTrigger = (QuestTextTrigger.PublicEvent, publicEvent.Groups[1].Value.StartsWith("Participate", StringComparison.OrdinalIgnoreCase) ? 1u : 0u, publicEvent.Groups["zone"].Value.Trim());
+            else if (Regex.IsMatch(text, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && FindReputationFaction(text) is uint faction)
+                textTrigger = (QuestTextTrigger.Reputation, faction, null);
+            else if (Regex.Match(text, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? (?<name>.+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } hunt)
+                textTrigger = (QuestTextTrigger.HuntNear, 0u, hunt.Groups["name"].Value);
             // retail scripts played these out (an NPC drinking, a test running), they are waited out
             else if (Regex.IsMatch(text, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase))
                 textTrigger = (QuestTextTrigger.Wait, text.StartsWith("Remain", StringComparison.OrdinalIgnoreCase) ? 20u : 10u, null);

@@ -159,6 +159,16 @@ namespace NexusForever.Game.Abstract.Entity
         void ObjectiveUpdateText(QuestTextTrigger kind, uint id);
 
         /// <summary>
+        /// Invoked when the owner gains reputation, updates "Gain 1000 Algoroc Accord Reputation" objectives by the amount.
+        /// </summary>
+        void OnReputationGain(uint factionId, float amount);
+
+        /// <summary>
+        /// Invoked when the owner kills a creature, updates "Hunt an animal near an Aurin Hunter" objectives when such a creature is nearby.
+        /// </summary>
+        void OnHuntKill(IUnitEntity victim);
+
+        /// <summary>
         /// Invoked when a public event the owner took part in finishes, <paramref name="won"/> if the owner was on the winning team.
         /// </summary>
         void OnPublicEventFinish(PublicEventEntry entry, IMatchingMap matchingMap, bool won);

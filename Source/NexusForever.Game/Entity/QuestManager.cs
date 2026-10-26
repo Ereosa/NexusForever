@@ -1005,9 +1005,56 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Invoked when the owner gains reputation, updates "Gain 1000 Algoroc Accord Reputation" objectives by the amount.
+        /// </summary>
+        public void OnReputationGain(uint factionId, float amount)
+        {
+            if (amount >= 1f)
+                ObjectiveUpdateText(QuestTextTrigger.Reputation, i => i == factionId, null, (uint)amount);
+        }
+
+        /// <summary>
+        /// Invoked when the owner kills a creature, updates "Hunt an animal near an Aurin Hunter" objectives when such a creature is nearby.
+        /// </summary>
+        public void OnHuntKill(IUnitEntity victim)
+        {
+            if (victim is IPlayer || victim.Map == null)
+                return;
+
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            ObjectiveUpdateText(QuestTextTrigger.HuntNear, null, name => victim.Map
+                .Search(victim.Position, HuntWatcherDistance, new SearchCheckCreatureName(name, textTable))
+                .Any());
+        }
+
+        /// <summary>
+        /// Distance from a kill within which the watching creature of a hunt objective has to be.
+        /// </summary>
+        private const float HuntWatcherDistance = 40f;
+
+        private class SearchCheckCreatureName : Abstract.Map.Search.ISearchCheck<IWorldEntity>
+        {
+            private readonly string name;
+            private readonly TextTable textTable;
+
+            public SearchCheckCreatureName(string name, TextTable textTable)
+            {
+                this.name      = name;
+                this.textTable = textTable;
+            }
+
+            public bool CheckEntity(IWorldEntity entity)
+            {
+                return entity is not IPlayer
+                    && entity.CreatureInfo?.Entry is Creature2Entry entry
+                    && string.Equals(textTable?.GetEntry(entry.LocalizedTextIdName), name, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>
         /// Update target-less objectives whose text asks for the supplied <see cref="QuestTextTrigger"/> and whose id and name match.
         /// </summary>
-        private void ObjectiveUpdateText(QuestTextTrigger kind, Func<uint, bool> idMatches, Func<string, bool> nameMatches)
+        private void ObjectiveUpdateText(QuestTextTrigger kind, Func<uint, bool> idMatches, Func<string, bool> nameMatches, uint progress = 1u)
         {
             // quest state changes before the client has its quest init (still loading the map) confuse it
             if (player.Map == null || player.IsLoading)
@@ -1028,7 +1075,7 @@ namespace NexusForever.Game.Entity
                     if (nameMatches != null && !nameMatches(trigger.Name))
                         continue;
 
-                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, progress);
                 }
             }
         }
