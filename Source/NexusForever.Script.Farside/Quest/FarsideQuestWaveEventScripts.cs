@@ -108,4 +108,44 @@ namespace NexusForever.Script.Farside.Quest
         {
         }
     }
+
+    /// <summary>
+    /// Showdown With Harlock: "Subdue Corporal Harlock at Arcanus Base".
+    /// </summary>
+    /// <remarks>
+    /// Corporal Harlock 27395 is the hostile variant (faction 371, never spawned) that comes out to fight, the step completes once he is beaten.
+    /// </remarks>
+    [ScriptFilterOwnerId(6159)]
+    public class ShowdownWithHarlockQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9933, [[27395]])
+        ];
+
+        public ShowdownWithHarlockQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Showdown With Paxton: "Subdue Private Paxton at Arcanus Base".
+    /// </summary>
+    /// <remarks>
+    /// Private Paxton 29321 is the hostile variant (faction 371, never spawned) that comes out to fight.
+    /// </remarks>
+    [ScriptFilterOwnerId(6463)]
+    public class ShowdownWithPaxtonQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9972, [[29321]])
+        ];
+
+        public ShowdownWithPaxtonQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
 }

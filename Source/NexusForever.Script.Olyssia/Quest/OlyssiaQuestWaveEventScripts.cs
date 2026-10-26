@@ -252,4 +252,64 @@ namespace NexusForever.Script.Olyssia.Quest
         {
         }
     }
+
+    /// <summary>
+    /// Fall of the Bladevault Keeper: "Use the Voreth War Drums to challenge the Bladevault Keeper".
+    /// </summary>
+    /// <remarks>
+    /// Bladevault Warhound 30960 and Bladevault Keeper 30954 (levels 20-21, never spawned, created with the drums 30968). The warhounds coming first is a guess.
+    /// </remarks>
+    [ScriptFilterOwnerId(6706)]
+    public class FallOfTheBladevaultKeeperQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (10335, [[30960, 30960], [30954]])
+        ];
+
+        public FallOfTheBladevaultKeeperQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Trial of Strength: "Survive the Trial of Strength in Fort Vigilance".
+    /// </summary>
+    /// <remarks>
+    /// The fort's hostile trial fighters, Vigilant Aspirant 28301 and Vigilant Petitioner 40266 (levels 34-35, faction 218). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6340)]
+    public class TrialOfStrengthQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9747, [[28301, 28301], [28301, 28301], [40266]])
+        ];
+
+        public TrialOfStrengthQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Blademother's Refuge: "Defeat all of Tresayne's best Torine warriors to pass the final trial".
+    /// </summary>
+    /// <remarks>
+    /// One at a time: Torine Swordmaiden 40976, Deathbringer 40965 and Swordmaiden 47698 (levels 34-38, Sisterhood, never spawned). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6371)]
+    public class BlademothersRefugeQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (14704, [[40976], [40965], [47698]])
+        ];
+
+        public BlademothersRefugeQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
 }
