@@ -91,6 +91,10 @@ namespace NexusForever.Game.Static.Cinematic
         ThaydArrival                    = 147,
         GrimvaultCrashExile             = 159,
         GrimvaultCrashDominion          = 161,
+        CrimsonBadlandsArrivalExile     = 163,
+        NorthernWastesArrivalExile      = 165,
+        NorthernWastesArrivalDominion   = 166,
+        CrimsonBadlandsDepartureExile   = 206,
 
         // New Player Experience
         NpeIntroDominion                = 289,

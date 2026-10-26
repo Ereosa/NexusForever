@@ -38,6 +38,11 @@ namespace NexusForever.Game.Cinematic.Scene
             Ship(CinematicSceneId.ThaydArrival,                 ShipArrivalLength, 69934, 69935, 4049.792f, -803.212f, -2310.497f);
             Ship(CinematicSceneId.IlliumArrival,                ShipArrivalLength, 69932, 69933, -3477.411f, -861.846f, -509.268f);
 
+            // Northern Wastes (Darkstone's Landing, WorldLocation2 26372) and Crimson Badlands (Bloodstone Landing, 28317)
+            Ship(CinematicSceneId.NorthernWastesArrivalExile,    ShipArrivalLength, 69989, 69990, -28644.627f, -687.863f, -28801.691f);
+            Ship(CinematicSceneId.NorthernWastesArrivalDominion, ShipArrivalLength, 69991, 69992, -28644.627f, -687.863f, -28801.691f);
+            Ship(CinematicSceneId.CrimsonBadlandsArrivalExile,   ShipArrivalLength, 70115, 70116, -21991.766f, -971.474f, -28335.531f);
+
             // GC159/GC161: the first transport to Grimvault is torn apart by exanite fragments and crash lands (Edge of Twilight),
             // Exiles at the Alpha Company crash site, Dominion at Radiant Alpha Down. Origins are the crash site WorldLocation2 entries
             // of the 2015 block (49509 matches the exported camera splines 22724-22733), the Dominion one is guessed.
@@ -70,6 +75,7 @@ namespace NexusForever.Game.Cinematic.Scene
             Ship(CinematicSceneId.WilderrunDepartureDominion,   DominionTransportDeparture,  70061, 70062, 1129.361f, -705.722f, -2018.215f);
             Ship(CinematicSceneId.MalgraveDepartureExile,       ExileAttackshipDeparture,    70074, 70075, 1689.177f, -955.016f, 4046.074f);
             Ship(CinematicSceneId.MalgraveDepartureDominion,    DominionAttackshipDeparture, 70076, 70077, 1636.791f, -952.770f, 4071.249f);
+            Ship(CinematicSceneId.CrimsonBadlandsDepartureExile, ExileTransportDeparture,    70117, 70118, -21991.766f, -971.474f, -28335.531f);
         }
 
         private static void Ship(CinematicSceneId id, uint duration, uint cameraCreatureId, uint shipCreatureId, float x, float y, float z)
@@ -91,7 +97,8 @@ namespace NexusForever.Game.Cinematic.Scene
     /// departure origin on each landing site, with the parked "Transport - Zone - Cinematic Spawn" ships on them. Which faction lands
     /// on which site of a zone isn't in the data, the site nearest to the terminal or destination is used. Scenes are rotated by the
     /// facing of their site (pi + yaw), which matched the parked transport at Tremor Ridge. Capital arrivals (GC143/144, GC147/148)
-    /// have no camera model and aren't played.
+    /// have no camera model and use the generic arrival. Northern Wastes and Crimson Badlands land on the WorldLocation2 entries of
+    /// their landings (26372, 28317), the client has no Dominion Crimson Badlands scenes or Northern Wastes departure.
     /// </remarks>
     public static class TransportCinematics
     {
@@ -124,6 +131,10 @@ namespace NexusForever.Game.Cinematic.Scene
             new(1061, new Vector3(2719.134f, -963.060f, 367.068f), MathF.PI, CinematicSceneId.GrimvaultArrivalExile, CinematicSceneId.GrimvaultArrivalDominion),
             // Northern Wilds, Camp Icefury
             new(426, new Vector3(4548.010f, -700.209f, -5204.670f), MathF.PI, CinematicSceneId.NorthernWildsArrival, null),
+            // Northern Wastes, Darkstone's Landing
+            new(1658, new Vector3(-28644.627f, -687.863f, -28801.691f), MathF.PI + 0.89403f, CinematicSceneId.NorthernWastesArrivalExile, CinematicSceneId.NorthernWastesArrivalDominion),
+            // Crimson Badlands, Bloodstone Landing
+            new(2997, new Vector3(-21991.766f, -971.474f, -28335.531f), MathF.PI, CinematicSceneId.CrimsonBadlandsArrivalExile, null),
             // Thayd, Spaceport Horizon pads (generic arrival, guessed)
             new(51, new Vector3(4049.792f, -803.212f, -2310.497f), MathF.PI, CinematicSceneId.ThaydArrival, null),
             new(51, new Vector3(4076.661f, -803.212f, -2311.580f), MathF.PI, CinematicSceneId.ThaydArrival, null),
@@ -188,7 +199,9 @@ namespace NexusForever.Game.Cinematic.Scene
             new(22, new Vector3(1129.361f, -705.722f, -2018.215f), MathF.PI, CinematicSceneId.WilderrunDepartureExile, CinematicSceneId.WilderrunDepartureDominion),
             // Malgrave
             new(1061, new Vector3(1689.177f, -955.016f, 4046.074f), MathF.PI, CinematicSceneId.MalgraveDepartureExile, CinematicSceneId.MalgraveDepartureDominion),
-            new(1061, new Vector3(1636.791f, -952.770f, 4071.249f), MathF.PI, CinematicSceneId.MalgraveDepartureExile, CinematicSceneId.MalgraveDepartureDominion)
+            new(1061, new Vector3(1636.791f, -952.770f, 4071.249f), MathF.PI, CinematicSceneId.MalgraveDepartureExile, CinematicSceneId.MalgraveDepartureDominion),
+            // Crimson Badlands, Bloodstone Landing
+            new(2997, new Vector3(-21991.766f, -971.474f, -28335.531f), MathF.PI, CinematicSceneId.CrimsonBadlandsDepartureExile, null)
         ];
 
         /// <summary>
