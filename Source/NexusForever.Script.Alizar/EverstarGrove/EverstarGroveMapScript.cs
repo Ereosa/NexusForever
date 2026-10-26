@@ -2,6 +2,8 @@
 using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Static.Cinematic;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
@@ -32,8 +34,14 @@ namespace NexusForever.Script.Alizar.EverstarGrove
             if (entity is not IPlayer player)
                 return;
 
-            if (player.QuestManager.GetQuestState(Quest.NaturesUprising) == null)
-                player.CinematicManager.QueueCinematic(cinematicFactory.CreateCinematic<IEverstarGroveOnCreate>());
+            if (player.QuestManager.GetQuestState(Quest.NaturesUprising) != null)
+                return;
+
+            // Mordesh have their own arrival at the Vitalus Production Facility (GC034), everyone else gets the Aurin arrival
+            ICinematicBase cinematic = player.Race == Race.Mordesh
+                ? cinematicFactory.CreateCinematic(CinematicSceneId.EverstarGroveMordeshArrival)
+                : cinematicFactory.CreateCinematic<IEverstarGroveOnCreate>();
+            player.CinematicManager.QueueCinematic(cinematic);
         }
     }
 }

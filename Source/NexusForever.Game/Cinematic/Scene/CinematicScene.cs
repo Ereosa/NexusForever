@@ -38,6 +38,7 @@ namespace NexusForever.Game.Cinematic.Scene
         public uint SequenceVisual { get; private set; } = DefaultSequenceVisual;
 
         public uint CameraCreatureId { get; private set; }
+        public uint FirstCamera { get; private set; } = FirstModelCamera;
         public List<SceneCameraCut> CameraCuts { get; } = [];
         public List<SceneSplineShot> SplineShots { get; } = [];
         public ushort StartTransitionDuration { get; private set; } = 1500;
@@ -91,11 +92,12 @@ namespace NexusForever.Game.Cinematic.Scene
         }
 
         /// <summary>
-        /// Camera actor creature, the camera starts on <see cref="FirstModelCamera"/>.
+        /// Camera actor creature, the camera starts on <paramref name="firstModelCamera"/> (<see cref="FirstModelCamera"/> unless the model holds several scenes).
         /// </summary>
-        public CinematicScene WithCamera(uint creatureId)
+        public CinematicScene WithCamera(uint creatureId, uint firstModelCamera = FirstModelCamera)
         {
             CameraCreatureId = creatureId;
+            FirstCamera      = firstModelCamera;
             return this;
         }
 

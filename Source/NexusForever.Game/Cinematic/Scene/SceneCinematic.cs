@@ -115,7 +115,7 @@ namespace NexusForever.Game.Cinematic.Scene
                     AddActor(cameraActor, [new VisualEffect(Scene.SequenceVisual)]);
                 }
 
-                var camera = new Camera(cameraActor, CinematicScene.FirstModelCamera, 0, true, 0);
+                var camera = new Camera(cameraActor, Scene.FirstCamera, 0, true, 0);
                 foreach (SceneCameraCut cut in Scene.CameraCuts)
                 {
                     camera.AddAttach(cut.Delay, cut.ModelCameraId);

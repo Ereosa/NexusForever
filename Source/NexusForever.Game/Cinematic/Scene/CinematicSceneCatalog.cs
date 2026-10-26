@@ -18,6 +18,8 @@ namespace NexusForever.Game.Cinematic.Scene
         static CinematicSceneCatalog()
         {
             AddNewPlayerExperience();
+            AddAlizar();
+            AddOlyssia();
         }
 
         /// <summary>

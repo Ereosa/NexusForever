@@ -119,13 +119,13 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithPlayerVisual(50836);
 
             // GC298/GC293: leaving the simulation through the cryo projector, waking up on the Arkship, Drusera's vision, Departures Terminal
-            // Origins guessed: the docking bay WorldLocation2 entries of the NPE cinematic block (51603 Exile, 51604 Dominion), the scene brings
-            // its own stage model. The player copy is attached to the player platform like the captured intro, Cinematic 104/103 are the
-            // CinematicRace entries of the NPE outro. Subtitle timings guessed.
+            // The Dominion origin is the first node of camera spline 22859 (the exported first camera of GC293), which is WorldLocation2 51657,
+            // the Dominion cryo arrival. The Exile origin is guessed as its counterpart 51658. The player copy is attached to the player
+            // platform like the captured intro, Cinematic 104/103 are the CinematicRace entries of the NPE outro. Subtitle timings guessed.
             Add(CinematicSceneId.NpeDepartureBayExile)
                 .WithCinematicId(104)
                 .WithDuration(63000)
-                .AtOrigin(-4128.189f, -557.940f, -4046.780f)
+                .AtOrigin(-4338.952f, -445.600f, -4104.568f)
                 .WithCamera(73527)
                 .CutTo(47000, 8).CutTo(53067, 9).CutTo(57734, 10)
                 .WithActors(73528, 73529, 73530, 73531, 73532, 73533, 73572)
@@ -145,7 +145,7 @@ namespace NexusForever.Game.Cinematic.Scene
             Add(CinematicSceneId.NpeDepartureBayDominion)
                 .WithCinematicId(103)
                 .WithDuration(63033)
-                .AtOrigin(-3474.448f, -547.529f, -4050.224f)
+                .AtOrigin(-3689.684f, -436.790f, -4356.004f)
                 .WithCamera(73515)
                 .CutTo(47000, 8).CutTo(53067, 9).CutTo(57733, 10)
                 .WithActors(73516, 73517, 73518, 73519, 73571, 73593, 73594)
