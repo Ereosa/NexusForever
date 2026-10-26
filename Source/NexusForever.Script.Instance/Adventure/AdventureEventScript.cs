@@ -59,6 +59,11 @@ namespace NexusForever.Script.Instance.Adventure
         protected virtual bool IsScriptDriven(uint objectiveId) => false;
 
         /// <summary>
+        /// The main objectives a run of a sub-event uses, all of them unless the sub-event has variants (e.g. one per enemy or place).
+        /// </summary>
+        protected virtual List<PublicEventObjectiveEntry> SelectObjectives(uint subEventId, List<PublicEventObjectiveEntry> mainObjectives) => mainObjectives;
+
+        /// <summary>
         /// Update an objective of the running sub-event.
         /// </summary>
         protected void UpdateSubObjective(uint objectiveId, int count = 1)
@@ -73,6 +78,7 @@ namespace NexusForever.Script.Instance.Adventure
 
         private readonly List<int> chosen = [];
         private readonly List<IUnitEntity> hostiles = [];
+        private readonly List<(uint Objective, Vector3 Position, float Radius)> turnstiles = [];
         private readonly HashSet<uint> timed = [];
         private IPublicEvent current;
         private List<PublicEventObjectiveEntry> objectives = [];
@@ -116,15 +122,16 @@ namespace NexusForever.Script.Instance.Adventure
         {
             hostiles.Clear();
             timed.Clear();
+            turnstiles.Clear();
             stall = 0d;
 
             current = mapInstance.PublicEventManager.CreateEvent(id);
             foreach (IPlayer player in Players)
                 current.JoinEvent(player, PublicEventTeam.PublicTeam);
 
-            objectives = gameTableManager.PublicEventObjective.Entries
+            objectives = SelectObjectives(id, gameTableManager.PublicEventObjective.Entries
                 .Where(o => o != null && o.PublicEventId == id && o.PublicEventObjectiveCategoryEnum == PublicEventObjectiveCategory.Main)
-                .ToList();
+                .ToList());
 
             foreach (PublicEventObjectiveEntry objective in objectives)
                 StartObjective(objective);
@@ -142,17 +149,26 @@ namespace NexusForever.Script.Instance.Adventure
         private void StartObjective(PublicEventObjectiveEntry objective)
         {
             uint max = objective.PublicEventObjectiveTypeEnum is PublicEventObjectiveType.ParticipantsInTriggerVolume or PublicEventObjectiveType.TalkTo
+                or PublicEventObjectiveType.Turnstile
                 ? 0u : Math.Max(1u, objective.Count);
             current.ActivateObjective(objective.Id, max);
 
             switch (objective.PublicEventObjectiveTypeEnum)
             {
                 case PublicEventObjectiveType.ParticipantsInTriggerVolume:
+                case PublicEventObjectiveType.Turnstile:
                 {
                     WorldLocation2Entry location = gameTableManager.WorldLocation2.GetEntry(objective.WorldLocation2Id);
                     if (location == null)
                     {
                         Delay(5d, () => SubUpdate(objective.Id));
+                        break;
+                    }
+
+                    // turnstiles (teleporters, rides) are passed by reaching them
+                    if (objective.PublicEventObjectiveTypeEnum == PublicEventObjectiveType.Turnstile)
+                    {
+                        turnstiles.Add((objective.Id, new Vector3(location.Position0, location.Position1, location.Position2), Math.Clamp(location.Radius, 4f, 30f)));
                         break;
                     }
 
@@ -302,6 +318,15 @@ namespace NexusForever.Script.Instance.Adventure
         {
             if (current == null || current.HasFinished)
                 return;
+
+            foreach ((uint objectiveId, Vector3 position, float radius) in turnstiles.ToList())
+            {
+                if (!AnyPlayerNear(position, radius))
+                    continue;
+
+                turnstiles.RemoveAll(t => t.Objective == objectiveId);
+                SubUpdate(objectiveId);
+            }
 
             stall += lastTick;
             if (stall < StallTime(current.Id))

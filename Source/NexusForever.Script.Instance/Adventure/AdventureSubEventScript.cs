@@ -11,7 +11,9 @@ namespace NexusForever.Script.Instance.Adventure
         418, 420, 421, 422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434,  // The Hycrest Insurrection
         57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, // The Siege of Tempest Refuge
         78, 83, 84, 90, 91, 204,
-        672, 674, 675, 676, 695)]                                                        // Levian Bay
+        672, 674, 675, 676, 695,                                                         // Levian Bay
+        109, 111, 112, 113, 114, 151, 281, 282, 283, 284, 285, 286, 288, 289, 290, 291,  // Crimelords of Whitevale
+        292, 293, 294, 295, 296, 298, 299, 300, 301, 302, 310, 315, 317, 367, 368, 369)]
     public class AdventureSubEventScript : IPublicEventScript, IOwnedScript<IPublicEvent>
     {
         private IPublicEvent publicEvent;
