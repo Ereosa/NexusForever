@@ -15,8 +15,10 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 
             // TODO: sanity check for range etc.
 
-            // units without an activate spell, e.g. settler depots
+            // units without an activate spell, e.g. settler depots and soldier beacons that start their holdout when used
             session.Player.PathSettlerManager.OnEntityInteract(entity);
+            if (entity.CreatureInfo?.Entry?.PathMissionIdSoldier is > 0u)
+                session.Player.PathSoldierManager.OnActivate(entity);
             entity.OnActivate(session.Player);
         }
     }
