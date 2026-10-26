@@ -680,6 +680,9 @@ namespace NexusForever.Game.Entity
             // after the scripts, one with its own destination (the tutorial departure terminals) has already started a teleport
             DepartForQuestDestination(activator);
 
+            // ships between continents and regions ("Ship to Thayd") only carry the destination in their name
+            Taxi.TransportTerminals.TryTravel(this, activator);
+
             DespawnUsedQuestObject();
         }
 
