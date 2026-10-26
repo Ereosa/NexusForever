@@ -28,7 +28,7 @@ namespace NexusForever.Game.Quest
                 [QuestObjectiveType.ActivateEntity]               = (QuestSupportLevel.Supported,   "WorldEntity.OnActivateSuccess"),
                 [QuestObjectiveType.KillTargetGroups]             = (QuestSupportLevel.Supported,   "UnitEntity.RewardKiller (target groups)"),
                 [QuestObjectiveType.ActivateEntity2]              = (QuestSupportLevel.Supported,   "WorldEntity.OnActivateSuccess"),
-                [QuestObjectiveType.Unknown10]                    = (QuestSupportLevel.Partial,     "WorldEntity.OnActivateSuccess (target group activations only)"),
+                [QuestObjectiveType.Unknown10]                    = (QuestSupportLevel.Supported,   "WorldEntity.OnActivateSuccess, Spell.UpdateQuestObjectives (non-damage quest spells), UnitEntity.RewardKiller (creature data); checklist bits"),
                 [QuestObjectiveType.SpellSuccess]                 = (QuestSupportLevel.Supported,   "Spell.UpdateQuestObjectives (cast)"),
                 [QuestObjectiveType.SucceedCSI]                   = (QuestSupportLevel.Supported,   "WorldEntity.OnActivateSuccess"),
                 [QuestObjectiveType.SpellSuccess2]                = (QuestSupportLevel.Supported,   "Spell.UpdateQuestObjectives (per target)"),

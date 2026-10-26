@@ -672,6 +672,8 @@ namespace NexusForever.Game.Entity
         {
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature, CreatureId, 1u);
             player.QuestManager.OnHuntKill(this);
+            // counted destructions of a creature ("Call a Greenbough Guardian to destroy Firestorm Flingatrons"), each sets its checklist bit
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, CreatureId, QuestChecklistMask);
             // "Squash $m(creature=24352)": killing them is the squashing
             player.QuestManager.ObjectiveUpdateUseCreature(CreatureId);
 
