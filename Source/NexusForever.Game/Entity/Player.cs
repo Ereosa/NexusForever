@@ -1206,7 +1206,13 @@ namespace NexusForever.Game.Entity
 
             if (instanceReturnTimer < 0d)
             {
-                if (QuestManager.GetQuestState(entry.QuestId) is QuestState.Accepted)
+                QuestState? state = QuestManager.GetQuestState(entry.QuestId);
+                if (state is QuestState.Accepted)
+                    return;
+
+                // the quest is handed in inside the instance (Knock Knock: Corrigan Doon waits in the facility)
+                if (state is QuestState.Achieved && Quest.GlobalQuestManager.Instance.GetQuestReceivers(entry.QuestId)
+                    .Any(c => GetVisibleCreature<IWorldEntity>(c).Any()))
                     return;
 
                 instanceReturnTimer = InstanceReturnDelay;
