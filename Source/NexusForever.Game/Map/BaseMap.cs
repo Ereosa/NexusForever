@@ -51,6 +51,10 @@ namespace NexusForever.Game.Map
 
         protected readonly ConcurrentQueue<IGridAction> pendingActions = new();
 
+        // latest position of entities with a relocate already queued, moving entities relocate every tick and only the last
+        // position matters: one queued relocate per entity keeps the queue from outgrowing the per tick threshold
+        private readonly ConcurrentDictionary<IGridEntity, Vector3> queuedRelocates = new();
+
         private readonly QueuedCounter entityCounter = new();
         protected readonly Dictionary<uint /*guid*/, IGridEntity> entities = new();
         private IEntityCache entityCache;
@@ -146,13 +150,17 @@ namespace NexusForever.Game.Map
                         }
                         case IGridActionRelocate actionRelocate:
                         {
+                            Vector3 vector = actionRelocate.Vector;
+                            if (actionRelocate.Callback == null && queuedRelocates.TryRemove(actionRelocate.Entity, out Vector3 latest))
+                                vector = latest;
+
                             // the entity left this map (teleport, logout) after the relocate was queued, relocating it
                             // would put it back in the grid as a ghost that breaks vision updates and the next login
                             if (actionRelocate.Entity.Map != this)
                                 break;
 
-                            RelocateEntity(actionRelocate.Entity, actionRelocate.Vector);
-                            actionRelocate.Callback?.Invoke(actionRelocate.Vector);
+                            RelocateEntity(actionRelocate.Entity, vector);
+                            actionRelocate.Callback?.Invoke(vector);
                             break;
                         }
                         case IGridActionRemove actionRemove:
@@ -309,6 +317,15 @@ namespace NexusForever.Game.Map
         /// </summary>
         public void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null)
         {
+            // a relocate without a callback is already queued for the entity: it moves to the latest position instead
+            if (callback == null)
+            {
+                bool queued = queuedRelocates.ContainsKey(entity);
+                queuedRelocates[entity] = position;
+                if (queued)
+                    return;
+            }
+
             pendingActions.Enqueue(new GridActionRelocate
             {
                 Entity   = entity,
