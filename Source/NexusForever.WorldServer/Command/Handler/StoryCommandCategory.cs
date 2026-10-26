@@ -1,7 +1,9 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
+using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Story;
+using NexusForever.Game.Static.Cinematic;
 using NexusForever.Game.Static.RBAC;
 using NexusForever.Game.Static.Story;
 using NexusForever.GameTable;
@@ -31,6 +33,21 @@ namespace NexusForever.WorldServer.Command.Handler
 
             IStoryBuilder storyBuilder = LegacyServiceProvider.Provider.GetService<IStoryBuilder>();
             storyBuilder.SendServerStoryPanelShow(context.GetTargetOrInvoker<IPlayer>(), entry.Id);
+        }
+
+        [Command(Permission.StoryPanel, "Play a cinematic scene for a character.", "cinematic", "cine")]
+        public void HandleStoryCinematic(ICommandContext context,
+            [Parameter("Cinematic scene, the game cinematic (GC) number or name.", ParameterFlags.None, typeof(EnumParameterConverter<CinematicSceneId>))]
+            CinematicSceneId sceneId)
+        {
+            ICinematicBase cinematic = LegacyServiceProvider.Provider.GetService<ICinematicFactory>().CreateCinematic(sceneId);
+            if (cinematic == null)
+            {
+                context.SendError($"Cinematic scene {sceneId} isn't implemented!");
+                return;
+            }
+
+            context.GetTargetOrInvoker<IPlayer>().CinematicManager.QueueCinematic(cinematic);
         }
 
         [Command(Permission.StoryCommunicator, "Send a story communicator window to a character.", "communicator", "c")]

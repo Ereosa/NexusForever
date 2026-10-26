@@ -125,5 +125,10 @@ namespace NexusForever.Game.Abstract.Map
         /// Invoked when <see cref="IPublicEvent"/> finishes with the winning <see cref="IPublicEventTeam"/>.
         /// </summary>
         void OnPublicEventFinish(IPublicEvent publicEvent, IPublicEventTeam publicEventTeam);
+
+        /// <summary>
+        /// Invoked when a <see cref="IPlayer"/> on the map moves into a different zone.
+        /// </summary>
+        void OnPlayerZoneChange(IPlayer player, uint zoneId);
     }
 }

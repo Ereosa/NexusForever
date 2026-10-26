@@ -1,5 +1,7 @@
-using System.Numerics;
+﻿using System.Numerics;
+using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Static.Cinematic;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Script.Template;
@@ -14,6 +16,16 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
     public class ProjectorEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
     {
         private record Destination(Vector3 Position, uint ZoneId);
+
+        /// <summary>
+        /// Transition cinematics (Exile, Dominion) that play once the player arrives in the next simulation.
+        /// </summary>
+        private static readonly Dictionary<uint, (CinematicSceneId Exile, CinematicSceneId Dominion)> transitions = new()
+        {
+            { 73741, (CinematicSceneId.NpeHousingExile,       CinematicSceneId.NpeHousingDominion) },
+            { 73743, (CinematicSceneId.NpeQuestingExile,      CinematicSceneId.NpeQuestingDominion) },
+            { 73745, (CinematicSceneId.NpeDepartureBayExile,  CinematicSceneId.NpeDepartureBayDominion) }
+        };
 
         private static readonly Dictionary<uint, Destination> destinations = new()
         {
@@ -32,6 +44,18 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         };
 
         private IWorldEntity owner;
+
+        #region Dependency Injection
+
+        private readonly ICinematicFactory cinematicFactory;
+
+        public ProjectorEntityScript(
+            ICinematicFactory cinematicFactory)
+        {
+            this.cinematicFactory = cinematicFactory;
+        }
+
+        #endregion
 
         /// <summary>
         /// Invoked when <see cref="IScript"/> is loaded.
@@ -52,7 +76,20 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
 
             // the arrival point isn't always inside the zone the objective expects
             activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.EnterZone, destination.ZoneId, 1u);
-            activator.TeleportToLocal(destination.Position);
+            if (!transitions.TryGetValue(owner.CreatureId, out (CinematicSceneId Exile, CinematicSceneId Dominion) transition))
+            {
+                activator.TeleportToLocal(destination.Position);
+                return;
+            }
+
+            // the transition cinematic of the next simulation plays once the player has arrived there
+            CinematicSceneId sceneId = activator.Faction2 == Faction.Dominion ? transition.Dominion : transition.Exile;
+            activator.TeleportToLocal(destination.Position, callback: _ =>
+            {
+                ICinematicBase cinematic = cinematicFactory.CreateCinematic(sceneId);
+                if (cinematic != null)
+                    activator.CinematicManager.QueueCinematic(cinematic);
+            });
         }
     }
 }

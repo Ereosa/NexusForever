@@ -4,6 +4,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Static.Cinematic;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Script.Template;
@@ -19,6 +20,11 @@ namespace NexusForever.Script.Main.Tutorial
         {
             HoloTechVfx = 86985
         }
+
+        /// <summary>
+        /// Warfare Woods, the combat simulation.
+        /// </summary>
+        private const uint CombatSimulationZoneId = 5967;
 
         /// <summary>
         /// Tutorial quests that are completed by script as soon as they are achieved, and the quest that follows them.
@@ -46,6 +52,8 @@ namespace NexusForever.Script.Main.Tutorial
 
         #endregion
 
+        private readonly HashSet<ulong> combatTransitionPlayed = [];
+
         /// <summary>
         /// Invoked when <see cref="IGridEntity"/> is added to map.
         /// </summary>
@@ -53,8 +61,6 @@ namespace NexusForever.Script.Main.Tutorial
         {
             if (entity is not IPlayer player)
                 return;
-
-            player.CinematicManager.QueueCinematic(cinematicFactory.CreateCinematic<INoviceTutorialOnEnter>());
 
             ISpellParameters parameters = spellParameterFactory.Resolve();
             parameters.UserInitiatedSpellCast = false;
@@ -68,8 +74,37 @@ namespace NexusForever.Script.Main.Tutorial
 
             if (player.QuestManager.GetQuestState(questId) != null)
                 return;
-            
+
+            // the bridge intro only plays when the simulation starts, not when a character logs back in
+            player.CinematicManager.QueueCinematic(cinematicFactory.CreateCinematic<INoviceTutorialOnEnter>());
             player.QuestManager.QuestAdd(questId);
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> on the map moves into a different zone.
+        /// </summary>
+        public void OnPlayerZoneChange(IPlayer player, uint zoneId)
+        {
+            if (zoneId != CombatSimulationZoneId)
+                return;
+
+            // combat transition plays when the player first reaches Warfare Woods, before any enemy is killed
+            QuestId questId = player.Faction2 == Faction.Exile
+                ? QuestId.TheFaceOfTheEnemyExile
+                : QuestId.TheFaceOfTheEnemyDominion;
+
+            IQuest quest = player.QuestManager.GetActiveQuest(questId);
+            if (quest == null || quest.State != QuestState.Accepted || quest.Any(o => o.Progress > 0u))
+                return;
+
+            if (!combatTransitionPlayed.Add(player.CharacterId))
+                return;
+
+            ICinematicBase cinematic = cinematicFactory.CreateCinematic(player.Faction2 == Faction.Exile
+                ? CinematicSceneId.NpeCombatExile
+                : CinematicSceneId.NpeCombatDominion);
+            if (cinematic != null)
+                player.CinematicManager.QueueCinematic(cinematic);
         }
 
         /// <summary>

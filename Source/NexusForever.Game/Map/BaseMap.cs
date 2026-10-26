@@ -734,6 +734,14 @@ namespace NexusForever.Game.Map
         }
 
         /// <summary>
+        /// Invoked when a <see cref="IPlayer"/> on the map moves into a different zone.
+        /// </summary>
+        public virtual void OnPlayerZoneChange(IPlayer player, uint zoneId)
+        {
+            scriptCollection?.Invoke<IMapScript>(s => s.OnPlayerZoneChange(player, zoneId));
+        }
+
+        /// <summary>
         /// Return a string containing debug information about the map.
         /// </summary>
         public virtual string WriteDebugInformation()
