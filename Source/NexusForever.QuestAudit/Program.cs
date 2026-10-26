@@ -154,6 +154,12 @@ namespace NexusForever.QuestAudit
                 .Where(c => c.Contains("IPublicEventScript"))
                 .SelectMany(c => Regex.Matches(c, @"\[ScriptFilterOwnerId\(([\d, ]+)\)\]").SelectMany(m => m.Groups[1].Value.Split(',').Select(v => uint.Parse(v.Trim()))))
                 .ToHashSet();
+            scriptedQuests = source == null ? [] : Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories)
+                .Where(f => f.Contains("NexusForever.Script.") && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
+                .Select(File.ReadAllText)
+                .SelectMany(c => Regex.Matches(c, @"\[ScriptFilterOwnerId\(([\d, ]+)\)\]\s*public class \w+ : (IQuestScript|QuestWaveEventScript|QuestSceneScript|CinematicQuestScript|DrunkMenTellOlTalesQuestScript)\b")
+                    .SelectMany(m => m.Groups[1].Value.Split(',').Select(v => uint.Parse(v.Trim()))))
+                .ToHashSet();
             // quests whose server-only wave events (objective type 25) are scripted (QuestWaveEventScript)
             waveEventQuests = source == null ? [] : Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories)
                 .Where(f => f.Contains("NexusForever.Script.") && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
@@ -318,6 +324,12 @@ namespace NexusForever.QuestAudit
                         {
                             stat.DataZeroText++;
                             textHandled[how] = textHandled.GetValueOrDefault(how) + 1;
+                        }
+                        else if (scriptedQuests.Contains(quest.Id))
+                        {
+                            // a quest script handles the step (scene, minigame, cinematic)
+                            stat.DataZeroText++;
+                            textHandled["Quest script"] = textHandled.GetValueOrDefault("Quest script") + 1;
                         }
                         else if (hidden && objective.LocalizedTextIdFull == 0u)
                             stat.DataZeroServer++;
@@ -508,6 +520,11 @@ namespace NexusForever.QuestAudit
         private static ILookup<uint, PublicEventObjectiveEntry> publicEventObjectives;
         private static HashSet<uint> scriptedPublicEvents;
         private static HashSet<uint> waveEventQuests;
+
+        /// <summary>
+        /// Quests with a quest script of their own (IQuestScript and its bases), their target-less steps count as scripted.
+        /// </summary>
+        private static HashSet<uint> scriptedQuests = [];
 
         /// <summary>
         /// Soldier holdout events with spawns in the world database (--holdouts, SQL files of path_soldier_holdout_spawn), type 25 objectives point at them.
