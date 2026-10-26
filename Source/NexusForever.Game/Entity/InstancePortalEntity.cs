@@ -148,6 +148,13 @@ namespace NexusForever.Game.Entity
                 .Where(m => m != null && text.GetEntry(m.LocalizedTextIdName) == name)
                 .OrderBy(m => m.Id)
                 .FirstOrDefault();
+            // portals named after the way in (eg: Travel to Skullcano, Enter the Ruins of Kel Voreth) contain the map's name
+            map ??= GameTableManager.Instance.MatchingGameMap.Entries
+                .Where(m => m != null && text.GetEntry(m.LocalizedTextIdName) is string mapName && mapName.Length > 3
+                    && name.Contains(mapName, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(m => text.GetEntry(m.LocalizedTextIdName).Length)
+                .ThenBy(m => m.Id)
+                .FirstOrDefault();
             if (map != null)
                 return GameTableManager.Instance.World.GetEntry(map.WorldId);
 
