@@ -226,6 +226,137 @@ namespace NexusForever.Script.Instance.Expedition
             return new Vector3(x, y.HasValue && MathF.Abs(y.Value - fallbackY) < 15f ? y.Value : fallbackY, z);
         }
 
+        #region Doors
+
+        private enum DoorKind
+        {
+            /// <summary>
+            /// Open, shuts while its boss fights and opens again when the boss dies or leaves combat.
+            /// </summary>
+            Encounter,
+
+            /// <summary>
+            /// Shut until its boss dies.
+            /// </summary>
+            Progression
+        }
+
+        private class Door
+        {
+            public DoorKind Kind { get; init; }
+            public uint BossCreatureId { get; init; }
+            public double Failsafe { get; init; }
+            public IDoorEntity Entity { get; set; }
+            public double ClosedFor { get; set; }
+            public bool BossSeen { get; set; }
+        }
+
+        private readonly List<Door> doors = [];
+        private readonly UpdateTimer doorTimer = new(TimeSpan.FromSeconds(0.5d));
+
+        /// <summary>
+        /// A door that shuts while the boss fights (the party is locked in with it) and opens when it dies or the fight resets.
+        /// Failsafe: it opens after <paramref name="failsafe"/> seconds shut, whatever the fight does.
+        /// </summary>
+        protected void AddEncounterDoor(uint doorCreatureId, Vector3 position, float yaw, uint bossCreatureId, double failsafe = 600d)
+        {
+            AddDoor(DoorKind.Encounter, doorCreatureId, position, yaw, bossCreatureId, failsafe);
+        }
+
+        /// <summary>
+        /// A door that stays shut until the boss dies. Failsafe: it opens after <paramref name="failsafe"/> seconds, and when the boss
+        /// isn't on the map at all (not spawned, left out on this difficulty).
+        /// </summary>
+        protected void AddProgressionDoor(uint doorCreatureId, Vector3 position, float yaw, uint bossCreatureId, double failsafe = 2400d)
+        {
+            AddDoor(DoorKind.Progression, doorCreatureId, position, yaw, bossCreatureId, failsafe);
+        }
+
+        private void AddDoor(DoorKind kind, uint doorCreatureId, Vector3 position, float yaw, uint bossCreatureId, double failsafe)
+        {
+            var door = new Door
+            {
+                Kind           = kind,
+                BossCreatureId = bossCreatureId,
+                Failsafe       = failsafe
+            };
+            doors.Add(door);
+
+            SpawnCreature(doorCreatureId, position, yaw, (map, guid, vector) =>
+            {
+                door.Entity = mapInstance.GetEntity<IDoorEntity>(guid);
+                if (kind == DoorKind.Encounter)
+                    door.Entity?.OpenDoor();
+                else
+                    door.Entity?.CloseDoor();
+            });
+        }
+
+        /// <summary>
+        /// A door placed on the way between two points of the dungeon, <paramref name="distance"/> metres before <paramref name="to"/>,
+        /// facing along the way (positions guessed from the room layout).
+        /// </summary>
+        protected (Vector3 Position, float Yaw) DoorOnWay(Vector3 from, Vector3 to, float distance)
+        {
+            Vector3 direction = to - from;
+            direction.Y = 0f;
+            float length = direction.Length();
+            if (length < 1f)
+                return (to, 0f);
+
+            direction /= length;
+            float t = Math.Clamp((length - distance) / length, 0f, 1f);
+            Vector3 point = Vector3.Lerp(from, to, t);
+            return (Surface(point.X, point.Z, point.Y), MathF.Atan2(direction.X, direction.Z));
+        }
+
+        private void UpdateDoors(double lastTick)
+        {
+            if (doors.Count == 0)
+                return;
+
+            foreach (Door door in doors)
+                if (door.Entity != null && !door.Entity.IsOpen)
+                    door.ClosedFor += lastTick;
+
+            doorTimer.Update(lastTick);
+            if (!doorTimer.HasElapsed)
+                return;
+            doorTimer.Reset();
+
+            foreach (Door door in doors)
+            {
+                if (door.Entity == null)
+                    continue;
+
+                List<IUnitEntity> bosses = GetEntities<IUnitEntity>(door.BossCreatureId).ToList();
+                if (bosses.Count > 0)
+                    door.BossSeen = true;
+                bool bossAlive = bosses.Any(b => b.IsAlive);
+
+                bool shut = door.Kind switch
+                {
+                    DoorKind.Encounter   => bossAlive && bosses.Any(b => b.InCombat) && door.ClosedFor < door.Failsafe,
+                    DoorKind.Progression => bossAlive && door.ClosedFor < door.Failsafe,
+                    _                    => false
+                };
+                // a progression door whose boss never showed up opens after a minute (boss left out on this difficulty)
+                if (door.Kind == DoorKind.Progression && !door.BossSeen && door.ClosedFor > 60d)
+                    shut = false;
+
+                if (shut && door.Entity.IsOpen)
+                    door.Entity.CloseDoor();
+                else if (!shut && !door.Entity.IsOpen)
+                {
+                    door.Entity.OpenDoor();
+                    if (door.Kind == DoorKind.Encounter)
+                        door.ClosedFor = 0d;
+                }
+            }
+        }
+
+        #endregion
+
         /// <summary>
         /// Nodes of a client Spline2 path (creature paths and platforms of the world), in order.
         /// </summary>
@@ -413,7 +544,13 @@ namespace NexusForever.Script.Instance.Expedition
         /// </summary>
         public void Update(double lastTick)
         {
-            if (publicEvent == null || publicEvent.HasFinished)
+            if (publicEvent == null)
+                return;
+
+            // doors keep following their encounters after the event finished, so nobody stays shut in
+            UpdateDoors(lastTick);
+
+            if (publicEvent.HasFinished)
                 return;
 
             for (int i = delayed.Count - 1; i >= 0; i--)

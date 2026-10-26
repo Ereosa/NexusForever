@@ -93,6 +93,7 @@ namespace NexusForever.Script.Instance.Dungeon.KelVoreth
             switch ((Phase)phase)
             {
                 case Phase.BloodPit:
+                    PlaceDoors();
                     Activate(Objective.BloodPit);
                     Activate(Objective.Battlesworn);
                     Activate(Objective.MechanoSlavers);
@@ -134,6 +135,24 @@ namespace NexusForever.Script.Instance.Dungeon.KelVoreth
                     CompleteExpedition([], [], 2246, 2247, 2255, true);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Doors (guessed positions: no door position exists in the client data or the archives): the Drokk Door shuts Slavemaster
+        /// Drokk's fight, 30 m before him on the way from the Exo-Lab hall (WorldLocation2 25607); the Post-Drokk Force Field stands on
+        /// his far side towards the forge and opens when he dies. Every door opens when its boss dies or leaves combat, and after 10
+        /// minutes shut (40 for the force field) whatever happens.
+        /// </summary>
+        private void PlaceDoors()
+        {
+            Vector3 exoLab = new(612.3f, -862.5f, 684.5f);     // WorldLocation2 25607
+            Vector3 drokk  = new(590.8f, -883f, 954.1f);
+            Vector3 trogun = new(-1.7f, -741.5f, 981.4f);
+
+            (Vector3 position, float yaw) = DoorOnWay(exoLab, drokk, 30f);
+            AddEncounterDoor(34155, position, yaw, Drokk);
+            (position, yaw) = DoorOnWay(trogun, drokk, 30f);
+            AddProgressionDoor(54221, position, yaw, Drokk);
         }
 
         public override void OnEntityDeath(IUnitEntity entity)
