@@ -1,5 +1,6 @@
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.GameTable;
+using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
 namespace NexusForever.Script.Alizar.Quest
