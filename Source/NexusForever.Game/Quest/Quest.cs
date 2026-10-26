@@ -703,6 +703,10 @@ namespace NexusForever.Game.Quest
                     player.QuestManager.QuestMention(message.QuestId);
 
             scriptCollection?.Invoke<IQuestScript>(s => s.OnQuestStateChange(State, oldState));
+
+            // quest givers, receivers and objects with a visibility prerequisite on this quest appear or disappear
+            if (player.Map != null)
+                player.VisibilityUpdate();
         }
 
         public IEnumerator<IQuestObjective> GetEnumerator()
