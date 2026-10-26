@@ -49,6 +49,7 @@ namespace NexusForever.Game
             CacheTutorials();
             CacheCreatureTargetGroups();
             CacheCreatureVirtualCollectItems();
+            CacheChecklistTargetGroups();
             CacheScientistCreatureInfos();
             CacheHoldoutSpawns();
             CacheRewardPropertiesByTier();
@@ -355,6 +356,31 @@ namespace NexusForever.Game
         public uint GetTutorialIdForZone(uint zoneId)
         {
             return zoneTutorials.TryGetValue(zoneId, out uint tutorialId) ? tutorialId : 0;
+        }
+
+        private ImmutableHashSet<uint> checklistTargetGroups;
+
+        /// <summary>
+        /// Target groups of checklist objectives (types 10, 14, 18 and 23), each entity of them sets its own QuestChecklistIdx bit.
+        /// </summary>
+        private void CacheChecklistTargetGroups()
+        {
+            checklistTargetGroups = GameTableManager.Instance.QuestObjective.Entries
+                .Where(o => o != null && (QuestObjectiveType)o.Type is QuestObjectiveType.Unknown10
+                    or QuestObjectiveType.ActivateTargetGroupChecklist
+                    or QuestObjectiveType.TalkToTargetGroup
+                    or QuestObjectiveType.ActivateTargetGroup)
+                .SelectMany(o => new[] { o.Data, o.TargetGroupIdRewardPane })
+                .Where(g => g != 0u)
+                .ToImmutableHashSet();
+        }
+
+        /// <summary>
+        /// Returns if entities of the creature are targets of a checklist objective.
+        /// </summary>
+        public bool IsChecklistTarget(uint creatureId)
+        {
+            return GetTargetGroupsForCreatureId(creatureId).Any(checklistTargetGroups.Contains);
         }
 
         /// <summary>

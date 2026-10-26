@@ -31,6 +31,11 @@ namespace NexusForever.Game.Abstract
         ImmutableList<uint> GetTargetGroupsForCreatureId(uint creatureId);
 
         /// <summary>
+        /// Returns if entities of the creature are targets of a checklist objective.
+        /// </summary>
+        bool IsChecklistTarget(uint creatureId);
+
+        /// <summary>
         /// Returns the virtual item ids that quest collect objectives say are gathered from the supplied creature id.
         /// </summary>
         ImmutableList<uint> GetVirtualCollectItemsForCreatureId(uint creatureId);
