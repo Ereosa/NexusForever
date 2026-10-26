@@ -838,7 +838,12 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private const float FollowGuideSpeed = 3.5f;
 
-        private readonly Dictionary<uint /*objective id*/, uint /*guid*/> followGuides = [];
+        private readonly Dictionary<uint /*objective id*/, (uint Guid, Vector3 End)> followGuides = [];
+
+        /// <summary>
+        /// Distance to a guide at the end of its walk that catches it.
+        /// </summary>
+        private const float FollowCatchDistance = 12f;
 
         /// <summary>
         /// Summon the creature a "Follow the ..." objective names once the objective is the current step, it walks to the objective's marker.
@@ -846,38 +851,58 @@ namespace NexusForever.Game.Entity
         /// <remarks>
         /// Retail scripts summoned these (eg: the Spatial Anomaly), the client data only names the creature and the destination.
         /// </remarks>
-        private void StartFollowGuide(IQuest quest, IQuestObjective objective)
+        /// <returns>True once the player caught up with the guide at the end of its walk.</returns>
+        private bool StartFollowGuide(IQuest quest, IQuestObjective objective)
         {
-            if (followGuides.TryGetValue(objective.ObjectiveInfo.Id, out uint existing))
+            if (followGuides.TryGetValue(objective.ObjectiveInfo.Id, out (uint Guid, Vector3 End) existing))
             {
-                if (player.Map.GetEntity<IWorldEntity>(existing) != null)
-                    return;
+                IWorldEntity current = player.Map.GetEntity<IWorldEntity>(existing.Guid);
+                if (current != null)
+                    return Vector3.Distance(current.Position, existing.End) < 3f
+                        && Vector3.Distance(player.Position, current.Position) <= FollowCatchDistance;
                 followGuides.Remove(objective.ObjectiveInfo.Id);
             }
 
             // only the current step of the quest
             if (quest.Any(o => o.Index < objective.Index && !o.ObjectiveInfo.IsOptional() && !o.IsComplete()))
-                return;
+                return false;
 
             ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(objective.ObjectiveInfo.GetFollowCreatureId());
             if (creatureInfo == null)
-                return;
+                return false;
 
-            List<Vector3> destinations = objective.ObjectiveInfo.GetAreaLocations()
+            List<WorldLocation2Entry> destinations = objective.ObjectiveInfo.GetAreaLocations()
                 .Where(l => l.WorldId == player.Map.Entry.Id)
-                .Select(l => new Vector3(l.Position0, l.Position1, l.Position2))
                 .ToList();
             if (destinations.Count == 0)
-                return;
+                return false;
 
-            Vector3 direction = Vector3.Normalize(new Vector3(destinations[0].X - player.Position.X, 0f, destinations[0].Z - player.Position.Z));
+            var first = new Vector3(destinations[0].Position0, destinations[0].Position1, destinations[0].Position2);
+            Vector3 direction = Vector3.Normalize(new Vector3(first.X - player.Position.X, 0f, first.Z - player.Position.Z));
             if (float.IsNaN(direction.X))
                 direction = Vector3.UnitX;
             Vector3 start = player.Position + direction * 4f;
             start.Y = player.Map.GetTerrainHeight(start.X, start.Z) ?? player.Position.Y;
 
             var nodes = new List<Vector3> { start };
-            nodes.AddRange(destinations);
+            foreach (WorldLocation2Entry destination in destinations)
+            {
+                var centre = new Vector3(destination.Position0, destination.Position1, destination.Position2);
+                if (Vector3.Distance(start, centre) > destination.Radius || destination.Radius < 10f)
+                {
+                    nodes.Add(centre);
+                    continue;
+                }
+
+                // already inside the marked area (the anomaly's area around the wreckage): it leads the player around the area
+                float startAngle = MathF.Atan2(start.Z - centre.Z, start.X - centre.X);
+                for (int i = 1; i <= 6; i++)
+                {
+                    float angle = startAngle + i * MathF.PI / 3f;
+                    float x = centre.X + MathF.Cos(angle) * destination.Radius * 0.7f, z = centre.Z + MathF.Sin(angle) * destination.Radius * 0.7f;
+                    nodes.Add(new Vector3(x, player.Map.GetTerrainHeight(x, z) ?? centre.Y, z));
+                }
+            }
 
             void OnAdd(IBaseMap map, uint guid, Vector3 vector)
             {
@@ -887,7 +912,8 @@ namespace NexusForever.Game.Entity
             IWorldEntity guide = creatureInfo.Entry.CreationTypeEnum == EntityType.NonPlayer
                 ? player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, start, Vector3.Zero, OnAdd)
                 : player.SummonFactory.Summon<ISimpleEntity>(creatureInfo, start, Vector3.Zero, OnAdd);
-            followGuides[objective.ObjectiveInfo.Id] = guide.Guid;
+            followGuides[objective.ObjectiveInfo.Id] = (guide.Guid, nodes[^1]);
+            return false;
         }
 
         /// <summary>
@@ -898,7 +924,7 @@ namespace NexusForever.Game.Entity
             if (followGuides.Count == 0)
                 return;
 
-            foreach ((uint objectiveId, uint guid) in followGuides.ToList())
+            foreach ((uint objectiveId, (uint guid, Vector3 _)) in followGuides.ToList())
             {
                 bool active = activeQuests.Values.Any(q => q.State == QuestState.Accepted
                     && q.Any(o => o.ObjectiveInfo.Id == objectiveId && !o.IsComplete()));
@@ -944,12 +970,16 @@ namespace NexusForever.Game.Entity
                 {
                     if (objective.ObjectiveInfo.IsAreaObjective())
                     {
-                        if (objective.ObjectiveInfo.GetAreaLocations()
+                        // follow objectives complete by catching up with the guide at the end of its walk, not by standing in the area
+                        if (objective.ObjectiveInfo.GetFollowCreatureId() != 0u)
+                        {
+                            if (StartFollowGuide(quest, objective))
+                                quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                        }
+                        else if (objective.ObjectiveInfo.GetAreaLocations()
                             .Any(l => l.WorldId == player.Map.Entry.Id
                                 && Vector3.Distance(position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(l.Radius, EnterAreaMinimumRadius)))
                             quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
-                        else if (objective.ObjectiveInfo.GetFollowCreatureId() != 0u)
-                            StartFollowGuide(quest, objective);
                     }
                     else
                     {
