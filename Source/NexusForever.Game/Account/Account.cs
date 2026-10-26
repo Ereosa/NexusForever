@@ -2,6 +2,7 @@
 using NexusForever.Database.Auth.Model;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Account.Costume;
+using NexusForever.Game.Abstract.Account.DailyLogin;
 using NexusForever.Game.Abstract.Account.Currency;
 using NexusForever.Game.Abstract.Account.Entitlement;
 using NexusForever.Game.Abstract.Account.Option;
@@ -9,6 +10,7 @@ using NexusForever.Game.Abstract.Account.Reward;
 using NexusForever.Game.Abstract.Account.Unlock;
 using NexusForever.Game.Abstract.RBAC;
 using NexusForever.Game.Account.Costume;
+using NexusForever.Game.Account.DailyLogin;
 using NexusForever.Game.Account.Currency;
 using NexusForever.Game.Account.Entitlement;
 using NexusForever.Game.Account.Option;
@@ -36,6 +38,7 @@ namespace NexusForever.Game.Account
         public IAccountCostumeManager CostumeManager { get; private set; }
         public IRewardPropertyManager RewardPropertyManager { get; private set; }
         public IAccountKeybindingManager KeybindingManager { get; private set; } 
+        public IAccountDailyLoginManager DailyLoginManager { get; private set; }
 
         public AccountTier AccountTier => RbacManager.HasPermission(Permission.Signature) ? AccountTier.Signature : AccountTier.Basic;
 
@@ -61,6 +64,11 @@ namespace NexusForever.Game.Account
             CostumeManager        = new AccountCostumeManager(this, model);
             RewardPropertyManager = new RewardPropertyManager(this);
             KeybindingManager     = new AccountKeybindingManager(model);
+            DailyLoginManager     = new AccountDailyLoginManager(this, model);
+
+            // account wide reward properties (eg: character slots) are needed at character select before a character is loaded,
+            // they are calculated again with the character's entitlements when one enters the world
+            RewardPropertyManager.Initialise(null);
         }
 
         public void Save(AuthContext context)
@@ -72,6 +80,7 @@ namespace NexusForever.Game.Account
             EntitlementManager.Save(context);
             CostumeManager.Save(context);
             KeybindingManager.Save(context);
+            DailyLoginManager.Save(context);
         }
     }
 }

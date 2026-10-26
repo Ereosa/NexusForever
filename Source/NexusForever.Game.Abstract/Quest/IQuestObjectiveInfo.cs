@@ -43,6 +43,11 @@ namespace NexusForever.Game.Abstract.Quest
         uint GetListenCreatureId();
 
         /// <summary>
+        /// Return the creature a target-less "Use/Open/Select the" objective names, 0 if it isn't one.
+        /// </summary>
+        uint GetUseCreatureId();
+
+        /// <summary>
         /// Return the creature a target-less "Follow" objective names, 0 if it isn't one.
         /// </summary>
         uint GetFollowCreatureId();

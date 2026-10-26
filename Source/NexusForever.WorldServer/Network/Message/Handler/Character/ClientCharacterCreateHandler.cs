@@ -21,6 +21,7 @@ using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Pregame;
 using NexusForever.Network.World.Message.Static;
 using NexusForever.Shared.Game.Events;
+using NLog;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Character
 {
@@ -33,6 +34,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
         private readonly IGameTableManager gameTableManager;
         private readonly ICustomisationManager customisationManager;
         private readonly ICharacterManager characterManager;
+
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
         public ClientCharacterCreateHandler(
             ITextFilterManager textFilterManager,
@@ -74,6 +77,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                 if (creationEntry == null)
                     return CharacterModifyResult.CreateFailed_Internal;
 
+                // Chua Warrior and Aurin Engineer are store unlocks ("Creation Unlock" entitlements 61 and 62)
+                if (creationEntry.EntitlementIdRequired != 0u
+                    && (session.Account.EntitlementManager.GetEntitlement((EntitlementType)creationEntry.EntitlementIdRequired)?.Amount ?? 0u) == 0u)
+                    return CharacterModifyResult.CreateFailed;
+
                 if (creationEntry.CharacterCreationStartEnum == CharacterCreationStart.Level50
                     && !session.Account.CurrencyManager.CanAfford(AccountCurrencyType.PromotionToken, 1ul))
                     return CharacterModifyResult.CreateFailed_InsufficientFunds;
@@ -93,6 +101,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                 CharacterModifyResult? result = GetResult();
                 if (result.HasValue)
                 {
+                    log.Warn($"Account {session.Account.Id} failed to create character {characterCreate.Name} with creation entry {characterCreate.CharacterCreationId}: {result.Value}.");
                     session.EnqueueMessageEncrypted(new ServerCharacterCreate
                     {
                         Result = result.Value
@@ -104,11 +113,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                 CharacterCreationEntry creationEntry = gameTableManager.CharacterCreation.GetEntry(characterCreate.CharacterCreationId);
                 if (creationEntry == null)
                     throw new InvalidPacketValueException();
-
-                if (creationEntry.EntitlementIdRequired != 0u)
-                {
-                    // TODO: Aurin engineer has this
-                }
 
                 var character = new CharacterModel
                 {

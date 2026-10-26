@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Numerics;
 using System.Text;
@@ -51,6 +51,10 @@ namespace NexusForever.Game.Map
 
         protected readonly ConcurrentQueue<IGridAction> pendingActions = new();
 
+        // latest position of entities with a relocate already queued, moving entities relocate every tick and only the last
+        // position matters: one queued relocate per entity keeps the queue from outgrowing the per tick threshold
+        private readonly ConcurrentDictionary<IGridEntity, Vector3> queuedRelocates = new();
+
         private readonly QueuedCounter entityCounter = new();
         protected readonly Dictionary<uint /*guid*/, IGridEntity> entities = new();
         private IEntityCache entityCache;
@@ -64,6 +68,7 @@ namespace NexusForever.Game.Map
 
         private readonly List<PendingRespawn> pendingRespawns = [];
         private readonly HashSet<EntityModel> respawningModels = [];
+        private readonly List<(uint Guid, double Timer)> pendingDespawns = [];
 
         protected IScriptCollection scriptCollection;
 
@@ -145,8 +150,17 @@ namespace NexusForever.Game.Map
                         }
                         case IGridActionRelocate actionRelocate:
                         {
-                            RelocateEntity(actionRelocate.Entity, actionRelocate.Vector);
-                            actionRelocate.Callback?.Invoke(actionRelocate.Vector);
+                            Vector3 vector = actionRelocate.Vector;
+                            if (actionRelocate.Callback == null && queuedRelocates.TryRemove(actionRelocate.Entity, out Vector3 latest))
+                                vector = latest;
+
+                            // the entity left this map (teleport, logout) after the relocate was queued, relocating it
+                            // would put it back in the grid as a ghost that breaks vision updates and the next login
+                            if (actionRelocate.Entity.Map != this)
+                                break;
+
+                            RelocateEntity(actionRelocate.Entity, vector);
+                            actionRelocate.Callback?.Invoke(vector);
                             break;
                         }
                         case IGridActionRemove actionRemove:
@@ -303,6 +317,15 @@ namespace NexusForever.Game.Map
         /// </summary>
         public void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null)
         {
+            // a relocate without a callback is already queued for the entity: it moves to the latest position instead
+            if (callback == null)
+            {
+                bool queued = queuedRelocates.ContainsKey(entity);
+                queuedRelocates[entity] = position;
+                if (queued)
+                    return;
+            }
+
             pendingActions.Enqueue(new GridActionRelocate
             {
                 Entity   = entity,
@@ -485,6 +508,11 @@ namespace NexusForever.Game.Map
             }
         }
 
+        /// <summary>
+        /// Disable respawns on the map, dead creatures and used objects stay gone (eg: expeditions and dungeons).
+        /// </summary>
+        public bool RespawnsDisabled { get; set; }
+
         private void SpawnEntity(ICreatureInfo creatureInfo, EntityModel model)
         {
             IWorldEntity entity = entityFactory.CreateWorldEntity(model.Type);
@@ -500,6 +528,9 @@ namespace NexusForever.Game.Map
         /// </remarks>
         public void ScheduleRespawn(ICreatureInfo creatureInfo, EntityModel model, TimeSpan delay)
         {
+            if (RespawnsDisabled)
+                return;
+
             if (!respawningModels.Add(model))
                 return;
 
@@ -511,8 +542,27 @@ namespace NexusForever.Game.Map
             });
         }
 
+        public void ScheduleDespawn(uint guid, TimeSpan delay)
+        {
+            pendingDespawns.Add((guid, delay.TotalSeconds));
+        }
+
         private void UpdateRespawns(double lastTick)
         {
+            for (int i = pendingDespawns.Count - 1; i >= 0; i--)
+            {
+                (uint guid, double timer) = pendingDespawns[i];
+                timer -= lastTick;
+                if (timer > 0d)
+                {
+                    pendingDespawns[i] = (guid, timer);
+                    continue;
+                }
+
+                pendingDespawns.RemoveAt(i);
+                GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+            }
+
             for (int i = pendingRespawns.Count - 1; i >= 0; i--)
             {
                 PendingRespawn respawn = pendingRespawns[i];
@@ -559,6 +609,11 @@ namespace NexusForever.Game.Map
 
             uint guid = entityCounter.Dequeue();
             entities.Add(guid, entity);
+
+            // RemoveEntity drops the player from the player manager on every map change, so add them back here
+            // or identity lookups (friends, whispers, groups, guilds) stop finding them until they relog
+            if (entity is IPlayer player)
+                PlayerManager.AddPlayer(player);
 
             add?.Invoke(this, guid, vector);
 
@@ -676,6 +731,14 @@ namespace NexusForever.Game.Map
         public virtual void OnPublicEventFinish(IPublicEvent publicEvent, IPublicEventTeam publicEventTeam)
         {
             scriptCollection.Invoke<IMapScript>(s => s.OnPublicEventFinish(publicEvent, publicEventTeam));
+        }
+
+        /// <summary>
+        /// Invoked when a <see cref="IPlayer"/> on the map moves into a different zone.
+        /// </summary>
+        public virtual void OnPlayerZoneChange(IPlayer player, uint zoneId)
+        {
+            scriptCollection?.Invoke<IMapScript>(s => s.OnPlayerZoneChange(player, zoneId));
         }
 
         /// <summary>

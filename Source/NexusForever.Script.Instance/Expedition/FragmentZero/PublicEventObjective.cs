@@ -1,0 +1,43 @@
+namespace NexusForever.Script.Instance.Expedition.FragmentZero
+{
+    public enum PublicEventObjective
+    {
+        SearchForMissingCrew        = 4397,
+        EliminateSkeech             = 4416,
+        DefeatProjectMatron         = 4417,
+        ReturnToBiomaticsAirlock    = 4418,
+        SearchBiomaticsForSyrus     = 4420,
+        SearchIncubationForJo       = 4421,
+        FollowFriendlySkeech        = 4422,
+        DefeatPrototypeAlpha        = 4423,
+        SearchJoCorpse              = 4424,
+        SurviveSkeechAmbush         = 4425,
+        FollowProjectionsIncubation = 4426,
+        ReturnToIncubationAirlock   = 4427,
+        FollowProjectionsBiomatics  = 4429,
+        FollowProjectionsCreche     = 4430,
+        CollectCargoCrates          = 4431,
+        SearchSyrusCorpse           = 4432,
+        SearchCrecheForHugo         = 4443,
+        DefeatLifeOverseer          = 4444,
+        LocateHugo                  = 4445,
+        ReturnToCrecheAirlock       = 4446,
+        StayCloseToHugo             = 4447,
+        DiscoverLostRecordings      = 4448,
+        DefeatPrototypeBeta         = 4449,
+        DefeatPrototypeDelta        = 4450,
+        OhmnasRecording             = 4454,
+        LucentsRecording            = 4455,
+        EliminateSkeech50           = 4584,
+        EliminateSkeech100          = 4585,
+        EliminateSkeech200          = 4586,
+        SmashXenobiteEggs           = 4632,
+        DeactivateDefenses          = 4635,
+        SeeIfHugoHasAWayOut         = 4641,
+        SpeakWithHugo               = 4642,
+        WaitForHugo                 = 4655,
+        KillExperimentalSkeech      = 4686,
+        GoldMedalTimer              = 4690,
+        LocateBlackBox              = 4693
+    }
+}

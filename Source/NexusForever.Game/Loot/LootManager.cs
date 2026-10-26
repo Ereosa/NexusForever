@@ -61,6 +61,21 @@ namespace NexusForever.Game.Loot
         }
 
         /// <summary>
+        /// Remove all loot instances associated with the specified unit, used when the unit leaves the map.
+        /// </summary>
+        /// <remarks>
+        /// Unit guids are reused, loot outliving its corpse later told the client to remove loot from whatever new unit had the guid and the client hid that unit.
+        /// </remarks>
+        public void RemoveLootInstances(uint ownerUnitId)
+        {
+            if (!lootInstances.Remove(ownerUnitId, out List<ILootInstance> entityLootInstances))
+                return;
+
+            foreach (ILootInstance lootInstance in entityLootInstances)
+                lootInstance.SendLootRemove();
+        }
+
+        /// <summary>
         /// Gets all loot instances associated with the specified unit.
         /// </summary>
         /// <param name="ownerUnitId">The id of the unit that owns the loot instances.</param>

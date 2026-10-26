@@ -36,5 +36,12 @@ namespace NexusForever.Script.Template
         void OnPublicEventFinish(IPublicEvent publicEvent, IPublicEventTeam publicEventTeam)
         {
         }
+
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> on the map moves into a different zone.
+        /// </summary>
+        void OnPlayerZoneChange(IPlayer player, uint zoneId)
+        {
+        }
     }
 }

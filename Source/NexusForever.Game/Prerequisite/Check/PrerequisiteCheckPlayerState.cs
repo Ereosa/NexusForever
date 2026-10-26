@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Prerequisite;
 using NexusForever.Game.Abstract.Quest;
@@ -85,34 +85,6 @@ namespace NexusForever.Game.Prerequisite.Check
         }
     }
 
-    /// <remarks>
-    /// Value is an Item2 id, "Equal" when the player carries one (eg: hoverboard items gating their unlock).
-    /// </remarks>
-    [PrerequisiteCheck(PrerequisiteType.Inventory)]
-    public class PrerequisiteCheckInventory : IPrerequisiteCheck
-    {
-        private readonly ILogger<PrerequisiteCheckInventory> log;
-
-        public PrerequisiteCheckInventory(ILogger<PrerequisiteCheckInventory> log)
-        {
-            this.log = log;
-        }
-
-        public bool Meets(IPlayer player, PrerequisiteComparison comparison, uint value, uint objectId, IPrerequisiteParameters parameters)
-        {
-            bool has = player.Inventory.GetItemCount(value) > 0u;
-            switch (comparison)
-            {
-                case PrerequisiteComparison.Equal:
-                    return has;
-                case PrerequisiteComparison.NotEqual:
-                    return !has;
-                default:
-                    log.LogWarning($"Unhandled PrerequisiteComparison {comparison} for {PrerequisiteType.Inventory}!");
-                    return false;
-            }
-        }
-    }
 
     /// <remarks>
     /// Same data as <see cref="PrerequisiteType.BaseFaction"/> (value 166 Dominion, 167 Exile), used beside it.
@@ -139,23 +111,6 @@ namespace NexusForever.Game.Prerequisite.Check
                     log.LogWarning($"Unhandled PrerequisiteComparison {comparison} for {PrerequisiteType.Faction243}!");
                     return false;
             }
-        }
-    }
-
-    /// <remarks>
-    /// The level before mentor scaling, the same as the player level here.
-    /// </remarks>
-    [PrerequisiteCheck(PrerequisiteType.TrueLevel)]
-    public class PrerequisiteCheckTrueLevel : PrerequisiteCheckCompare
-    {
-        public PrerequisiteCheckTrueLevel(ILogger<PrerequisiteCheckTrueLevel> log)
-            : base(log, PrerequisiteType.TrueLevel)
-        {
-        }
-
-        protected override long GetValue(IPlayer player, uint objectId, uint value)
-        {
-            return player.Level;
         }
     }
 

@@ -2,6 +2,7 @@
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Static.Map.Lock;
+using NexusForever.Game.Static.Setting;
 
 namespace NexusForever.Game.Map.Lock
 {
@@ -10,6 +11,10 @@ namespace NexusForever.Game.Map.Lock
         public Guid InstanceId { get; private set; }
         public MapLockType Type { get; private set; }
         public uint WorldId { get; private set; }
+        public WorldDifficulty Difficulty { get; set; }
+        public byte PrimeLevel { get; set; }
+        public bool IsInstanceLoaded { get; set; }
+        public bool IsCompleted { get; set; }
 
         private readonly HashSet<Identity> characters = [];
 

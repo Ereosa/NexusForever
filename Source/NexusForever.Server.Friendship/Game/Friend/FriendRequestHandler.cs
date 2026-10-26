@@ -28,7 +28,8 @@ namespace NexusForever.Server.Friendship.Game.Friend
             {
                 case FriendshipType.Friend:
                     _ = await _inviteFactory.CreateFriendInviteAsync(inviter, invitee, note);
-                    break;
+                    // client shows "Friend invited." for this result
+                    return FriendshipResult.RequestSent;
                 case FriendshipType.Ignore:
                 {
                     Friend friend = await inviter.GetFriendByIdentityAsync(invitee.Identity);

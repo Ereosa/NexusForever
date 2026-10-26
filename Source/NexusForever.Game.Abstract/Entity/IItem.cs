@@ -1,4 +1,5 @@
-﻿using NexusForever.Database;
+﻿using System.Collections.Immutable;
+using NexusForever.Database;
 using NexusForever.Database.Character;
 using NexusForever.Game.Static.Entity;
 using NexusForever.GameTable.Model;
@@ -22,6 +23,36 @@ namespace NexusForever.Game.Abstract.Entity
         uint Charges { get; set; }
         float Durability { get; set; }
         uint ExpirationTimeLeft { get; set; }
+
+        /// <summary>
+        /// Circuit data from circuit crafting.
+        /// </summary>
+        ulong CircuitData { get; }
+
+        /// <summary>
+        /// Budget multiplier for each item stat slot from charging sockets while circuit crafting.
+        /// </summary>
+        IReadOnlyList<float> CircuitMultipliers { get; }
+
+        /// <summary>
+        /// Power core used to circuit craft the item, the item takes its power level from the power core.
+        /// </summary>
+        uint PowerCoreItemId { get; }
+
+        /// <summary>
+        /// Properties of this item instance, circuit crafted items have properties chosen while crafting.
+        /// </summary>
+        ImmutableDictionary<Property, float> Properties { get; }
+
+        /// <summary>
+        /// Set the properties chosen while circuit crafting the item.
+        /// </summary>
+        void SetCircuit(ulong circuitData, IEnumerable<float> multipliers, uint powerCoreItemId);
+
+        /// <summary>
+        /// Return the power level of the item, circuit crafted items take their power level from the power core used to craft them.
+        /// </summary>
+        uint GetPowerLevel();
 
         // <summary>
         /// Returns the <see cref="CurrencyType"/> this <see cref="IItem"/> sells for at a vendor.

@@ -51,6 +51,16 @@ namespace NexusForever.Game.Abstract
         ImmutableList<PathSoldierHoldoutSpawnModel> GetHoldoutSpawns(uint pathSoldierEventId);
 
         /// <summary>
+        /// Returns the built version of a settler structure creature, 0 if it has none.
+        /// </summary>
+        uint GetBuiltSettlerStructure(uint creatureId);
+
+        /// <summary>
+        /// Returns the explorer switch data for a creature, null if the creature isn't an explorer switch.
+        /// </summary>
+        PathExplorerSwitchModel GetExplorerSwitch(uint creatureId);
+
+        /// <summary>
         /// Returns an <see cref="ImmutableList{T}"/> containing all <see cref="RewardPropertyPremiumModifierEntry"/> for the given <see cref="AccountTier"/>.
         /// </summary>
         ImmutableList<RewardPropertyPremiumModifierEntry> GetRewardPropertiesForTier(AccountTier tier);

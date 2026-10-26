@@ -104,6 +104,16 @@ namespace NexusForever.Game.Abstract.Entity
         uint GetAmpPower();
 
         /// <summary>
+        /// Add permanent bonus ability tier points, returns false if the character already has the maximum.
+        /// </summary>
+        bool AddBonusAbilityPoints(uint amount);
+
+        /// <summary>
+        /// Add permanent bonus AMP power, returns false if the character already has the maximum.
+        /// </summary>
+        bool AddBonusAmpPower(uint amount);
+
+        /// <summary>
         /// Returns the total ability tier points for the player's level.
         /// </summary>
         uint GetAbilityPoints();

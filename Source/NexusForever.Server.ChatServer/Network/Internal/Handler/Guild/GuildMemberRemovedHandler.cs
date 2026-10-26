@@ -30,14 +30,16 @@ namespace NexusForever.Server.ChatServer.Network.Internal.Handler.Guild
             if (mainChannelType != null)
             {
                 ChatChannel mainChannel = await _chatChannelManager.GetChatChannelAsync(mainChannelType.Value, ChatChannelReferenceType.Guild, message.GuildId);
-                mainChannel?.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
+                if (mainChannel != null)
+                    await mainChannel.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
             }
 
             ChatChannelType? officerChannelType = _dataManager.GetOfficerChannelType(message.Type);
             if (officerChannelType != null)
             {
                 ChatChannel officerChannel = await _chatChannelManager.GetChatChannelAsync(officerChannelType.Value, ChatChannelReferenceType.Guild, message.GuildId);
-                officerChannel?.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
+                if (officerChannel != null)
+                    await officerChannel.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
             }
 
             await _chatContext.SaveChangesAsync();

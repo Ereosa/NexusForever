@@ -9,10 +9,16 @@ namespace NexusForever.Network.World.Message.Model.Crafting
     {
         public uint TradeskillSchematic2Id { get; set; }
         public CraftStats CraftStats { get; set; } = new CraftStats();
-        public uint GlyphData { get; set; } // is of type RuneSlots in "Item / Inventory message" pull request
+        /// <summary>
+        /// Element of each circuit crafting socket, the low byte is the format version followed by 3 bits for each socket with the element bit index plus one.
+        /// </summary>
+        public uint SocketGroups { get; set; }
         public uint SchematicCount { get; set; }
         public uint AdditiveCount { get; set; }
-        public uint Unused { get; set; } = 0;
+        /// <summary>
+        /// Number of <see cref="Item2IdModifiers"/> in use, the client reads the additives from this count.
+        /// </summary>
+        public uint Item2IdModifierCount { get; set; }
         public uint[] Item2IdModifiers { get; set; } = new uint[5];
         public uint Item2Id { get; set; }
         public Vector2 DiscoveryCoordinates { get; set; }
@@ -23,10 +29,10 @@ namespace NexusForever.Network.World.Message.Model.Crafting
         {
             writer.Write(TradeskillSchematic2Id, 15);
             CraftStats.Write(writer);
-            writer.Write(GlyphData);
+            writer.Write(SocketGroups);
             writer.Write(SchematicCount);
             writer.Write(AdditiveCount);
-            writer.Write(Unused);
+            writer.Write(Item2IdModifierCount);
             foreach (var id in Item2IdModifiers)
             {
                 writer.Write(id);

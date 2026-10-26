@@ -126,6 +126,7 @@ namespace NexusForever.Database.Character
                 .Include(c => c.PathEpisode)
                 .Include(c => c.PathMission)
                 .Include(c => c.CharacterTitle)
+                .Include(c => c.PrimeLevel)
                 .Include(c => c.Stat)
                 .Include(c => c.Costume)
                     .ThenInclude(c => c.CostumeItem)
@@ -140,6 +141,7 @@ namespace NexusForever.Database.Character
                     .ThenInclude(c => c.Attachment)
                         .ThenInclude(c => c.Item)
                 .Include(c => c.ZonemapHexgroup)
+                .Include(c => c.TaxiNode)
                 .Include(c => c.Quest)
                     .ThenInclude(c => c.QuestObjective)
                 .Include(c => c.Entitlement)
@@ -148,6 +150,8 @@ namespace NexusForever.Database.Character
                 .Include(c => c.TradeskillMaterials)
                 .Include(c => c.TradeskillSchematic)
                 .Include(c => c.Reputation)
+                .Include(c => c.Challenge)
+                .Include(c => c.RewardTrack)
                 .ToListAsync();
         }
 

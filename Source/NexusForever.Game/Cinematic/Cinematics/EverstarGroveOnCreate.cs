@@ -65,7 +65,8 @@ namespace NexusForever.Game.Cinematic.Cinematics
             AddCamera(mainCam);
             mainCam.AddTransition(0, 0, 1500, 0, 1500);
 
-            Camera cam2 = new Camera(10823, 4133, 0, 1f, useRotation: true);
+            // the second shot starts when the first spline ends (4133 ms), delay is the third argument
+            Camera cam2 = new Camera(10823, 0, 4133, 1f, useRotation: true);
             AddCamera(cam2);
             cam2.AddTransition(4133, 0, 1500, 0, 1500);
         }

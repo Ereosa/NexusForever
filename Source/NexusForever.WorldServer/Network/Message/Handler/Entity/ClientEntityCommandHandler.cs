@@ -15,6 +15,13 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
             if (session.Player.ControlGuid != null)
                 mover = session.Player.GetVisible<IWorldEntity>(session.Player.ControlGuid.Value);
 
+            // a taxi rider is carried by the server, during the flight the client sends world positions for the rider which
+            // would be added to the taxi position again and flip the rider between two places every update
+            if (mover == session.Player
+                && session.Player.PlatformGuid != null
+                && session.Player.GetVisible<IGridEntity>(session.Player.PlatformGuid.Value) is ITaxiEntity)
+                return;
+
             mover?.MovementManager.HandleClientEntityCommands(entityCommand.Commands, entityCommand.Time);
         }
     }

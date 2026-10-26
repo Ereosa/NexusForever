@@ -69,10 +69,11 @@ namespace NexusForever.Game.Entity
 
         protected override void OnRemoveFromMap()
         {
-            foreach (IVehiclePassenger passenger in passengers)
+            foreach (IVehiclePassenger passenger in passengers.ToList())
             {
-                IPlayer entity = GetVisible<IPlayer>(passenger.Guid);
-                PassengerRemove(entity, passenger);
+                IPlayer entity = GetVisible<IPlayer>(passenger.Guid) ?? Map.GetEntity<IPlayer>(passenger.Guid);
+                if (entity != null)
+                    PassengerRemove(entity, passenger);
             }
 
             base.OnRemoveFromMap();
@@ -83,10 +84,12 @@ namespace NexusForever.Game.Entity
         /// </summary>
         protected override void OnRelocate(Vector3 vector)
         {
+            // the passenger can briefly drop out of the vehicle's vision while crossing grid cells,
+            // throwing here left the vehicle (and its rider) stuck at the old position
             foreach (IVehiclePassenger passenger in passengers)
             {
-                IPlayer entity = GetVisible<IPlayer>(passenger.Guid);
-                entity.RelocateOnMap(vector);
+                IPlayer entity = GetVisible<IPlayer>(passenger.Guid) ?? Map.GetEntity<IPlayer>(passenger.Guid);
+                entity?.RelocateOnMap(vector);
             }
 
             base.OnRelocate(vector);

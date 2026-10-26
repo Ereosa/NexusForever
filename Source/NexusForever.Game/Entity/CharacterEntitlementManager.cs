@@ -40,11 +40,7 @@ namespace NexusForever.Game.Entity
 
         protected override bool CanUpdateEntitlement(EntitlementEntry entry, int value)
         {
-            // only handle character entitlements in CharacterEntitlementManager
-            EntitlementFlags entitlementFlags = (EntitlementFlags)entry.Flags;
-            if (!entitlementFlags.HasFlag(EntitlementFlags.Character))
-                return false;
-
+            // character entitlements have the Character flag, account items with EntitlementScopeEnum 1 also claim account entitlements to a single character (eg: Extra Bank Slot)
             return base.CanUpdateEntitlement(entry, value);
         }
 

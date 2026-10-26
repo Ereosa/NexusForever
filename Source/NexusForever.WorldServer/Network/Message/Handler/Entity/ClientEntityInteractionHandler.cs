@@ -33,6 +33,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
         public void HandleMessage(IWorldSession session, ClientEntityInteract entityInteraction)
         {
             IWorldEntity entity = session.Player.GetVisible<IWorldEntity>(entityInteraction.UnitId);
+            log.LogDebug($"Interaction {entityInteraction.Type} with unit {entityInteraction.UnitId} (creature {entity?.CreatureId ?? 0u}).");
 
             if (entityInteraction.Type == InteractionType.TalkTo && entity != null)
             {
@@ -49,6 +50,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);
+                session.Player.QuestManager.ObjectiveUpdateUseCreature(entity.CreatureId);
 
                 foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
                 {
@@ -62,12 +64,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 
             switch (entityInteraction.Type)
             {
-                case InteractionType.SettlerImprovement: // "InvokeSettlerBuild"
-                {
-                    if (entity != null)
-                        session.Player.PathSettlerManager.OpenDepot(entity);
+                case InteractionType.SettlerImprovement: // "InvokeSettlerBuild", depots are opened by PathSettlerManager.OnEntityInteract
                     break;
-                }
                 case InteractionType.TalkTo: // Quest NPC
                 {
                     session.EnqueueMessageEncrypted(new ServerDialogStart
@@ -79,6 +77,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 case InteractionType.Vendor: // Handle Vendor
                     HandleVendor(session, entity);
                     break;
+                case InteractionType.Shuttle: // "InvokeShuttlePrompt"
+                case InteractionType.FlightPathSettler:
+                case InteractionType.FlightPathNew:
+                case InteractionType.FlightPath: // "InvokeTaxiWindow", the client opens the taxi window itself
+                    session.Player.TaxiManager.OnTaxiVendorInteract(entity);
+                    break;
                 case InteractionType.Mail: // "MailboxActivate"
                     var mailboxEntity = session.Player.Map.GetEntity<IMailboxEntity>(entityInteraction.UnitId);
                     break;
@@ -87,10 +91,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 case InteractionType.ConvertRep: // "ResourceConversionOpen"
                 case InteractionType.Trainer: // "ToggleAbilitiesWindow"
                 case InteractionType.TradeskillTrainer: // "InvokeTradeskillTrainerWindow"
-                case InteractionType.Shuttle: // "InvokeShuttlePrompt"
-                case InteractionType.FlightPathSettler:
-                case InteractionType.FlightPathNew:
-                case InteractionType.FlightPath: // "InvokeTaxiWindow"
                 case InteractionType.Mannequin: // "MannequinWindowOpen"
                 case InteractionType.Bank: // "ShowBank"
                 case InteractionType.SharedRealmBank: // "ShowRealmBank"

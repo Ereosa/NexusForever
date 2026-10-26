@@ -1178,6 +1178,18 @@ namespace NexusForever.Database.Character.Migrations
                         .HasColumnType("datetime")
                         .HasColumnName("tradeskillRelearnCooldown");
 
+                    b.Property<byte>("BonusAbilityPoints")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("bonusAbilityPoints");
+
+                    b.Property<byte>("BonusAmpPower")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("bonusAmpPower");
+
                     b.Property<ushort>("WorldId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("smallint(5) unsigned")
@@ -1516,6 +1528,32 @@ namespace NexusForever.Database.Character.Migrations
                     b.ToTable("character_stats", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterPrimeLevelModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<ushort>("WorldId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("worldId");
+
+                    b.Property<byte>("PrimeLevel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("primeLevel");
+
+                    b.HasKey("Id", "WorldId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("character_prime_level", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterTitleModel", b =>
                 {
                     b.Property<ulong>("Id")
@@ -1546,6 +1584,82 @@ namespace NexusForever.Database.Character.Migrations
                         .HasName("PRIMARY");
 
                     b.ToTable("character_title", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterChallengeModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<uint>("ChallengeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("challengeId");
+
+                    b.Property<uint>("CompletionCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("completionCount");
+
+                    b.Property<uint>("CooldownRemaining")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("cooldownRemaining");
+
+                    b.Property<uint>("LastRewardTier")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("lastRewardTier");
+
+                    b.HasKey("Id", "ChallengeId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("character_challenge", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterRewardTrackModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<uint>("RewardTrackId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("rewardTrackId");
+
+                    b.Property<uint>("ClaimedRewards")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("claimedRewards");
+
+                    b.Property<uint>("Iteration")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("iteration");
+
+                    b.Property<uint>("Points")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("points");
+
+                    b.HasKey("Id", "RewardTrackId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("character_reward_track", (string)null);
                 });
 
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterTradeskillModel", b =>
@@ -1642,6 +1756,26 @@ namespace NexusForever.Database.Character.Migrations
                         .HasName("PRIMARY");
 
                     b.ToTable("character_tradeskill_materials", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterTaxiNodeModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<ushort>("TaxiNodeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("taxiNodeId");
+
+                    b.HasKey("Id", "TaxiNodeId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("character_taxi_node", (string)null);
                 });
 
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterZonemapHexgroupModel", b =>
@@ -1970,6 +2104,18 @@ namespace NexusForever.Database.Character.Migrations
                         .HasDefaultValue(0u)
                         .HasColumnName("charges");
 
+                    b.Property<ulong>("CircuitData")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("circuitData");
+
+                    b.Property<byte[]>("CircuitMultipliers")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varbinary(20)")
+                        .HasDefaultValue(null)
+                        .HasColumnName("circuitMultipliers");
+
                     b.Property<float>("Durability")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("float")
@@ -1997,6 +2143,12 @@ namespace NexusForever.Database.Character.Migrations
                     b.Property<ulong?>("OwnerId")
                         .HasColumnType("bigint(20) unsigned")
                         .HasColumnName("ownerId");
+
+                    b.Property<uint>("PowerCoreItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("powerCoreItemId");
 
                     b.Property<uint>("StackCount")
                         .ValueGeneratedOnAdd()
@@ -2914,6 +3066,18 @@ namespace NexusForever.Database.Character.Migrations
                     b.Navigation("Character");
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterPrimeLevelModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("PrimeLevel")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_prime_level_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterTitleModel", b =>
                 {
                     b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
@@ -2922,6 +3086,30 @@ namespace NexusForever.Database.Character.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK__character_title_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterChallengeModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("Challenge")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_challenge_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterRewardTrackModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("RewardTrack")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_reward_track_id__character_id");
 
                     b.Navigation("Character");
                 });
@@ -2958,6 +3146,18 @@ namespace NexusForever.Database.Character.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK__character_tradeskill_material_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterTaxiNodeModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("TaxiNode")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_taxi_node_id__character_id");
 
                     b.Navigation("Character");
                 });
@@ -3138,11 +3338,17 @@ namespace NexusForever.Database.Character.Migrations
 
                     b.Navigation("Quest");
 
+                    b.Navigation("PrimeLevel");
+
                     b.Navigation("Reputation");
 
                     b.Navigation("Residence");
 
                     b.Navigation("Spell");
+
+                    b.Navigation("Challenge");
+
+                    b.Navigation("RewardTrack");
 
                     b.Navigation("Stat");
 
@@ -3151,6 +3357,8 @@ namespace NexusForever.Database.Character.Migrations
                     b.Navigation("TradeskillMaterials");
 
                     b.Navigation("TradeskillSchematic");
+
+                    b.Navigation("TaxiNode");
 
                     b.Navigation("ZonemapHexgroup");
                 });

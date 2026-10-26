@@ -13,6 +13,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterActionSetShortcutModel> CharacterActionSetShortcut { get; set; }
         public DbSet<CharacterAppearanceModel> CharacterAppearance { get; set; }
         public DbSet<CharacterBoneModel> CharacterBone { get; set; }
+        public DbSet<CharacterChallengeModel> CharacterChallenge { get; set; }
         public DbSet<CharacterCostumeModel> CharacterCostume { get; set; }
         public DbSet<CharacterCostumeItemModel> CharacterCostumeItem { get; set; }
         public DbSet<CharacterCreateModel> CharacterCreate { get; set; }
@@ -31,13 +32,16 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterQuestModel> CharacterQuest { get; set; }
         public DbSet<CharacterQuestObjectiveModel> CharacterQuestObjective { get; set; }
         public DbSet<CharacterReputation> CharacterReputation { get; set; }
+        public DbSet<CharacterRewardTrackModel> CharacterRewardTrack { get; set; }
         public DbSet<CharacterSpellModel> CharacterSpell { get; set; }
         public DbSet<CharacterStatModel> CharacterStat { get; set; }
         public DbSet<CharacterTitleModel> CharacterTitle { get; set; }
+        public DbSet<CharacterPrimeLevelModel> CharacterPrimeLevel { get; set; }
         public DbSet<CharacterTradeskillModel> CharacterTradeskill { get; set; }
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
         public DbSet<CharacterTradeskillSchematicModel> CharacterTradeskillSchematic { get; set; }
         public DbSet<CharacterZonemapHexgroupModel> CharacterZonemapHexgroup { get; set; }
+        public DbSet<CharacterTaxiNodeModel> CharacterTaxiNode { get; set; }
         public DbSet<ChatChannelModel> ChatChannel { get; set; }
         public DbSet<ChatChannelMemberModel> ChatChannelMember { get; set; }
         public DbSet<GuildModel> Guild { get; set; }
@@ -146,6 +150,16 @@ namespace NexusForever.Database.Character
                 entity.Property(e => e.TradeskillRelearnCooldown)
                     .HasColumnName("tradeskillRelearnCooldown")
                     .HasColumnType("datetime");
+
+                entity.Property(e => e.BonusAbilityPoints)
+                    .HasColumnName("bonusAbilityPoints")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.BonusAmpPower)
+                    .HasColumnName("bonusAmpPower")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
 
                 entity.Property(e => e.LastOnline)
                     .HasColumnName("lastOnline")
@@ -411,6 +425,82 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.Bone)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK_character_bone_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterChallengeModel>(entity =>
+            {
+                entity.ToTable("character_challenge");
+
+                entity.HasKey(e => new { e.Id, e.ChallengeId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ChallengeId)
+                    .HasColumnName("challengeId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CompletionCount)
+                    .HasColumnName("completionCount")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.LastRewardTier)
+                    .HasColumnName("lastRewardTier")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CooldownRemaining)
+                    .HasColumnName("cooldownRemaining")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.Challenge)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_challenge_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterRewardTrackModel>(entity =>
+            {
+                entity.ToTable("character_reward_track");
+
+                entity.HasKey(e => new { e.Id, e.RewardTrackId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.RewardTrackId)
+                    .HasColumnName("rewardTrackId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Points)
+                    .HasColumnName("points")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ClaimedRewards)
+                    .HasColumnName("claimedRewards")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Iteration)
+                    .HasColumnName("iteration")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.RewardTrack)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_reward_track_id__character_id");
             });
 
             modelBuilder.Entity<CharacterCostumeModel>(entity =>
@@ -1564,6 +1654,34 @@ namespace NexusForever.Database.Character
                     .HasConstraintName("FK__character_stats_stat_id_character_id");
             });
 
+            modelBuilder.Entity<CharacterPrimeLevelModel>(entity =>
+            {
+                entity.ToTable("character_prime_level");
+
+                entity.HasKey(e => new { e.Id, e.WorldId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.WorldId)
+                    .HasColumnName("worldId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PrimeLevel)
+                    .HasColumnName("primeLevel")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.PrimeLevel)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_prime_level_id__character_id");
+            });
+
             modelBuilder.Entity<CharacterTitleModel>(entity =>
             {
                 entity.ToTable("character_title");
@@ -1694,6 +1812,29 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.TradeskillMaterials)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_tradeskill_material_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterTaxiNodeModel>(entity =>
+            {
+                entity.ToTable("character_taxi_node");
+
+                entity.HasKey(e => new { e.Id, e.TaxiNodeId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.TaxiNodeId)
+                    .HasColumnName("taxiNodeId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.TaxiNode)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_taxi_node_id__character_id");
             });
 
             modelBuilder.Entity<CharacterZonemapHexgroupModel>(entity =>
@@ -2018,6 +2159,16 @@ namespace NexusForever.Database.Character
                     .HasColumnType("int(10) unsigned")
                     .HasDefaultValue(0);
 
+                entity.Property(e => e.CircuitData)
+                    .HasColumnName("circuitData")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CircuitMultipliers)
+                    .HasColumnName("circuitMultipliers")
+                    .HasColumnType("varbinary(20)")
+                    .HasDefaultValue(null);
+
                 entity.Property(e => e.Durability)
                     .HasColumnName("durability")
                     .HasColumnType("float")
@@ -2042,6 +2193,11 @@ namespace NexusForever.Database.Character
                     .HasColumnName("ownerId")
                     .HasColumnType("bigint(20) unsigned")
                     .HasDefaultValue(null);
+
+                entity.Property(e => e.PowerCoreItemId)
+                    .HasColumnName("powerCoreItemId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
 
                 entity.Property(e => e.StackCount)
                     .HasColumnName("stackCount")

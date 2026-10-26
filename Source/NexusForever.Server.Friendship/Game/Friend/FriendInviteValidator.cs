@@ -53,8 +53,16 @@ namespace NexusForever.Server.Friendship.Game.Friend
                 if (invitee.Identity == inviter.Identity)
                     return FriendshipResult.CannotInviteSelf;
 
-                if (invitee.Faction != inviter.Faction)
+                // only friendships are limited to the same faction, rivals and ignores are commonly the other faction
+                if (type == FriendshipType.Friend && invitee.Faction != inviter.Faction)
                     return FriendshipResult.RequestDenied;
+
+                if (type == FriendshipType.Friend)
+                {
+                    Friend inverse = await invitee.GetFriendByIdentityAsync(inviter.Identity);
+                    if (inverse?.Type == FriendshipType.Ignore)
+                        return FriendshipResult.RequestDenied;
+                }
 
                 Friend friend = await inviter.GetFriendByIdentityAsync(invitee.Identity);
                 if (friend != null)
@@ -105,7 +113,7 @@ namespace NexusForever.Server.Friendship.Game.Friend
                     
                 }
 
-                if (invitee.GetFriendInviteCount() >= _limitOptions.MaxFriendRequests)
+                if (type == FriendshipType.Friend && invitee.GetFriendInviteCount() >= _limitOptions.MaxFriendRequests)
                     return FriendshipResult.PlayerQueuedRequests;
 
                 if (note != null)

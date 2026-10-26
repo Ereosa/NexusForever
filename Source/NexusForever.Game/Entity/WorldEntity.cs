@@ -446,6 +446,9 @@ namespace NexusForever.Game.Entity
                 worldEntity.MovementManager.SetRotation(Rotation, false);
             }
 
+            // the guid is reused once this entity is gone, so its loot can't outlive it
+            Map.LootManager?.RemoveLootInstances(Guid);
+
             SummonFactory.Unsummon();
             if (SummonerGuid.HasValue)
             {
@@ -647,6 +650,8 @@ namespace NexusForever.Game.Entity
 
                 activator.PathMissionManager.OnEntityActivated(this);
                 activator.PathSettlerManager.OnEntityActivated(this);
+                activator.PathExplorerManager.OnEntityActivated(this);
+                activator.ChallengeManager.OnActivateSuccess(this);
 
                 if (CreatureInfo.Entry.PathMissionIdSoldier != 0u)
                     activator.PathSoldierManager.OnActivate(this);
@@ -674,6 +679,9 @@ namespace NexusForever.Game.Entity
 
             // after the scripts, one with its own destination (the tutorial departure terminals) has already started a teleport
             DepartForQuestDestination(activator);
+
+            // ships between continents and regions ("Ship to Thayd") only carry the destination in their name
+            Taxi.TransportTerminals.TryTravel(this, activator);
 
             DespawnUsedQuestObject();
         }
@@ -704,7 +712,12 @@ namespace NexusForever.Game.Entity
                 if (destination == null || destination.WorldId == Map.Entry.Id)
                     continue;
 
-                activator.TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
+                // a cinematic started by the departure (eg: the Levian Bay escape) plays before the player leaves the map
+                activator.CinematicManager.WhenFinished(() =>
+                {
+                    if (activator.CanTeleport())
+                        activator.TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
+                });
                 return;
             }
         }
@@ -728,6 +741,16 @@ namespace NexusForever.Game.Entity
                 return;
 
             Map.ScheduleRespawn(CreatureInfo, questObjectSpawnModel, QuestObjectRespawnDelay);
+            RemoveFromMap();
+        }
+
+        public void DespawnWithRespawn(TimeSpan respawnDelay)
+        {
+            if (Map == null)
+                return;
+
+            if (questObjectSpawnModel != null && CreatureInfo != null)
+                Map.ScheduleRespawn(CreatureInfo, questObjectSpawnModel, respawnDelay);
             RemoveFromMap();
         }
 

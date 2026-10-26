@@ -29,6 +29,7 @@ namespace NexusForever.WorldServer.Network.Internal.Handler
             await bus.Subscribe<ChatChannelActionMessage>();
             await bus.Subscribe<ChatChannelJoinResultMessage>();
             await bus.Subscribe<ChatChannelMemberAddedMessage>();
+            await bus.Subscribe<ChatChannelMemberLeftMessage>();
             await bus.Subscribe<ChatChannelMembersMessage>();
             await bus.Subscribe<ChatChannelResultMessage>();
             await bus.Subscribe<ChatTextAcceptedMessage>();

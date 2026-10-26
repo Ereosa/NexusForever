@@ -203,6 +203,21 @@ namespace NexusForever.Server.Friendship.Game.Account
         }
 
         /// <summary>
+        /// Set whether the <see cref="Account"/> blocks account friend requests from strangers.
+        /// </summary>
+        public async Task SetBlockAccountFriendRequestsAsync(bool block)
+        {
+            BlockAccountFriendRequests = block;
+
+            _log.LogTrace("Set block stranger friend requests for account {AccountId} to {Block}.", Id, block);
+
+            await _messagePublisher.PublishAsync(new FriendshipAccountPersonalStatusUpdatedMessage
+            {
+                Account = await this.ToInternalAccountAsync()
+            });
+        }
+
+        /// <summary>
         /// Set the presence for the <see cref="Account"/>.
         /// </summary>
         /// <param name="presence">The <see cref="AccountPresenceState"/> state to set for the account.</param>

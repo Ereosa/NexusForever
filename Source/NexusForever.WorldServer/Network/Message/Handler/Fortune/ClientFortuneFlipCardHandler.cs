@@ -19,15 +19,18 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Fortune
             deal.Flipped[flipCard.SelectedCardIndex] = true;
             session.Account.ItemManager.AddItem(deal.AccountItemId[flipCard.SelectedCardIndex]);
 
+            // Update only reveals cards, the client counts the game as finished (and lets the next click return to the
+            // pedestal for another coin) once an update with Reset arrives, which also reveals any card left
+            bool complete = deal.Flipped.All(f => f);
             var update = new ServerFortuneCardUpdate
             {
-                Operation = FortuneOperation.Update
+                Operation = complete ? FortuneOperation.Reset : FortuneOperation.Update
             };
             for (int i = 0; i < 3; i++)
                 update.CardFlipped[i] = deal.Flipped[i];
             session.EnqueueMessageEncrypted(update);
 
-            if (deal.Flipped.All(f => f))
+            if (complete)
                 FortuneManager.Complete(session.Account.Id);
         }
     }

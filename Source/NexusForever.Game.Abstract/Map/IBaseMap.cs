@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
@@ -36,6 +36,16 @@ namespace NexusForever.Game.Abstract.Map
         /// The entity isn't spawned with its grid while the respawn is pending.
         /// </remarks>
         void ScheduleRespawn(ICreatureInfo creatureInfo, EntityModel model, TimeSpan delay);
+
+        /// <summary>
+        /// Remove the entity with the supplied guid from the map after a delay, used for temporary entities (eg: built settler structures).
+        /// </summary>
+        void ScheduleDespawn(uint guid, TimeSpan delay);
+
+        /// <summary>
+        /// Disable respawns on the map, dead creatures and used objects stay gone (eg: expeditions and dungeons).
+        /// </summary>
+        bool RespawnsDisabled { get; set; }
 
         /// <summary>
         /// Enqueue <see cref="IPlayer"/> to be added to <see cref="IBaseMap"/>.
@@ -115,5 +125,10 @@ namespace NexusForever.Game.Abstract.Map
         /// Invoked when <see cref="IPublicEvent"/> finishes with the winning <see cref="IPublicEventTeam"/>.
         /// </summary>
         void OnPublicEventFinish(IPublicEvent publicEvent, IPublicEventTeam publicEventTeam);
+
+        /// <summary>
+        /// Invoked when a <see cref="IPlayer"/> on the map moves into a different zone.
+        /// </summary>
+        void OnPlayerZoneChange(IPlayer player, uint zoneId);
     }
 }

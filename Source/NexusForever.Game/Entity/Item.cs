@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Collections.Immutable;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
@@ -28,7 +29,8 @@ namespace NexusForever.Game.Entity
             StackCount         = 0x0020,
             Charges            = 0x0040,
             Durability         = 0x0080,
-            ExpirationTimeLeft = 0x0100
+            ExpirationTimeLeft = 0x0100,
+            Circuit            = 0x0200
         }
 
         public uint Id => Info?.Id ?? SpellEntry.Id;
@@ -134,6 +136,28 @@ namespace NexusForever.Game.Entity
         private uint expirationTimeLeft;
 
         /// <summary>
+        /// Circuit data from circuit crafting, see <see cref="Crafting.CircuitCrafting"/>.
+        /// </summary>
+        public ulong CircuitData { get; private set; }
+
+        /// <summary>
+        /// Budget multiplier for each item stat slot from charging sockets while circuit crafting.
+        /// </summary>
+        public IReadOnlyList<float> CircuitMultipliers { get; private set; } = [];
+
+        /// <summary>
+        /// Power core used to circuit craft the item, the item takes its power level from the power core.
+        /// </summary>
+        public uint PowerCoreItemId { get; private set; }
+
+        /// <summary>
+        /// Properties of this item instance, circuit crafted items have properties chosen while crafting.
+        /// </summary>
+        public ImmutableDictionary<Property, float> Properties => properties ??= CalculateProperties();
+
+        private ImmutableDictionary<Property, float> properties;
+
+        /// <summary>
         /// Returns if <see cref="IItem"/> is enqueued to be saved to the database.
         /// </summary>
         public bool PendingCreate => (saveMask & ItemSaveMask.Create) != 0;
@@ -158,6 +182,13 @@ namespace NexusForever.Game.Entity
             stackCount       = model.StackCount;
             charges          = model.Charges;
             durability       = model.Durability;
+            CircuitData      = model.CircuitData;
+            PowerCoreItemId  = model.PowerCoreItemId;
+
+            if (model.CircuitMultipliers != null)
+                CircuitMultipliers = Enumerable.Range(0, model.CircuitMultipliers.Length / sizeof(float))
+                    .Select(i => BitConverter.ToSingle(model.CircuitMultipliers, i * sizeof(float)))
+                    .ToArray();
 
             if ((InventoryLocation)model.Location != InventoryLocation.Ability)
                 Info = ItemManager.Instance.GetItemInfo(model.ItemId);
@@ -211,6 +242,53 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Set the properties chosen while circuit crafting the item.
+        /// </summary>
+        public void SetCircuit(ulong circuitData, IEnumerable<float> multipliers, uint powerCoreItemId)
+        {
+            CircuitData        = circuitData;
+            CircuitMultipliers = multipliers?.ToArray() ?? [];
+            PowerCoreItemId    = powerCoreItemId;
+            properties         = null;
+
+            saveMask |= ItemSaveMask.Circuit;
+        }
+
+        private ImmutableDictionary<Property, float> CalculateProperties()
+        {
+            if (Info == null)
+                return ImmutableDictionary<Property, float>.Empty;
+
+            if (CircuitData == 0ul && PowerCoreItemId == 0u)
+                return Info.Properties;
+
+            return Info.CalculateProperties(GetPowerLevel(), CircuitData, CircuitMultipliers);
+        }
+
+        /// <summary>
+        /// Return the power level of the item, circuit crafted items take their power level from the power core used to craft them.
+        /// </summary>
+        public uint GetPowerLevel()
+        {
+            if (PowerCoreItemId != 0u)
+            {
+                IItemInfo powerCore = ItemManager.Instance.GetItemInfo(PowerCoreItemId);
+                if (powerCore != null)
+                    return powerCore.Entry.PowerLevel;
+            }
+
+            return Info?.Entry.PowerLevel ?? 0u;
+        }
+
+        private byte[] GetCircuitMultiplierData()
+        {
+            if (CircuitMultipliers.Count == 0)
+                return null;
+
+            return CircuitMultipliers.SelectMany(BitConverter.GetBytes).ToArray();
+        }
+
+        /// <summary>
         /// Enqueue <see cref="IItem"/> to be deleted from the database.
         /// </summary>
         public void EnqueueDelete(bool state)
@@ -236,7 +314,10 @@ namespace NexusForever.Game.Entity
                     StackCount         = StackCount,
                     Charges            = Charges,
                     Durability         = Durability,
-                    ExpirationTimeLeft = ExpirationTimeLeft
+                    ExpirationTimeLeft = ExpirationTimeLeft,
+                    CircuitData        = CircuitData,
+                    CircuitMultipliers = GetCircuitMultiplierData(),
+                    PowerCoreItemId    = PowerCoreItemId
                 });
             }
             else if ((saveMask & ItemSaveMask.Delete) != 0)
@@ -293,6 +374,15 @@ namespace NexusForever.Game.Entity
                     model.ExpirationTimeLeft = ExpirationTimeLeft;
                     entity.Property(p => p.ExpirationTimeLeft).IsModified = true;
                 }
+                if ((saveMask & ItemSaveMask.Circuit) != 0)
+                {
+                    model.CircuitData        = CircuitData;
+                    model.CircuitMultipliers = GetCircuitMultiplierData();
+                    model.PowerCoreItemId    = PowerCoreItemId;
+                    entity.Property(p => p.CircuitData).IsModified        = true;
+                    entity.Property(p => p.CircuitMultipliers).IsModified = true;
+                    entity.Property(p => p.PowerCoreItemId).IsModified    = true;
+                }
             }
 
             saveMask = ItemSaveMask.None;
@@ -312,15 +402,20 @@ namespace NexusForever.Game.Entity
                     Location = Location,
                     BagIndex = BagIndex
                 },
-                StackCount = StackCount,
-                Charges    = Charges,
-                Durability = Durability,
-                Unknown58  = new NetworkItem.UnknownStructure[2]
+                StackCount        = StackCount,
+                Charges           = Charges,
+                RandomCircuitData = CircuitData,
+                Durability        = Durability,
+                Unknown58         = new NetworkItem.UnknownStructure[2]
                 {
                     new NetworkItem.UnknownStructure(),
                     new NetworkItem.UnknownStructure()
-                }
+                },
+                PowerCoreItemId   = PowerCoreItemId
             };
+
+            // the client calculates circuit crafted properties from the charge multiplier of each slot
+            networkItem.SlotMultipliers.AddRange(CircuitMultipliers);
 
             return networkItem;
         }

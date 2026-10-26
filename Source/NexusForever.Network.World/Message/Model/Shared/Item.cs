@@ -46,8 +46,14 @@ namespace NexusForever.Network.World.Message.Model.Shared
         public uint DynamicFlags { get; set; }
         public uint ExpirationTimeLeft { get; set; }
         public UnknownStructure[] Unknown58 { get; set; }
-        public uint Unknown70 { get; set; }
-        public List<uint> Microchips { get; } = new();
+        /// <summary>
+        /// Power core used to circuit craft the item, the item takes its power level from it.
+        /// </summary>
+        public uint PowerCoreItemId { get; set; }
+        /// <summary>
+        /// Budget multiplier of each item stat slot from charging sockets while circuit crafting.
+        /// </summary>
+        public List<float> SlotMultipliers { get; } = new();
         public List<uint> Glyphs { get; } = new();
         public List<UnknownStructure2> Unknown88 { get; } = new();
         public uint EffectiveItemLevel { get; set; }
@@ -73,13 +79,13 @@ namespace NexusForever.Network.World.Message.Model.Shared
             for (uint i = 0u; i < Unknown58.Length; i++)
                 Unknown58[i].Write(writer);
 
-            writer.Write(Unknown70, 18u);
+            writer.Write(PowerCoreItemId, 18u);
 
-            writer.Write(Microchips.Count, 3u);
-            Microchips.ForEach(m => writer.Write(m));
+            writer.Write(SlotMultipliers.Count, 3u);
+            SlotMultipliers.ForEach(m => writer.Write(m));
             writer.Write(Glyphs.Count, 4u);
             Glyphs.ForEach(g => writer.Write(g));
-            writer.Write(Glyphs.Count, 6u);
+            writer.Write(Unknown88.Count, 6u);
             Unknown88.ForEach(u => u.Write(writer));
 
             writer.Write(EffectiveItemLevel);

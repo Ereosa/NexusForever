@@ -137,6 +137,11 @@ namespace NexusForever.Game.Abstract.Entity
         void OnActivateFail(IPlayer activator);
 
         /// <summary>
+        /// Remove the <see cref="IWorldEntity"/> from the map, entities spawned from the database come back after the supplied delay.
+        /// </summary>
+        void DespawnWithRespawn(TimeSpan respawnDelay);
+
+        /// <summary>
         /// Return a collection of <see cref="IItemVisual"/> for <see cref="IWorldEntity"/>.
         /// </summary>
         IEnumerable<IItemVisual> GetVisuals();

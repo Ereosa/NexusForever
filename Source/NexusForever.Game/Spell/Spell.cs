@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Microsoft.Extensions.DependencyInjection;
+using System.Numerics;
 using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
@@ -70,6 +71,11 @@ namespace NexusForever.Game.Spell
         private readonly UpdateTimer persistCheck = new(TimeSpan.FromMilliseconds(100));
 
         private readonly Dictionary<Spell4EffectsEntry, UpdateTimer> delayedEffects = [];
+
+        /// <summary>
+        /// Units this cast has already been credited for in the caster's challenges, each unit counts once per cast.
+        /// </summary>
+        private readonly HashSet<uint> challengeCreditedUnits = [];
 
         private IScriptCollection scriptCollection;
 
@@ -602,6 +608,11 @@ namespace NexusForever.Game.Spell
             foreach (ISpellTargetImplicit implicitTarget in implicitTargets)
                 if (implicitTarget.Result == null)
                     executionContext.TargetCollection.AddTarget(SpellEffectTargetFlags.ImplicitTarget, implicitTarget.Entity);
+
+            // diagnostics for player attacks that go off without hitting anything
+            if (Caster is IPlayer && telegraphs.Count > 0 && implicitTargets.All(t => t.Result != null))
+                log.LogWarning($"Spell {Parameters.SpellInfo.Entry.Id} from player {Caster.Guid} at {Caster.Position} facing {Caster.Rotation.X} hit nothing, candidates: "
+                    + string.Join(", ", implicitTargets.Take(6).Select(t => $"{t.Entity.Guid} ({t.Entity.CreatureId}) {t.Result} at {t.Entity.Position} distance {Vector3.Distance(Caster.Position, t.Entity.Position):0.0}")));
         }
 
         private void ExecuteEffects(ISpellExecutionContext executionContext)
@@ -656,6 +667,10 @@ namespace NexusForever.Game.Spell
                     // Track the number of times this effect has fired.
                     // Some spell effects have a limited trigger count per spell cast.
                     executionContext.IncrementEffectTriggerCount(spell4EffectsEntry.Id);
+
+                    // Ability challenges count the units their T-spell lands on
+                    if (Caster is IPlayer player && challengeCreditedUnits.Add(spellTarget.Entity.Guid))
+                        player.ChallengeManager.OnSpellEffectHit(Parameters.RootSpellInfo?.Entry.Id ?? Spell4Id, spellTarget.Entity, challengeCreditedUnits.Count == 1);
                 }
             }
         }

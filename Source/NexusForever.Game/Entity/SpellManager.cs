@@ -32,8 +32,16 @@ namespace NexusForever.Game.Entity
         {
             None            = 0x0000,
             ActiveActionSet = 0x0001,
-            Innate          = 0x0002
+            Innate          = 0x0002,
+            BonusPoints     = 0x0004
         }
+
+        // "Ability Tier Point Unlock" and "AMP Power Upgrade" items, the client tops out at 42 tier points (41 from levels) and 10 bonus AMP power
+        public const byte MaxBonusAbilityPoints = ActionSet.MaxTierPoints - 41;
+        public const byte MaxBonusAmpPower      = 10;
+
+        public byte BonusAbilityPoints { get; private set; }
+        public byte BonusAmpPower { get; private set; }
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
@@ -127,8 +135,10 @@ namespace NexusForever.Game.Entity
                     actionSets[i].AddAmp(ampModel);
             }
 
-            activeActionSet = model.ActiveSpec;
-            innateIndex     = model.InnateIndex;
+            activeActionSet    = model.ActiveSpec;
+            innateIndex        = model.InnateIndex;
+            BonusAbilityPoints = model.BonusAbilityPoints;
+            BonusAmpPower      = model.BonusAmpPower;
         }
 
         public void GrantSpells()
@@ -252,6 +262,14 @@ namespace NexusForever.Game.Entity
                 {
                     character.InnateIndex = InnateIndex;
                     entity.Property(p => p.InnateIndex).IsModified = true;
+                }
+
+                if ((saveMask & SpellManagerSaveMask.BonusPoints) != 0)
+                {
+                    character.BonusAbilityPoints = BonusAbilityPoints;
+                    entity.Property(p => p.BonusAbilityPoints).IsModified = true;
+                    character.BonusAmpPower = BonusAmpPower;
+                    entity.Property(p => p.BonusAmpPower).IsModified = true;
                 }
 
                 saveMask = SpellManagerSaveMask.None;
@@ -576,9 +594,45 @@ namespace NexusForever.Game.Entity
             float levelPower = formula?.Datafloat0 ?? 1f;
 
             if (player.Level < startLevel)
-                return 0u;
+                return BonusAmpPower;
 
-            return startPower + (uint)((player.Level - startLevel) * levelPower);
+            return startPower + (uint)((player.Level - startLevel) * levelPower) + BonusAmpPower;
+        }
+
+        /// <summary>
+        /// Add permanent bonus ability tier points, returns false if the character already has the maximum.
+        /// </summary>
+        public bool AddBonusAbilityPoints(uint amount)
+        {
+            if (BonusAbilityPoints >= MaxBonusAbilityPoints)
+                return false;
+
+            BonusAbilityPoints = (byte)Math.Min(BonusAbilityPoints + amount, MaxBonusAbilityPoints);
+            saveMask |= SpellManagerSaveMask.BonusPoints;
+            SendServerAbilityPoints();
+            return true;
+        }
+
+        /// <summary>
+        /// Add permanent bonus AMP power, returns false if the character already has the maximum.
+        /// </summary>
+        public bool AddBonusAmpPower(uint amount)
+        {
+            if (BonusAmpPower >= MaxBonusAmpPower)
+                return false;
+
+            BonusAmpPower = (byte)Math.Min(BonusAmpPower + amount, MaxBonusAmpPower);
+            saveMask |= SpellManagerSaveMask.BonusPoints;
+            SendServerAmpPower();
+            return true;
+        }
+
+        private void SendServerAmpPower()
+        {
+            player.Session.EnqueueMessageEncrypted(new ServerAmpPowerUpdate
+            {
+                BonusPower = BonusAmpPower
+            });
         }
 
         /// <summary>
@@ -812,6 +866,7 @@ namespace NexusForever.Game.Entity
             SendServerAbilities();
             SendServerAbilityList();
             SendServerAbilityPoints();
+            SendServerAmpPower();
             SendServerActionSets();
             SendServerAmpLists();
             SendServerPlayerInnate();
@@ -900,7 +955,7 @@ namespace NexusForever.Game.Entity
             for (uint level = 1u; level <= player.Level; level++)
                 points += GameTableManager.Instance.XpPerLevel.GetEntry(level)?.AbilityPointsPerLevel ?? 0u;
 
-            return points;
+            return points + BonusAbilityPoints;
         }
 
         private uint GetSpentAbilityPoints(byte actionSetIndex)

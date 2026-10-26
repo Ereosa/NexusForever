@@ -88,6 +88,14 @@ namespace NexusForever.Game.Loot.Generate
             if (eligiblePlayers.Count == 0)
                 return;
 
+            if (MinCount != 0 && MinCount == MaxCount)
+            {
+                // a fixed number of picks (eg: "one random costume piece"), probabilities are weights rather than independent rolls
+                foreach (ILootGenerator lootGenerator in PickWeighted(MinCount))
+                    lootGenerator.GenerateLoot(lootBuilder, eligiblePlayers);
+                return;
+            }
+
             List<ILootGenerator> eligibleLootGenerators = lootGenerators
                 .Where(g => g.CanGenerateLoot())
                 .ToList();
@@ -118,6 +126,34 @@ namespace NexusForever.Game.Loot.Generate
 
             foreach (ILootGenerator lootGenerator in eligibleLootGenerators)
                 lootGenerator.GenerateLoot(lootBuilder, eligiblePlayers);
+        }
+
+        /// <summary>
+        /// Pick up to the supplied number of different generators, weighted by their probability.
+        /// </summary>
+        private List<ILootGenerator> PickWeighted(uint count)
+        {
+            var remaining = lootGenerators.Where(g => g.Probability > 0f).ToList();
+            var picked = new List<ILootGenerator>();
+            while (picked.Count < count && remaining.Count > 0)
+            {
+                double roll = Random.Shared.NextDouble() * remaining.Sum(g => g.Probability);
+                ILootGenerator selected = remaining[^1];
+                foreach (ILootGenerator generator in remaining)
+                {
+                    roll -= generator.Probability;
+                    if (roll < 0d)
+                    {
+                        selected = generator;
+                        break;
+                    }
+                }
+
+                picked.Add(selected);
+                remaining.Remove(selected);
+            }
+
+            return picked;
         }
 
         private List<IPlayer> GetEligiblePlayers(IEnumerable<IPlayer> players)

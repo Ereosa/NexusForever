@@ -9,9 +9,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Account
     {
         public void HandleMessage(IWorldSession session, ClientAccountItemTake take)
         {
-            AccountOperationResult result = session.Player != null
-                ? session.Account.ItemManager.TakeItem(session.Player, take.UserInventoryId)
-                : AccountOperationResult.NoCharacter;
+            // account wide unlocks (eg: character slots) can also be claimed from character select
+            AccountOperationResult result = session.Account.ItemManager.TakeItem(session.Player, take.UserInventoryId);
 
             session.EnqueueMessageEncrypted(new ServerAccountOperationResult
             {

@@ -141,7 +141,17 @@ namespace NexusForever.Game.Spell.Target
                     }
                 }
 
-                log.LogTrace($"Applied effect {Entry.EffectType} for target {Target.Guid} for spell {Target.Collection.Spell.Spell4Id}");
+                log.LogTrace($"Applied effect {Entry.EffectType} for target {Target.Guid} for spell {Target.Collection.Spell.Spell4Id} ({result})");
+
+                // diagnostics for creatures players report as unkillable
+                if (result == SpellEffectExecutionResult.PreventEffect && Entry.EffectType == SpellEffectType.Damage && executionContext.Spell.Caster is IPlayer)
+                {
+                    IUnitEntity caster = executionContext.Spell.Caster;
+                    log.LogWarning($"Damage from player {caster.Guid} prevented on target {Target.Guid} creature {target.CreatureId} spell {Target.Collection.Spell.Spell4Id}: "
+                        + $"alive {target.IsAlive} health {target.Health}/{target.MaxHealth} casterAlive {caster.IsAlive} faction {target.Faction1}->{caster.Faction1} "
+                        + $"disposition {target.GetDispositionTo(caster.Faction1)} validTarget {target.IsValidAttackTarget(caster)}/{caster.IsValidAttackTarget(target)} "
+                        + $"immune {target.IsImmune(SpellEffectImmunityType.Damage)} type {target.GetType().Name}");
+                }
 
                 return result;
             }
@@ -175,9 +185,14 @@ namespace NexusForever.Game.Spell.Target
             if (IsPending)
                 return;
 
+            // the target already left the map (logout, teleport), its properties went with it
+            IUnitEntity target = Target.GetTarget();
+            if (target == null)
+                return;
+
             try
             {
-                spellEffectHandlerInvoker.InvokeRemoveHandler(Target.Collection.Spell, Target.GetTarget(), this);
+                spellEffectHandlerInvoker.InvokeRemoveHandler(Target.Collection.Spell, target, this);
             }
             catch (Exception e)
             {

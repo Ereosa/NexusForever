@@ -62,12 +62,15 @@ namespace NexusForever.Game.Combat
             }
 
             uint damage = CalculateBaseDamage(executionContext.Spell.Caster, victim, info.Entry);
+            damage = ApplyMenace(executionContext.Spell.Caster, victim, damage);
             damageDescription.RawDamage       = damage;
             damageDescription.RawScaledDamage = damage;
 
             damage = CalculateBaseDamageVariance(damage);
+            uint varianceDamage = damage;
 
             damage = GetDamageAfterArmorMitigation(victim, info.Entry.DamageType, damage);
+            uint armorDamage = damage;
 
             // TODO: Add in other attacking modifiers like Armor Pierce, Strikethrough, Multi-Hit, etc.
 
@@ -97,9 +100,47 @@ namespace NexusForever.Game.Combat
 
             damageDescription.AdjustedDamage = damage;
 
+            if (damageDescription.RawDamage > 0 && damage == 0 && damageDescription.ShieldAbsorbAmount == 0)
+                log.LogWarning($"Damage from spell {executionContext.Spell.Parameters.SpellInfo.Entry.Id} to unit {victim.Guid} (creature {victim.CreatureId}) was reduced to 0: "
+                    + $"result {damageDescription.CombatResult} type {info.Entry.DamageType} after variance {varianceDamage} after armor {armorDamage} armor {victim.GetPropertyValue(Property.Armor)} "
+                    + $"offsets {victim.GetPropertyValue(Property.DamageMitigationPctOffset)}/{victim.GetPropertyValue(Property.DamageMitigationPctOffsetPhysical)}/{victim.GetPropertyValue(Property.DamageMitigationPctOffsetTech)}/{victim.GetPropertyValue(Property.DamageMitigationPctOffsetMagic)} "
+                    + $"glance {victim.GetPropertyValue(Property.RatingGlanceChance)}/{victim.GetPropertyValue(Property.BaseGlanceChance)}/{victim.GetPropertyValue(Property.RatingGlanceAmount)}/{victim.GetPropertyValue(Property.BaseGlanceAmount)} "
+                    + $"shield {victim.Shield}/{victim.GetPropertyValue(Property.ShieldMitigationMax)} level {victim.Level} attacker level {executionContext.Spell.Caster.Level}");
+
+            log.LogTrace($"Damage from spell {executionContext.Spell.Parameters.SpellInfo.Entry.Id} to unit {victim.Guid} (creature {victim.CreatureId}, level {victim.Level}): raw {damageDescription.RawDamage}, shielded {damageDescription.ShieldAbsorbAmount}, adjusted {damage}, health {victim.Health}/{victim.MaxHealth}.");
+
             info.AddDamage(damageDescription);
 
             // TODO: Queue Proc Events*/
+        }
+
+        /// <summary>
+        /// Prime level creatures carry Menace (VeteranTier, 550 per prime level), players counter it with Heroism (Primal Matrix).
+        /// </summary>
+        /// <remarks>
+        /// The retail formula isn't in the client data: each prime level of menace the player's heroism doesn't cover makes the creature
+        /// deal 10% more damage to them and take 10% less damage from them.
+        /// </remarks>
+        private static uint ApplyMenace(IUnitEntity attacker, IUnitEntity victim, uint damage)
+        {
+            const float MenacePerLevel = 550f;
+            const float ScalePerLevel  = 0.1f;
+
+            float attackerMenace = attacker.GetPropertyValue(Property.Menace);
+            if (attackerMenace > 0f && victim is IPlayer)
+            {
+                float levels = Math.Max(0f, attackerMenace - victim.GetPropertyValue(Property.Heroism)) / MenacePerLevel;
+                return (uint)(damage * (1f + levels * ScalePerLevel));
+            }
+
+            float victimMenace = victim.GetPropertyValue(Property.Menace);
+            if (victimMenace > 0f && attacker is IPlayer)
+            {
+                float levels = Math.Max(0f, victimMenace - attacker.GetPropertyValue(Property.Heroism)) / MenacePerLevel;
+                return (uint)(damage / (1f + levels * ScalePerLevel));
+            }
+
+            return damage;
         }
 
         /// <summary>
@@ -497,8 +538,8 @@ namespace NexusForever.Game.Combat
                     baseValue = entity.GetPropertyValue(Property.BaseCritChance);
                     break;
                 case Property.RatingCritSeverityIncrease:
-                    // TODO: Confirm Property below
-                    // baseValue = entity.GetPropertyValue(Property.CriticalHitSeverityMultiplier);
+                    // base severity is 150%, without it a critical hit multiplied damage by the rating bonus alone and dealt next to nothing
+                    baseValue = entity.GetPropertyValue(Property.CriticalHitSeverityMultiplier);
                     break;
                 case Property.RatingDamageReflectAmount:
                 case Property.BaseDamageReflectAmount:

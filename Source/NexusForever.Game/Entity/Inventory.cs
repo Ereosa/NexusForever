@@ -5,6 +5,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Reward;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable.Model;
 using NexusForever.Network;
@@ -171,6 +172,25 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Returns the number of items with supplied id in the supplied <see cref="InventoryLocation"/>'s.
+        /// </summary>
+        public uint GetItemCount(uint itemId, params InventoryLocation[] locations)
+        {
+            uint count = 0u;
+            foreach (InventoryLocation location in locations)
+            {
+                IBag bag = GetBag(location);
+                if (bag == null)
+                    continue;
+
+                foreach (IItem item in bag.Where(i => i.Id == itemId))
+                    count += Math.Max(item.StackCount, 1u);
+            }
+
+            return count;
+        }
+
+        /// <summary>
         /// Return <see cref="IItem"/> at supplied <see cref="ItemLocation"/>.
         /// </summary>
         public IItem GetItem(ItemLocation itemLocation)
@@ -265,7 +285,10 @@ namespace NexusForever.Game.Entity
 
             // quest collect objectives count items as they arrive in the inventory
             if (player != null && location == InventoryLocation.Inventory && count > 0u)
+            {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CollectItem, info.Id, count);
+                player.ChallengeManager.OnItemAdded(info.Id, count);
+            }
 
             // looted tradeskill materials go straight into the supply satchel, anything that doesn't fit goes into the inventory
             if (player != null && location == InventoryLocation.Inventory && reason == ItemUpdateReason.Loot)
@@ -292,9 +315,7 @@ namespace NexusForever.Game.Entity
 
                     uint newStackCount = Math.Min(item.StackCount + count, info.Entry.MaxStackCount);
                     count -= newStackCount - item.StackCount;
-                    // the client resolves the source unit for loot stack updates and crashes when that unit (eg: a corpse) is gone,
-                    // the loot notification has already been shown so the update is sent without a reason
-                    ItemStackCountUpdate(item, newStackCount, reason == ItemUpdateReason.Loot ? ItemUpdateReason.NoReason : reason);
+                    ItemStackCountUpdate(item, newStackCount, reason);
                 }
             }
 
@@ -335,6 +356,15 @@ namespace NexusForever.Game.Entity
 
                 count -= item.StackCount;
             }
+        }
+
+        /// <summary>
+        /// Returns the number of bank bag slots the character can use.
+        /// </summary>
+        private uint GetUnlockedBankBagSlots()
+        {
+            float? slots = player?.Account.RewardPropertyManager.GetRewardProperty(RewardPropertyType.BankSlots)?.GetValue(0u);
+            return slots == null ? 2u : (uint)slots.Value;
         }
 
         /// <summary>
@@ -382,6 +412,10 @@ namespace NexusForever.Game.Entity
             }
             else if (location == InventoryLocation.Equipped)
             {
+                // bank bag slots unlock with the BankSlots reward property (2, plus Extra Bank Slot licenses)
+                if (IsEquippableBankBagSlot(location, bagIndex) && bagIndex - (uint)EquippedItem.BankBag0 >= GetUnlockedBankBagSlots())
+                    return GenericError.ItemNotValidForSlot;
+
                 if (!item.Info.IsEquippable())
                     return GenericError.ItemNotValidForSlot;
 
@@ -873,7 +907,7 @@ namespace NexusForever.Game.Entity
 
         private void ApplyProperties(IItem item)
         {
-            foreach (KeyValuePair<Property, float> property in item.Info.Properties)
+            foreach (KeyValuePair<Property, float> property in item.Properties)
                 player.AddItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id, property.Value);
 
             // TODO: Add properties from item's runes
@@ -881,7 +915,7 @@ namespace NexusForever.Game.Entity
 
         private void RemoveProperties(IItem item)
         {
-            foreach (KeyValuePair<Property, float> property in item.Info.Properties)
+            foreach (KeyValuePair<Property, float> property in item.Properties)
                 player.RemoveItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id);
 
             // TODO: Remove properties from item's runes

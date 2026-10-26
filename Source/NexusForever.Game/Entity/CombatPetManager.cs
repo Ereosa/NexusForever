@@ -70,7 +70,6 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         private PetStance stance = PetStance.Defensive;
 
-        private ushort shownActionBarShortcutSetId;
         private uint lastAbilityCastingId;
 
         #region Dependency Injection
@@ -269,23 +268,21 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Show the pet bar while engineer pets are summoned.
         /// </summary>
-        private void UpdateActionBar()
+        /// <remarks>
+        /// Bars shown by spell effects on the same bar (eg: vehicle and minigame controls) take priority, the pet bar is shown again when they end.
+        /// </remarks>
+        public void UpdateActionBar()
         {
             ICombatPetEntity bot = GetPets().FirstOrDefault(p => p.ValidStances != PetStance.None);
-            ushort setId = bot != null ? BotActionBarShortcutSetId : (ushort)0;
-            if (setId == shownActionBarShortcutSetId)
-                return;
+            ushort? shownId = owner.GetShownActionBar(ShortcutSet.PrimaryPetBar);
 
-            shownActionBarShortcutSetId = setId;
-            if (owner.IsLoading)
-                return;
-
-            owner.Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            if (bot != null)
             {
-                ShortcutSet            = ShortcutSet.PrimaryPetBar,
-                ActionBarShortcutSetId = setId,
-                AssociatedUnitId       = bot?.Guid ?? 0u
-            });
+                if (shownId == null)
+                    owner.ShowActionBar(ShortcutSet.PrimaryPetBar, BotActionBarShortcutSetId, bot.Guid);
+            }
+            else if (shownId == BotActionBarShortcutSetId)
+                owner.HideActionBar(ShortcutSet.PrimaryPetBar, BotActionBarShortcutSetId);
         }
 
         /// <summary>
@@ -299,6 +296,10 @@ namespace NexusForever.Game.Entity
 
             if (summon.IsBot)
                 CastBotDeathAmp(pet);
+
+            // the bot can't be summoned again straight away
+            if (summon.Data.DeathCooldown > TimeSpan.Zero)
+                owner.SpellManager.SetSpellCooldown(summon.Spell.Parameters.SpellInfo, summon.Data.DeathCooldown.TotalSeconds, true);
 
             Dismiss(summon);
         }
@@ -352,7 +353,7 @@ namespace NexusForever.Game.Entity
                 summon.Guid = null;
             }
 
-            shownActionBarShortcutSetId = 0;
+            owner.HideActionBar(ShortcutSet.PrimaryPetBar, BotActionBarShortcutSetId);
         }
 
         /// <summary>
@@ -495,10 +496,10 @@ namespace NexusForever.Game.Entity
 
         private (uint Type, uint ObjectId)? GetShownShortcut(ShortcutSet shortcutSet, uint slot)
         {
-            if (shortcutSet != ShortcutSet.PrimaryPetBar || shownActionBarShortcutSetId == 0)
+            if (shortcutSet != ShortcutSet.PrimaryPetBar || owner.GetShownActionBar(shortcutSet) != BotActionBarShortcutSetId)
                 return null;
 
-            ActionBarShortcutSetEntry entry = gameTableManager.ActionBarShortcutSet.GetEntry(shownActionBarShortcutSetId);
+            ActionBarShortcutSetEntry entry = gameTableManager.ActionBarShortcutSet.GetEntry(BotActionBarShortcutSetId);
             if (entry == null)
                 return null;
 

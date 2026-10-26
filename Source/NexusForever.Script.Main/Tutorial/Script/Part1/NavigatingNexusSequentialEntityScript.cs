@@ -22,7 +22,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part1
         /// </summary>
         public bool CanSeeMe(IGridEntity entity)
         {
-            if (entity is not IPlayer player)
+            if (entity is not IPlayer player || owner == null || player.QuestManager == null)
                 return false;
 
             QuestId questId = player.Faction2 == Faction.Exile
@@ -35,14 +35,20 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part1
 
             return owner.QuestChecklistIdx switch
             {
-                0 => !quest.GetQuestObjective(21271).IsComplete(),
-                1 => quest.GetQuestObjective(21271).IsComplete()
-                    && !quest.GetQuestObjective(21279).IsComplete(),
-                2 => quest.GetQuestObjective(21279).IsComplete()
-                    && !quest.GetQuestObjective(21272).IsComplete(),
-                3 => quest.GetQuestObjective(21272).IsComplete(),
+                0 => !IsComplete(quest, 0),
+                1 => IsComplete(quest, 0) && !IsComplete(quest, 1),
+                2 => IsComplete(quest, 1) && !IsComplete(quest, 3),
+                3 => IsComplete(quest, 3),
                 _ => false,
             };
+        }
+
+        /// <remarks>
+        /// The Exile and Dominion quests have different objective ids but the same objective order, so objectives are looked up by index.
+        /// </remarks>
+        private static bool IsComplete(IQuest quest, byte index)
+        {
+            return quest.GetQuestObjectiveByIndex(index)?.IsComplete() ?? false;
         }
     }
 }

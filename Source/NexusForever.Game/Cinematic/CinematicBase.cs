@@ -16,7 +16,7 @@ namespace NexusForever.Game.Cinematic
         public CinematicFlags InitialFlags { get; set; }
         public CancelType InitialCancelMode { get; set; }
         public Dictionary</* Id */ uint, IActor> Actors { get; } = [];
-        public Dictionary</* Delay */ uint, /* TextId */ uint> Texts { get; } = [];
+        public List<(uint Delay, uint TextId)> Texts { get; } = [];
         public List<IKeyframeAction> Keyframes { get; } = [];
         public List<ICamera> Cameras { get; } = [];
         public ITransition StartTransition { get; protected set; }
@@ -66,8 +66,10 @@ namespace NexusForever.Game.Cinematic
         /// </summary>
         protected void AddText(uint textId, uint start, uint end)
         {
-            Texts.Add(start, textId);
-            Texts.Add(end, 0);
+            // the clear is sent first when a line ends on the same frame the next one starts
+            Texts.Add((end, 0));
+            Texts.Add((start, textId));
+            Texts.Sort((a, b) => a.Delay != b.Delay ? a.Delay.CompareTo(b.Delay) : a.TextId.CompareTo(b.TextId));
         }
 
         /// <summary>

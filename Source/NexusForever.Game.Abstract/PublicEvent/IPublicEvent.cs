@@ -26,6 +26,11 @@ namespace NexusForever.Game.Abstract.PublicEvent
         IBaseMap Map { get; }
 
         /// <summary>
+        /// Replaces the creature of entities spawned for a phase, 0 leaves the entity out (eg: veteran versions of creatures).
+        /// </summary>
+        Func<uint, uint> CreatureOverride { get; set; }
+
+        /// <summary>
         /// Initialise the <see cref="IPublicEvent"/> with the supplied <see cref="IPublicEventManager"/>, <see cref="IPublicEventTemplate"/> and <see cref="IBaseMap"/>.
         /// </summary>
         void Initialise(IPublicEventManager manager, IPublicEventTemplate template, IBaseMap map);

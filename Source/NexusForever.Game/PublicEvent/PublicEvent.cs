@@ -38,6 +38,11 @@ namespace NexusForever.Game.PublicEvent
         /// Map the <see cref="IPublicEvent"/> is on.
         /// </summary>
         public IBaseMap Map { get; private set; }
+
+        /// <summary>
+        /// Replaces the creature of entities spawned for a phase, 0 leaves the entity out (eg: veteran versions of creatures).
+        /// </summary>
+        public Func<uint, uint> CreatureOverride { get; set; }
         
         private IPublicEventManager publicEventManager;
         private IPublicEventTemplate template;
@@ -99,6 +104,9 @@ namespace NexusForever.Game.PublicEvent
                     liveStatsTimer.Reset();
                 }
             }
+
+            // event scripts that track positions or timers (eg: Fragment Zero) run every tick
+            scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
 
             if (IsBusy)
                 return;

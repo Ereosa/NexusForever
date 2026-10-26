@@ -5,6 +5,7 @@ using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Static.Quest;
+using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
@@ -18,7 +19,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
     [ScriptFilterCreatureId(73500)]
     public class PrimalManifestationEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
     {
-        private const uint RingObjectiveId   = 21294;
+        // both factions jump through the rings as the first objective (Exile 21294, Dominion 21307)
+        private const byte RingObjectiveIndex = 0;
         private const uint RingTargetGroupId = 14425;
         private const uint ConstructCreatureId = 73499;
 
@@ -66,7 +68,11 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             if (entity is not IPlayer player)
                 return;
 
-            IQuest quest = player.QuestManager.GetActiveQuest(QuestId.DeconstructTheConstructExile);
+            QuestId questId = player.Faction2 == Faction.Exile
+                ? QuestId.DeconstructTheConstructExile
+                : QuestId.DeconstructTheConstructDominion;
+
+            IQuest quest = player.QuestManager.GetActiveQuest(questId);
             if (quest == null)
                 return;
 
@@ -82,7 +88,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             parameters.PrimaryTargetId        = player.Guid;
             player.CastSpell(jumpBuffs.MinBy(b => Vector3.Distance(b.Position, owner.Position)).Spell4Id, parameters);
 
-            IQuestObjective objective = quest.GetQuestObjective(RingObjectiveId);
+            IQuestObjective objective = quest.GetQuestObjectiveByIndex(RingObjectiveIndex);
             if (objective == null || objective.IsComplete())
                 return;
 
@@ -97,7 +103,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
                 return;
 
             IWorldEntity construct = player.SummonFactory.Summon(creatureInfo, ConstructPosition, Vector3.Zero);
-            TutorialFaction.MakeHostile(construct);
+            TutorialFaction.MakeHostile(construct, player.Faction2);
         }
     }
 }

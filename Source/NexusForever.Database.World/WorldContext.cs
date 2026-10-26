@@ -35,7 +35,9 @@ namespace NexusForever.Database.World
         public DbSet<StoreOfferItemModel> StoreOfferItem { get; set; }
         public DbSet<StoreOfferItemDataModel> StoreOfferItemData { get; set; }
         public DbSet<StoreOfferItemPriceModel> StoreOfferItemPrice { get; set; }
+        public DbSet<PathExplorerSwitchModel> PathExplorerSwitch { get; set; }
         public DbSet<PathScientistCreatureModel> PathScientistCreature { get; set; }
+        public DbSet<PathSettlerStructureModel> PathSettlerStructure { get; set; }
         public DbSet<PathSoldierHoldoutSpawnModel> PathSoldierHoldoutSpawn { get; set; }
         public DbSet<TutorialModel> Tutorial { get; set; }
         public DbSet<VersionModel> Version { get; set; }
@@ -963,6 +965,61 @@ namespace NexusForever.Database.World
                 entity.Property(e => e.PathScientistCreatureInfoId)
                     .HasColumnName("pathScientistCreatureInfoId")
                     .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Comment)
+                    .IsRequired()
+                    .HasColumnName("comment")
+                    .HasColumnType("varchar(200)")
+                    .HasDefaultValue("");
+            });
+
+            modelBuilder.Entity<PathExplorerSwitchModel>(entity =>
+            {
+                entity.ToTable("path_explorer_switch");
+
+                entity.HasKey(e => e.CreatureId)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0)
+                    .ValueGeneratedNever();
+
+                entity.Property(e => e.PlatformCreatureId)
+                    .HasColumnName("platformCreatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PathMissionId)
+                    .HasColumnName("pathMissionId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Comment)
+                    .IsRequired()
+                    .HasColumnName("comment")
+                    .HasColumnType("varchar(200)")
+                    .HasDefaultValue("");
+            });
+
+            modelBuilder.Entity<PathSettlerStructureModel>(entity =>
+            {
+                entity.ToTable("path_settler_structure");
+
+                entity.HasKey(e => e.CreatureId)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0)
+                    .ValueGeneratedNever();
+
+                entity.Property(e => e.BuiltCreatureId)
+                    .HasColumnName("builtCreatureId")
+                    .HasColumnType("int(10) unsigned")
                     .HasDefaultValue(0);
 
                 entity.Property(e => e.Comment)

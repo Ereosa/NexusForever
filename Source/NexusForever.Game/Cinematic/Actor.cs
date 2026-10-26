@@ -86,6 +86,9 @@ namespace NexusForever.Game.Cinematic
 
             foreach (IWritable message in PacketsToSend)
                 session.EnqueueMessageEncrypted(message);
+
+            foreach (IKeyframeAction keyframe in Keyframes)
+                keyframe.Send(session);
         }
     }
 }

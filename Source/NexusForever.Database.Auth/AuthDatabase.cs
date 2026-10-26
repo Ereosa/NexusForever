@@ -76,7 +76,10 @@ namespace NexusForever.Database.Auth
                 .Include(a => a.AccountCostumeUnlock)
                 .Include(a => a.AccountCurrency)
                 .Include(a => a.AccountGenericUnlock)
+                .Include(a => a.AccountDailyLogin)
                 .Include(a => a.AccountItem)
+                .Include(a => a.AccountItemClaim)
+                .Include(a => a.AccountItemCooldown)
                 .Include(a => a.AccountKeybinding)
                 .Include(a => a.AccountEntitlement)
                 .Include(a => a.AccountPermission)
@@ -117,6 +120,11 @@ namespace NexusForever.Database.Auth
         }
 
         /// <summary>
+        /// Account currencies a new account starts with: 500 Fortune Coins, 100,000 OmniBits and 100,000 Protobucks.
+        /// </summary>
+        private static readonly (byte CurrencyId, ulong Amount)[] StartingCurrencies = [(5, 500ul), (6, 100000ul), (11, 100000ul)];
+
+        /// <summary>
         /// Create a new account with the supplied email, salt and password verifier and external references that is inserted into the database.
         /// </summary>
         public async Task CreateAccountAsync(string email, string s, string v, uint role, IEnumerable<(string referenceType, string referenceValue)> externalReferences)
@@ -134,6 +142,16 @@ namespace NexusForever.Database.Auth
             {
                 RoleId = role
             });
+
+            // every account starts with what the first players got (web signup grants the same)
+            foreach ((byte currencyId, ulong amount) in StartingCurrencies)
+            {
+                model.AccountCurrency.Add(new AccountCurrencyModel
+                {
+                    CurrencyId = currencyId,
+                    Amount     = amount
+                });
+            }
 
             foreach ((string referenceType, string referenceValue) in externalReferences)
             {

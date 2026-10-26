@@ -142,6 +142,11 @@ namespace NexusForever.Game.Abstract.Entity
         void ObjectiveUpdate(uint id, uint progress);
 
         /// <summary>
+        /// Update target-less "Use/Open/Select the" objectives naming the creature the player interacted with.
+        /// </summary>
+        void ObjectiveUpdateUseCreature(uint creatureId);
+
+        /// <summary>
         /// Fill work order objectives (type 31) of active quests asking for crafts of the supplied tradeskill tier.
         /// </summary>
         void OnCraft(uint tradeskillTierId, uint count);

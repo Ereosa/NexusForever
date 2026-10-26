@@ -10,8 +10,11 @@ using NexusForever.Database.World;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Challenges;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Taxi;
+using NexusForever.Game.Account.Entitlement;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Entity.Stat;
@@ -24,8 +27,10 @@ using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Reputation;
+using NexusForever.Game.Abstract.Reward;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Achievement;
+using NexusForever.Game.Challenges;
 using NexusForever.Game.Character;
 using NexusForever.Game.Chat;
 using NexusForever.Game.Crafting;
@@ -35,6 +40,7 @@ using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Reputation;
+using NexusForever.Game.Reward;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Chat;
 using NexusForever.Game.Static.Entity;
@@ -50,6 +56,7 @@ using NexusForever.Game.Static.RBAC;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Setting;
 using NexusForever.Game.Static.Spell;
+using NexusForever.Game.Taxi;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Internal;
@@ -58,6 +65,7 @@ using NexusForever.Network.Session;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Model.Abilities;
 using NexusForever.Network.World.Message.Model.Chat;
 using NexusForever.Network.World.Message.Model.Info;
 using NexusForever.Network.World.Message.Model.Pregame;
@@ -237,6 +245,10 @@ namespace NexusForever.Game.Entity
 
         public bool IsOnline { get; private set; }
 
+        public AccountPresenceState Presence { get; set; }
+        public string AwayAutoResponse { get; set; }
+        public string BusyAutoResponse { get; set; }
+
         /// <summary>
         /// Returns if <see cref="IPlayer"/>'s client is currently in a loading screen.
         /// </summary>
@@ -258,11 +270,20 @@ namespace NexusForever.Game.Entity
         public IDatacubeManager DatacubeManager { get; private set; }
         public IMailManager MailManager { get; private set; }
         public IZoneMapManager ZoneMapManager { get; private set; }
+        public IPrimeLevelManager PrimeLevelManager { get; private set; }
+
+        /// <summary>
+        /// Where the player entered an instance through an instance portal, the instance's exit portal returns them there.
+        /// </summary>
+        public IMapPosition InstancePortalReturn { get; set; }
         public IQuestManager QuestManager { get; private set; }
         public ICharacterAchievementManager AchievementManager { get; private set; }
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
         public ITradeskillManager TradeskillManager { get; private set; }
         public ICraftingManager CraftingManager { get; private set; }
+        public IChallengeManager ChallengeManager { get; private set; }
+        public ITaxiManager TaxiManager { get; private set; }
+        public IRewardTrackManager RewardTrackManager { get; private set; }
         public IXpManager XpManager { get; private set; }
         public IReputationManager ReputationManager { get; private set; }
         public IGuildManager GuildManager { get; }
@@ -395,6 +416,7 @@ namespace NexusForever.Game.Entity
             DatacubeManager         = new DatacubeManager(this, model);
             MailManager             = new MailManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
+            PrimeLevelManager       = new PrimeLevelManager(this, model);
             PathMissionManager      = new PathMissionManager(this, model);
             PathScientistManager    = new PathScientistManager(this);
             PathSoldierManager      = new PathSoldierManager(this);
@@ -405,6 +427,9 @@ namespace NexusForever.Game.Entity
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             TradeskillManager       = new TradeskillManager(this, model);
             CraftingManager         = new CraftingManager(this);
+            ChallengeManager        = new ChallengeManager(this, model);
+            TaxiManager             = new TaxiManager(this, model, entityFactory, creatureInfoManager);
+            RewardTrackManager      = new RewardTrackManager(this, model);
             XpManager               = new XpManager(this, model);
             ReputationManager       = new ReputationManager(this, model);
             GuildManager.Initialise(this, model);
@@ -453,7 +478,9 @@ namespace NexusForever.Game.Entity
             PathScientistManager.Update(lastTick);
             PathSoldierManager.Update(lastTick);
             PathExplorerManager.Update(lastTick);
+            ChallengeManager.Update(lastTick);
             ResurrectionManager.Update(lastTick);
+            CinematicManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
             if (relocationTimer.HasElapsed)
@@ -556,22 +583,31 @@ namespace NexusForever.Game.Entity
             {
                 if ((saveMask & PlayerSaveMask.Location) != 0)
                 {
-                    model.LocationX = Position.X;
+                    // logging out mid-flight puts the player at the taxi's destination instead of in the air
+                    Vector3 position = Position;
+                    Vector3 rotation = Rotation;
+                    if (TaxiManager.FlightDestination is { } flight)
+                    {
+                        position = flight.Position;
+                        rotation = flight.Rotation;
+                    }
+
+                    model.LocationX = position.X;
                     entity.Property(p => p.LocationX).IsModified = true;
 
-                    model.LocationY = Position.Y;
+                    model.LocationY = position.Y;
                     entity.Property(p => p.LocationY).IsModified = true;
 
-                    model.LocationZ = Position.Z;
+                    model.LocationZ = position.Z;
                     entity.Property(p => p.LocationZ).IsModified = true;
 
-                    model.RotationX = Rotation.X;
+                    model.RotationX = rotation.X;
                     entity.Property(p => p.RotationX).IsModified = true;
 
-                    model.RotationY = Rotation.Y;
+                    model.RotationY = rotation.Y;
                     entity.Property(p => p.RotationY).IsModified = true;
 
-                    model.RotationZ = Rotation.Z;
+                    model.RotationZ = rotation.Z;
                     entity.Property(p => p.RotationZ).IsModified = true;
 
                     model.WorldId = (ushort)Map.Entry.Id;
@@ -644,11 +680,15 @@ namespace NexusForever.Game.Entity
             DatacubeManager.Save(context);
             MailManager.Save(context);
             ZoneMapManager.Save(context);
+            PrimeLevelManager.Save(context);
             PathMissionManager.Save(context);
             QuestManager.Save(context);
             AchievementManager.Save(context);
             SupplySatchelManager.Save(context);
             TradeskillManager.Save(context);
+            ChallengeManager.Save(context);
+            TaxiManager.Save(context);
+            RewardTrackManager.Save(context);
             XpManager.Save(context);
             ReputationManager.Save(context);
             GuildManager.Save(context);
@@ -728,6 +768,17 @@ namespace NexusForever.Game.Entity
 
         public override void OnAddToMap(IBaseMap map, uint guid, Vector3 vector)
         {
+            // a teleport that was still loading when the character logged out finished after cleanup,
+            // take the character straight back off the map instead of logging a ghost back in
+            if (cleanedUp)
+            {
+                base.OnAddToMap(map, guid, vector);
+                RemoveFromMap();
+
+                log.Trace($"Removed character {Name}({CharacterId}) from map {map.Entry.Id}, it was added after logout cleanup.");
+                return;
+            }
+
             MapEntryPosition = vector;
 
             // this must come before OnAddToMap
@@ -1118,6 +1169,11 @@ namespace NexusForever.Game.Entity
             QuestManager.CheckCommunicatorMessages();
             PathMissionManager.OnZoneUpdate();
             PathSettlerManager.OnZoneUpdate();
+            ChallengeManager.OnZoneUpdate();
+            RewardTrackManager.OnZoneUpdate();
+
+            if (Zone != null)
+                Map?.OnPlayerZoneChange(this, Zone.Id);
 
             messagePublisher.PublishAsync(new PlayerWorldZoneUpdatedMessage
             {
@@ -1201,10 +1257,15 @@ namespace NexusForever.Game.Entity
             PathMissionManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             Account.ItemManager.SendInitialPackets();
+            EntitlementEffects.ApplyAll(this);
+            Account.DailyLoginManager.OnLogin();
             QuestManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);
             TradeskillManager.SendInitialPackets();
             Account.RewardPropertyManager.SendInitialPackets();
+            RewardTrackManager.SendInitialPackets();
+            ChallengeManager.SendInitialPackets();
+            TaxiManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
 
             Session.EnqueueMessageEncrypted(new ServerPhaseVisibilityWorldLocation
@@ -1368,6 +1429,8 @@ namespace NexusForever.Game.Entity
                 {
                     log.Trace($"Cleanup for character {Name}({CharacterId}) has started...");
 
+                    cleanedUp = true;
+
                     Save(() =>
                     {
                         if (Map != null)
@@ -1390,6 +1453,8 @@ namespace NexusForever.Game.Entity
                 }
             }));
         }
+
+        private bool cleanedUp;
 
         private bool CanCleanup()
         {
@@ -1424,6 +1489,7 @@ namespace NexusForever.Game.Entity
         private void OnLogout()
         {
             GuildManager.OnLogout();
+            ChallengeManager.OnLogout();
 
             matchingManager.OnLogout(this);
             matchManager.OnLogout(this);
@@ -1723,6 +1789,81 @@ namespace NexusForever.Game.Entity
             {
                 Error = error
             });
+        }
+
+        private readonly Dictionary<ShortcutSet, ushort> shownActionBars = [];
+
+        /// <summary>
+        /// Show the supplied action bar to the player, the buttons on it cast their spells through <see cref="CastActionBarShortcut"/>.
+        /// </summary>
+        public void ShowActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId, uint associatedUnitId)
+        {
+            shownActionBars[shortcutSet] = actionBarShortcutSetId;
+            Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            {
+                ShortcutSet            = shortcutSet,
+                ActionBarShortcutSetId = actionBarShortcutSetId,
+                AssociatedUnitId       = associatedUnitId
+            });
+        }
+
+        /// <summary>
+        /// Hide the supplied action bar if it is still the one shown on <paramref name="shortcutSet"/>.
+        /// </summary>
+        public void HideActionBar(ShortcutSet shortcutSet, ushort actionBarShortcutSetId)
+        {
+            if (!shownActionBars.TryGetValue(shortcutSet, out ushort shownId) || shownId != actionBarShortcutSetId)
+                return;
+
+            shownActionBars.Remove(shortcutSet);
+            Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            {
+                ShortcutSet            = shortcutSet,
+                ActionBarShortcutSetId = 0
+            });
+
+            // the engineer pet bar shares its bar with bars shown by spell effects
+            if (shortcutSet == ShortcutSet.PrimaryPetBar)
+                CombatPetManager.UpdateActionBar();
+        }
+
+        /// <summary>
+        /// Return the action bar shown on <paramref name="shortcutSet"/> with <see cref="ShowActionBar"/>.
+        /// </summary>
+        public ushort? GetShownActionBar(ShortcutSet shortcutSet)
+        {
+            return shownActionBars.TryGetValue(shortcutSet, out ushort shownId) ? shownId : null;
+        }
+
+        /// <summary>
+        /// Cast the spell of a button on an action bar shown with <see cref="ShowActionBar"/>, returns false if no such bar is shown.
+        /// </summary>
+        public bool CastActionBarShortcut(ShortcutSet shortcutSet, uint slot, uint targetUnitId, Vector3 position)
+        {
+            if (!shownActionBars.TryGetValue(shortcutSet, out ushort shownId))
+                return false;
+
+            ActionBarShortcutSetEntry entry = GameTableManager.Instance.ActionBarShortcutSet.GetEntry(shownId);
+            if (entry == null)
+                return false;
+
+            uint[] types   = [entry.ShortcutType00, entry.ShortcutType01, entry.ShortcutType02, entry.ShortcutType03, entry.ShortcutType04, entry.ShortcutType05,
+                              entry.ShortcutType06, entry.ShortcutType07, entry.ShortcutType08, entry.ShortcutType09, entry.ShortcutType10, entry.ShortcutType11];
+            uint[] objects = [entry.ObjectId00, entry.ObjectId01, entry.ObjectId02, entry.ObjectId03, entry.ObjectId04, entry.ObjectId05,
+                              entry.ObjectId06, entry.ObjectId07, entry.ObjectId08, entry.ObjectId09, entry.ObjectId10, entry.ObjectId11];
+            if (slot >= types.Length || objects[slot] == 0u)
+                return false;
+
+            // ShortcutType 6 and 7 are spells, see CombatPetManager
+            if (types[slot] is not (6u or 7u) || GameTableManager.Instance.Spell4.GetEntry(objects[slot]) == null)
+                return true;
+
+            ISpellParameters parameters = LegacyServiceProvider.Provider.GetService<IFactory<ISpellParameters>>().Resolve();
+            parameters.PrimaryTargetId        = targetUnitId;
+            parameters.TargetPosition         = new Network.World.Entity.Position(position);
+            parameters.UserInitiatedSpellCast = true;
+            CastSpell(objects[slot], parameters);
+            return true;
         }
 
         /// <summary>

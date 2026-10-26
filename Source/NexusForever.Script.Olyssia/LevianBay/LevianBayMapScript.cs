@@ -2,6 +2,8 @@
 using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Static.Cinematic;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
@@ -32,10 +34,14 @@ namespace NexusForever.Script.Olyssia.LevianBay
             if (entity is not IPlayer player)
                 return;
 
-            if (player.QuestManager.GetQuestState(Quest.LightingTheWay) == null)
-            {
-                player.CinematicManager.QueueCinematic(cinematicFactory.CreateCinematic<ILevianBayOnCreate>());
-            }
+            if (player.QuestManager.GetQuestState(Quest.LightingTheWay) != null)
+                return;
+
+            // the arrival model holds the Cassian (GC028) and the Mechari (GC029) arrival
+            ICinematicBase cinematic = player.Race == Race.Mechari
+                ? cinematicFactory.CreateCinematic(CinematicSceneId.LevianBayMechariArrival)
+                : cinematicFactory.CreateCinematic<ILevianBayOnCreate>();
+            player.CinematicManager.QueueCinematic(cinematic);
         }
     }
 }

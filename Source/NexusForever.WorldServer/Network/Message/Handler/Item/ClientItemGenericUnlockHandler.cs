@@ -1,4 +1,8 @@
-﻿using NexusForever.Game.Abstract.Entity;
+﻿using System.Collections.Generic;
+using System.Linq;
+using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Prerequisite;
+using NexusForever.Game.Static.GenericUnlock;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network;
@@ -12,11 +16,14 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Item
         #region Dependency Injection
 
         private readonly IGameTableManager gameTableManager;
+        private readonly IPrerequisiteManager prerequisiteManager;
 
         public ClientItemGenericUnlockHandler(
-            IGameTableManager gameTableManager)
+            IGameTableManager gameTableManager,
+            IPrerequisiteManager prerequisiteManager)
         {
-            this.gameTableManager = gameTableManager;
+            this.gameTableManager    = gameTableManager;
+            this.prerequisiteManager = prerequisiteManager;
         }
 
         #endregion
@@ -27,15 +34,41 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Item
             if (item == null)
                 throw new InvalidPacketValueException();
 
-            GenericUnlockEntryEntry entry = gameTableManager.GenericUnlockEntry.GetEntry(item.Info.Entry.GenericUnlockSetId);
-            if (entry == null)
+            // items reference a generic unlock set, which holds up to 6 generic unlock entries (eg: a dye)
+            GenericUnlockSetEntry set = gameTableManager.GenericUnlockSet.GetEntry(item.Info.Entry.GenericUnlockSetId);
+            if (set == null)
                 throw new InvalidPacketValueException();
 
-            // TODO: should some client error be shown for this?
-            if (!session.Account.GenericUnlockManager.IsUnlocked(entry.GenericUnlockTypeEnum, entry.UnlockObject))
+            List<GenericUnlockEntryEntry> entries = new uint[]
+                {
+                    set.GenericUnlockEntryId00, set.GenericUnlockEntryId01, set.GenericUnlockEntryId02,
+                    set.GenericUnlockEntryId03, set.GenericUnlockEntryId04, set.GenericUnlockEntryId05
+                }
+                .Where(id => id != 0u)
+                .Select(id => gameTableManager.GenericUnlockEntry.GetEntry(id))
+                .Where(e => e != null)
+                .ToList();
+
+            List<GenericUnlockEntryEntry> locked = entries
+                .Where(e => !session.Account.GenericUnlockManager.IsUnlocked(e.GenericUnlockTypeEnum, e.UnlockObject))
+                .ToList();
+            if (locked.Count == 0)
+            {
+                // keep the item, everything it unlocks is already known
+                session.Account.GenericUnlockManager.SendUnlockResult(GenericUnlockResult.AlreadyUnlocked);
+                return;
+            }
+
+            if (item.Info.Entry.PrerequisiteId != 0u && !prerequisiteManager.Meets(session.Player, item.Info.Entry.PrerequisiteId))
+            {
+                session.Account.GenericUnlockManager.SendUnlockResult(GenericUnlockResult.Invalid);
+                return;
+            }
+
+            if (!session.Player.Inventory.ItemUse(item))
                 return;
 
-            if (session.Player.Inventory.ItemUse(item))
+            foreach (GenericUnlockEntryEntry entry in locked)
                 session.Account.GenericUnlockManager.Unlock((ushort)entry.Id);
         }
     }

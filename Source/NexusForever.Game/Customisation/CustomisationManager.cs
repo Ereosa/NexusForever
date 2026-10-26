@@ -108,20 +108,32 @@ namespace NexusForever.Game.Customisation
         public bool Validate(Race race, Sex sex, Faction faction, IList<(uint Label, uint Value)> customisations)
         {
             if (!raceCustomisationInfos.ContainsKey((race, faction)))
+            {
+                log.Warn($"Customisation validation failed, no race customisation for race {race} and faction {faction}.");
                 return false;
+            }
 
             if (!customisationInfoCollections.ContainsKey((race, sex)))
+            {
+                log.Warn($"Customisation validation failed, no customisations for race {race} and sex {sex}.");
                 return false;
+            }
 
             foreach ((uint Label, uint Value) customisation in customisations)
             {
                 if (!customisationSelections.ContainsKey(customisation))
+                {
+                    log.Warn($"Customisation validation failed, invalid selection label {customisation.Label} value {customisation.Value} for race {race}, sex {sex}, faction {faction}.");
                     return false;
+                }
 
                 if (customisationLabels.TryGetValue(customisation.Label, out ICustomisationLabel customisationLabel)
                     && customisationLabel.Faction != 0
                     && customisationLabel.Faction != faction)
+                {
+                    log.Warn($"Customisation validation failed, label {customisation.Label} is for faction {customisationLabel.Faction} not {faction}.");
                     return false;
+                }
             }
 
             return true;

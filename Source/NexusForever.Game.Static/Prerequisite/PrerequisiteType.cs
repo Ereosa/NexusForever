@@ -249,12 +249,12 @@
         Power                       = 238, // Power requirement not met
         ActionBar                   = 239, // Action bar does not meet requirements 
         Unknown240                  = 240, // Exist in PrerequisiteType.tbl but does not have a description
-        Unknown241                  = 241, // Exist in PrerequisiteType.tbl but does not have a description
+        Homeowner                   = 241, // Exist in PrerequisiteType.tbl but does not have a description, used for "Only a homeowner can claim this item"
         LiveEvent242                = 242, // Live event not complete
         Faction243                  = 243, // Faction requirement not met
         Unknown244                  = 244, // Exist in PrerequisiteType.tbl but does not have a description
-        Unknown245                  = 245, // Exist in PrerequisiteType.tbl but does not have a description
-        Inventory                   = 246, // Inventory requirement not met - AccountItemClaimed?
+        DyeUnlocked                 = 245, // Exist in PrerequisiteType.tbl but does not have a description, used for "Dye already acquired!"
+        Inventory                   = 246, // Inventory requirement not met, item in the inventory, equipped or bank
         // 247 is unused in PrerequisiteType.tbl
         Unknown248                  = 248, // Exist in PrerequisiteType.tbl but does not have a description
         // 249 is unused in PrerequisiteType.tbl
@@ -283,7 +283,7 @@
         Unknown272                  = 272, // Exist in PrerequisiteType.tbl but does not have a description
         EntitlementCount            = 273, // Entitlement count requirement not met
         // 274 is unused in PrerequisiteType.tbl
-        Unknown275                  = 275, // Exist in PrerequisiteType.tbl but does not have a description
+        HoloWardrobeItem            = 275, // Exist in PrerequisiteType.tbl but does not have a description, used for "already added it to your Holo-Wardrobe"
         OutOfBounds                 = 276, // You're out of bounds
         Unknown277                  = 277, // You cannot do that right now
         Unknown278                  = 278, // Requirements not met

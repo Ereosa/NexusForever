@@ -37,6 +37,8 @@ namespace NexusForever.Game
         private ImmutableDictionary</*targetGroupId*/uint, /*targetGroupIds*/ImmutableList<uint>> questObjectiveTargets;
         private ImmutableDictionary</*creatureId*/uint, /*pathScientistCreatureInfoIds*/ImmutableList<uint>> scientistCreatureInfos;
         private ImmutableDictionary</*pathSoldierEventId*/uint, ImmutableList<PathSoldierHoldoutSpawnModel>> holdoutSpawns;
+        private ImmutableDictionary</*creatureId*/uint, /*builtCreatureId*/uint> settlerStructures;
+        private ImmutableDictionary</*creatureId*/uint, PathExplorerSwitchModel> explorerSwitches;
 
         private ImmutableDictionary<AccountTier, ImmutableList<RewardPropertyPremiumModifierEntry>> rewardPropertiesByTier;
 
@@ -52,6 +54,8 @@ namespace NexusForever.Game
             CacheChecklistTargetGroups();
             CacheScientistCreatureInfos();
             CacheHoldoutSpawns();
+            CacheSettlerStructures();
+            CacheExplorerSwitches();
             CacheRewardPropertiesByTier();
         }
 
@@ -111,6 +115,28 @@ namespace NexusForever.Game
             holdoutSpawns = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathSoldierHoldoutSpawns()
                 .GroupBy(m => (uint)m.PathSoldierEventId)
                 .ToImmutableDictionary(g => g.Key, g => g.ToImmutableList());
+        }
+
+        private void CacheSettlerStructures()
+        {
+            settlerStructures = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathSettlerStructures()
+                .ToImmutableDictionary(m => m.CreatureId, m => m.BuiltCreatureId);
+        }
+
+        private void CacheExplorerSwitches()
+        {
+            explorerSwitches = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathExplorerSwitches()
+                .ToImmutableDictionary(m => m.CreatureId);
+        }
+
+        public PathExplorerSwitchModel GetExplorerSwitch(uint creatureId)
+        {
+            return explorerSwitches.TryGetValue(creatureId, out PathExplorerSwitchModel model) ? model : null;
+        }
+
+        public uint GetBuiltSettlerStructure(uint creatureId)
+        {
+            return settlerStructures.TryGetValue(creatureId, out uint builtCreatureId) ? builtCreatureId : 0u;
         }
 
         public ImmutableList<PathSoldierHoldoutSpawnModel> GetHoldoutSpawns(uint pathSoldierEventId)

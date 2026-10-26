@@ -64,6 +64,23 @@ namespace NexusForever.Game.Entity
 
         private const float BaseRunSpeed = 8f;
 
+        /// <summary>
+        /// Pets standing still start following once the owner is this far away, so they don't shuffle around every time the owner turns.
+        /// </summary>
+        private const float FollowStartDistance = 5f;
+
+        /// <summary>
+        /// Minimum time between new follow paths while the pet is already moving.
+        /// </summary>
+        private const double RepathInterval = 0.75d;
+
+        private const float PathStepSize = 2f;
+
+        /// <summary>
+        /// Terrain heights further than this from the straight line path are ignored (bridges, buildings, caves).
+        /// </summary>
+        private const float MaxGroundSnap = 4f;
+
         public override EntityType Type => EntityType.Pet;
 
         public uint OwnerGuid { get; private set; }
@@ -94,6 +111,7 @@ namespace NexusForever.Game.Entity
 
         private readonly UpdateTimer thinkTimer = new(TimeSpan.FromMilliseconds(250d));
         private Vector3? moveDestination;
+        private double lastMoveTime;
 
         /// <summary>
         /// Position the pet was told to go to and stay at.
@@ -173,6 +191,15 @@ namespace NexusForever.Game.Entity
             foreach (ICreatureInfoProperty property in creatureInfo.GetPropertyOverrides())
                 SetBaseProperty(property.Property, property.Value);
 
+            // bots "are all based directly off of the Engineer's stats": health is the owner's max health scaled by the creature difficulty
+            // (0.52 for the bots' difficulty 2) and armor is the owner's, the bot creature data alone gives a level 3 bot under 200 health
+            if (abilityInfo?.IsBot == true)
+            {
+                float healthMultiplier = GetMultiplier(creatureInfo.DifficultyEntry?.UnitPropertyMultiplier, Property.BaseHealth);
+                SetBaseProperty(Property.BaseHealth, MathF.Max(1f, owner.MaxHealth * healthMultiplier));
+                SetBaseProperty(Property.Armor, owner.GetPropertyValue(Property.Armor));
+            }
+
             Health = MaxHealth;
             Shield = MaxShieldCapacity;
 
@@ -231,14 +258,21 @@ namespace NexusForever.Game.Entity
                     value = levelEntry.UnitPropertyValue[(uint)levelProperty];
             }
 
-            if (CreatureInfo?.ArcheTypeEntry != null)
-                value *= CreatureInfo.ArcheTypeEntry.UnitPropertyMultiplier[(uint)property];
-            if (CreatureInfo?.DifficultyEntry != null)
-                value *= CreatureInfo.DifficultyEntry.UnitPropertyMultiplier[(uint)property];
-            if (CreatureInfo?.TierEntry != null)
-                value *= CreatureInfo.TierEntry.UnitPropertyMultiplier[(uint)property];
+            // bot archetype 18 has a BaseHealth multiplier of 0, which would summon every bot dead, a 0 health multiplier doesn't adjust health
+            value *= GetMultiplier(CreatureInfo?.ArcheTypeEntry?.UnitPropertyMultiplier, property);
+            value *= GetMultiplier(CreatureInfo?.DifficultyEntry?.UnitPropertyMultiplier, property);
+            value *= GetMultiplier(CreatureInfo?.TierEntry?.UnitPropertyMultiplier, property);
 
             return value;
+        }
+
+        private static float GetMultiplier(float[] multipliers, Property property)
+        {
+            if (multipliers == null || (uint)property >= multipliers.Length)
+                return 1f;
+
+            float multiplier = multipliers[(uint)property];
+            return multiplier == 0f && property == Property.BaseHealth ? 1f : multiplier;
         }
 
         public override void OnAddToMap(IBaseMap map, uint guid, Vector3 vector)
@@ -473,6 +507,8 @@ namespace NexusForever.Game.Entity
 
             attackTimer.Update(lastTick);
 
+            lastMoveTime += lastTick;
+
             thinkTimer.Update(lastTick);
             if (!thinkTimer.HasElapsed)
                 return;
@@ -535,8 +571,12 @@ namespace NexusForever.Game.Entity
                 return;
 
             Vector3 followPosition = GetFollowPosition(owner);
-            if (Vector3.Distance(Position, followPosition) > FollowTolerance
-                && (moveDestination == null || Vector3.Distance(moveDestination.Value, followPosition) > FollowTolerance))
+            if (moveDestination == null)
+            {
+                if (ownerDistance > FollowStartDistance)
+                    MoveTo(followPosition, ownerDistance > 15f ? 1.5f : 1f);
+            }
+            else if (lastMoveTime >= RepathInterval && Vector3.Distance(moveDestination.Value, followPosition) > FollowTolerance * 1.5f)
                 MoveTo(followPosition, ownerDistance > 15f ? 1.5f : 1f);
         }
 
@@ -674,7 +714,7 @@ namespace NexusForever.Game.Entity
 
                 float approach = Math.Max(1f, attackRange * 0.8f) + target.HitRadius;
                 Vector3 destination = target.Position.GetPoint2D(MathF.Atan2(Position.Z - target.Position.Z, Position.X - target.Position.X), approach);
-                if (moveDestination == null || Vector3.Distance(moveDestination.Value, destination) > FollowTolerance)
+                if (moveDestination == null || (lastMoveTime >= RepathInterval && Vector3.Distance(moveDestination.Value, destination) > FollowTolerance))
                     MoveTo(destination);
                 return;
             }
@@ -746,15 +786,55 @@ namespace NexusForever.Game.Entity
 
         private void MoveTo(Vector3 destination, float speedMultiplier = 1f)
         {
+            // start from where the current spline has the pet, the grid position is only updated after relocation
+            Vector3 start = MovementManager.GetPosition();
+            if (Vector3.Distance(start, destination) < 0.5f)
+                return;
+
             moveDestination = destination;
+            lastMoveTime    = 0d;
+
             float speed = GetPropertyValue(Property.MoveSpeedMultiplier) * BaseRunSpeed * speedMultiplier;
-            MovementManager.LaunchSpline([Position, destination], SplineType.Linear, SplineMode.OneShot, speed);
+            MovementManager.LaunchSpline(BuildPath(start, destination), SplineType.Linear, SplineMode.OneShot, speed);
+        }
+
+        /// <summary>
+        /// Build a path along the ground between supplied positions.
+        /// </summary>
+        /// <remarks>
+        /// Terrain height is used when it is close to the straight line between the points, inside buildings and caves the terrain is far below or above.
+        /// </remarks>
+        private List<Vector3> BuildPath(Vector3 start, Vector3 destination)
+        {
+            destination = GroundPosition(destination, destination.Y);
+
+            var nodes = new List<Vector3> { start };
+
+            float distance = Vector3.Distance(start, destination);
+            int steps = (int)MathF.Floor(distance / PathStepSize);
+            for (int i = 1; i < steps; i++)
+            {
+                Vector3 point = Vector3.Lerp(start, destination, i * PathStepSize / distance);
+                nodes.Add(GroundPosition(point, point.Y));
+            }
+
+            nodes.Add(destination);
+            return nodes;
+        }
+
+        private Vector3 GroundPosition(Vector3 position, float expectedHeight)
+        {
+            float? terrainHeight = Map?.GetTerrainHeight(position.X, position.Z);
+            if (terrainHeight.HasValue && MathF.Abs(terrainHeight.Value - expectedHeight) < MaxGroundSnap)
+                position.Y = terrainHeight.Value;
+
+            return position;
         }
 
         private void StopMoving()
         {
             moveDestination = null;
-            MovementManager.SetPosition(Position, false);
+            MovementManager.SetPosition(MovementManager.GetPosition(), false);
         }
 
         /// <summary>
