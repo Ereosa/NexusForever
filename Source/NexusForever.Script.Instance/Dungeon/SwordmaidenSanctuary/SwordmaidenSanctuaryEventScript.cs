@@ -20,9 +20,13 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
     /// Lifeweaver, Moldwood Overlord Skash and Rayna Darkspeaker, collect the Torine Spirit-Relics of the wings and place them at the
     /// center, escort Spiritmother Selene into the Sanctum, defeat Spiritmother Selene the Corrupted. Optional objectives count through
     /// the generic kill and activation handling of their target groups.
+    /// After the relics, Spiritmother Selene's Echo appears where the relics are placed (WorldLocation2 22127, objectives 489/678 of the
+    /// Spiritual Revival, public event 202) and the party defends her while she re-manifests; Spiritmother Selene then walks into the
+    /// Sanctum along the client's Spline2 8761 and 8762, which run from there to the Sanctum.
     /// Guessed: each wing's Spirit-Relic is collected when its boss falls and the three are placed together once collected (the relics
-    /// are door entities whose activation isn't known), the wing turnstiles complete by reaching the wing's boss, Selene's escort and
-    /// the Spiritual Revival holdout (public event 202) are skipped: the escort completes once the party reaches the Sanctum, no doors.
+    /// are door entities whose activation isn't known), the wing turnstiles complete by reaching the wing's boss, the holdout's attackers
+    /// (corrupted Torine and Moldwood of the sanctuary, four waves 20 seconds apart, started by coming near the Echo), Selene's walking
+    /// speed, no doors (their positions aren't in the client data).
     /// </remarks>
     [ScriptFilterOwnerId(166)]
     public class SwordmaidenSanctuaryEventScript : ExpeditionEventScript
@@ -32,6 +36,7 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
             Shallaos,
             Wings,
             Relics,
+            Revival,
             Escort,
             Selene,
             Done
@@ -69,6 +74,18 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
         public const uint Skash    = 28727;
         public const uint Rayna    = 28733;
         public const uint Selene   = 28735;
+        private const uint SeleneEcho     = 29562;
+        private const uint SpiritmotherSelene = 29479;
+        private static readonly uint[] RevivalAttackers = [29303, 29222, 28929, 29310];
+
+        private static readonly Vector3 RelicCenter = new(4164.6f, -787.2f, -3428.1f); // WorldLocation2 22127, Spiritual Revival
+        private static readonly uint[] SanctumSplines = [8761, 8762];
+
+        private IUnitEntity echo;
+        private IUnitEntity spiritmother;
+        private bool revivalStarted;
+        private int revivalWaves;
+        private readonly List<IUnitEntity> revivalAttackers = [];
 
         protected override uint WorldId => 1271;
         protected override uint InitialPhase => (uint)Phase.Shallaos;
@@ -107,8 +124,19 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
                     Activate(Objective.PlaceRelics);
                     Delay(5d, () => Update(Objective.PlaceRelics, 3));
                     break;
+                case Phase.Revival:
+                    SpawnCreature(SeleneEcho, RelicCenter, 0f, (map, guid, vector) => echo = mapInstance.GetEntity<IUnitEntity>(guid));
+                    break;
                 case Phase.Escort:
                     Activate(Objective.EscortSelene);
+                    echo?.RemoveFromMap();
+                    SpawnCreature(SpiritmotherSelene, RelicCenter, 0f, (map, guid, vector) =>
+                    {
+                        spiritmother = mapInstance.GetEntity<IUnitEntity>(guid);
+                        List<Vector3> path = SanctumSplines.SelectMany(GetSplineNodes).ToList();
+                        if (spiritmother != null && path.Count > 0)
+                            Walk(spiritmother, path, 3f);
+                    });
                     break;
                 case Phase.Selene:
                     Activate(Objective.KillSelene);
@@ -131,7 +159,7 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
                         publicEvent.SetPhase(Phase.Relics);
                     break;
                 case Objective.PlaceRelics:
-                    publicEvent.SetPhase(Phase.Escort);
+                    publicEvent.SetPhase(Phase.Revival);
                     break;
                 case Objective.EscortSelene:
                     publicEvent.SetPhase(Phase.Selene);
@@ -154,11 +182,47 @@ namespace NexusForever.Script.Instance.Dungeon.SwordmaidenSanctuary
                     CheckTurnstile(Objective.ReachMoldwood, Skash);
                     CheckTurnstile(Objective.EnterTemple, Rayna);
                     break;
+                case Phase.Revival:
+                    if (!revivalStarted && echo != null && AnyPlayerNear(echo.Position, 10f))
+                    {
+                        revivalStarted = true;
+                        SpawnRevivalWave();
+                    }
+                    else if (revivalStarted && revivalWaves >= 4 && revivalAttackers.All(a => !a.IsAlive || a.Map == null))
+                        publicEvent.SetPhase(Phase.Escort);
+                    break;
                 case Phase.Escort:
-                    if (GetEntities<IWorldEntity>(Selene).Any(e => AnyPlayerNear(e.Position, 60f)))
+                    List<Vector3> end = GetSplineNodes(SanctumSplines[^1]);
+                    if (spiritmother != null && end.Count > 0 && Vector3.Distance(spiritmother.Position, end[^1]) < 6f)
+                    {
+                        spiritmother.RemoveFromMap();
+                        spiritmother = null;
                         Update(Objective.EscortSelene);
+                    }
                     break;
             }
+        }
+
+        /// <summary>
+        /// The Strain's corrupted come for Selene's Echo while she re-manifests: four waves 20 seconds apart.
+        /// </summary>
+        private void SpawnRevivalWave()
+        {
+            revivalWaves++;
+            for (int i = 0; i < RevivalAttackers.Length; i++)
+            {
+                float angle = MathF.Tau / RevivalAttackers.Length * i + revivalWaves;
+                Vector3 position = Surface(RelicCenter.X + MathF.Cos(angle) * 22f, RelicCenter.Z + MathF.Sin(angle) * 22f, RelicCenter.Y);
+                SpawnCreature(RevivalAttackers[i], position, angle + MathF.PI, (map, guid, vector) =>
+                {
+                    if (mapInstance.GetEntity<IUnitEntity>(guid) is IUnitEntity unit)
+                        revivalAttackers.Add(unit);
+                    AggroNearestPlayer(map, guid, vector);
+                });
+            }
+
+            if (revivalWaves < 4)
+                Delay(20d, SpawnRevivalWave);
         }
 
         private readonly HashSet<uint> turnstiles = [];

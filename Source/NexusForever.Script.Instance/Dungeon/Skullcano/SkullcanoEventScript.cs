@@ -17,11 +17,15 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
     /// </summary>
     /// <remarks>
     /// No packet captures exist. The order follows the objective data: defeat Thunderfoot to open the way up to the volcano, find Chief
-    /// Kaskalak at the Molten Cavern and speak to him, escort him through the cavern and cross the Lava-Flooded Chasm, defeat Bosun Octog
-    /// to reach the summit, gather on the Redmoon Hauling Platform, defeat Mordechai Redmoon. The optional objectives count through the
-    /// generic kill and activation handling of their target groups, the jailors by their deaths.
-    /// Guessed: the escort and the chasm complete once the party reaches Bosun Octog (Kaskalak's path through the cavern isn't in the
-    /// data, he walks there on his own), the cavern, platform and summit checks are distances to the creatures there, no doors.
+    /// Kaskalak at the entrance to the Molten Cavern (objective 362/820 location, WorldLocation2 18273) and speak to him, escort him through
+    /// the cavern (he walks the client's Spline2 6904, which starts at his spot and ends at the cavern's far side), make your way across the
+    /// Lava-Flooded Chasm (turnstile location 18109), defeat Bosun Octog, gather on the Redmoon Hauling Platform (location 18879, where the
+    /// platform's Spline2 7037 starts) which carries the party to the summit, fight through the cave to the Eldan Terraformer (location
+    /// 18093) and defeat Mordechai Redmoon. The optional objectives count through the generic kill and activation handling of their target
+    /// groups, the jailors by their deaths.
+    /// Guessed: Kaskalak's walking speed and that he starts over at the cavern entrance when he dies, the chasm counting once a player
+    /// is within 60 m of its location, the platform ride (the party is carried to the end of the platform's path after 5 seconds on it,
+    /// the client doesn't carry players on a server moved platform), no doors (their positions aren't in the client data).
     /// </remarks>
     [ScriptFilterOwnerId(148)]
     public class SkullcanoEventScript : ExpeditionEventScript
@@ -34,6 +38,7 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
             Escort,
             Octog,
             Platform,
+            Cave,
             Mordechai,
             Done
         }
@@ -54,6 +59,7 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
             public const uint FindKaskalak    = 362;
             public const uint ClusterMissiles = 365;
             public const uint Platform        = 372;
+            public const uint Cave            = 376;
             public const uint Quartermaster   = 440;
             public const uint TalkKaskalak    = 820;
         }
@@ -78,9 +84,22 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
         private const uint SquirglingOffspring = 38426;
         private const uint RedmoonCrusher = 24618;
 
+        private const uint EscortSpline   = 6904;
+        private const uint PlatformSpline = 7037;
+        private const float EscortSpeed   = 5f;
+
+        private static readonly Vector3 CavernEntrance = new(-41.9f, -904.1f, -460.8f);   // WorldLocation2 18273, objectives 362 and 820
+        private static readonly Vector3 Chasm          = new(35.4f, -842.3f, -921.4f);    // WorldLocation2 18109, objective 329
+        private static readonly Vector3 PlatformStart  = new(-711.8f, -879.6f, -1000.7f); // WorldLocation2 18879, objective 372
+        private static readonly Vector3 Terraformer    = new(-786.9f, -692.6f, -457.5f);  // WorldLocation2 18093, objectives 324 and 376
+
         protected override uint WorldId => 1263;
         protected override uint InitialPhase => (uint)Phase.Thunderfoot;
         protected override IReadOnlyDictionary<uint, uint> VeteranCreatures => Veteran;
+
+        private IUnitEntity kaskalak;
+        private List<Vector3> escortPath;
+        private double platformTimer = -1d;
 
         public SkullcanoEventScript(
             IGlobalQuestManager globalQuestManager,
@@ -110,6 +129,7 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
                     break;
                 case Phase.FindKaskalak:
                     Activate(Objective.FindKaskalak);
+                    SpawnKaskalak();
                     break;
                 case Phase.TalkKaskalak:
                     Activate(Objective.TalkKaskalak);
@@ -117,10 +137,7 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
                 case Phase.Escort:
                     Activate(Objective.Escort);
                     Activate(Objective.Chasm);
-                    // Chief Kaskalak heads through the Molten Cavern towards the summit
-                    if (GetEntities<IUnitEntity>(Kaskalak).FirstOrDefault() is IUnitEntity chief
-                        && GetEntities<IUnitEntity>(Octog).FirstOrDefault() is IUnitEntity octog)
-                        Walk(chief, [Vector3.Lerp(chief.Position, octog.Position, 0.8f)], 4f);
+                    StartEscort();
                     break;
                 case Phase.Octog:
                     Activate(Objective.KillOctog);
@@ -128,10 +145,30 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
                 case Phase.Platform:
                     Activate(Objective.Platform);
                     break;
+                case Phase.Cave:
+                    Activate(Objective.Cave);
+                    break;
                 case Phase.Mordechai:
                     Activate(Objective.KillMordechai);
                     break;
             }
+        }
+
+        private void SpawnKaskalak()
+        {
+            SpawnCreature(Kaskalak, CavernEntrance, 0f, (map, guid, vector) => kaskalak = mapInstance.GetEntity<IUnitEntity>(guid));
+        }
+
+        /// <summary>
+        /// Chief Kaskalak leads the way through the Molten Cavern along his path from the client data.
+        /// </summary>
+        private void StartEscort()
+        {
+            escortPath ??= GetSplineNodes(EscortSpline);
+            if (kaskalak == null || !kaskalak.IsAlive || escortPath.Count == 0)
+                return;
+
+            Walk(kaskalak, escortPath, EscortSpeed);
         }
 
         protected override void OnObjectiveSucceeded(uint objectiveId, IPublicEventTeam team)
@@ -156,6 +193,9 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
                     publicEvent.SetPhase(Phase.Platform);
                     break;
                 case Objective.Platform:
+                    publicEvent.SetPhase(Phase.Cave);
+                    break;
+                case Objective.Cave:
                     publicEvent.SetPhase(Phase.Mordechai);
                     break;
                 case Objective.KillMordechai:
@@ -171,26 +211,54 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
             switch ((Phase)publicEvent.Phase)
             {
                 case Phase.FindKaskalak:
-                    if (NearCreature(Kaskalak, 25f))
+                    if (AnyPlayerNear(CavernEntrance, 25f))
                         Update(Objective.FindKaskalak);
                     break;
                 case Phase.Escort:
-                    if (NearCreature(Octog, 60f))
-                    {
+                    if (escortPath?.Count > 0 && kaskalak != null && kaskalak.IsAlive
+                        && Vector3.Distance(kaskalak.Position, escortPath[^1]) < 6f
+                        && !IsObjectiveDone(Objective.Escort))
                         Update(Objective.Escort);
+                    if (!IsObjectiveDone(Objective.Chasm) && AnyPlayerNear(Chasm, 60f))
                         Update(Objective.Chasm);
-                    }
                     break;
                 case Phase.Platform:
-                    if (NearCreature(HaulingPlatform, 15f) || NearCreature(Mordechai, 60f))
-                        Update(Objective.Platform);
+                    if (platformTimer < 0d && AnyPlayerNear(PlatformStart, 15f))
+                        platformTimer = 5d;
+                    break;
+                case Phase.Cave:
+                    if (AnyPlayerNear(Terraformer, 60f))
+                        Update(Objective.Cave);
                     break;
             }
         }
 
-        private bool NearCreature(uint creatureId, float range)
+        private bool IsObjectiveDone(uint objectiveId)
         {
-            return GetEntities<IWorldEntity>(creatureId).Any(e => AnyPlayerNear(e.Position, range));
+            IPublicEventTeam team = publicEvent.GetTeams().FirstOrDefault();
+            return team != null && IsSucceeded(team, objectiveId);
+        }
+
+        protected override void OnTick(double lastTick)
+        {
+            if (platformTimer < 0d || (Phase)publicEvent.Phase != Phase.Platform)
+                return;
+
+            platformTimer -= lastTick;
+            if (platformTimer > 0d)
+                return;
+
+            platformTimer = double.MaxValue;
+            // the Redmoon Hauling Platform carries the party up to the summit, the end of its path
+            List<Vector3> path = GetSplineNodes(PlatformSpline);
+            if (path.Count > 0)
+            {
+                foreach (IPlayer player in Players.Where(p => Vector3.Distance(p.Position, PlatformStart) < 25f).ToList())
+                    player.TeleportToLocal(path[^1]);
+                foreach (IUnitEntity platform in GetEntities<IUnitEntity>(HaulingPlatform))
+                    Walk(platform, path, 8f);
+            }
+            Update(Objective.Platform);
         }
 
         public override void OnEntityDeath(IUnitEntity entity)
@@ -198,6 +266,17 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano
             uint creatureId = entity.CreatureId;
             if (creatureId == GetCreature(Jailor))
                 Update(Objective.Jailors);
+
+            if (creatureId == GetCreature(Kaskalak) && (Phase)publicEvent.Phase == Phase.Escort)
+            {
+                // Kaskalak falls: he is back at the cavern entrance after a while and the escort starts over
+                kaskalak = null;
+                Delay(10d, () =>
+                {
+                    SpawnKaskalak();
+                    Delay(2d, StartEscort);
+                });
+            }
 
             if (creatureId == GetCreature(Thunderfoot))
                 GrantBossAchievement(2222, 2223);

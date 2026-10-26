@@ -136,6 +136,22 @@ namespace NexusForever.Script.Instance.Dungeon.StormtalonsLair
         public override void OnEntityDeath(IUnitEntity entity)
         {
             uint creatureId = entity.CreatureId;
+
+            // a Static Wisp spawns where each Channeler falls, the last one ends the Invoker's immunity
+            if (channelerPhase && creatureId == GetCreature(Channeler))
+            {
+                SpawnCreature(StaticWisp, entity.Position, 0f, AggroNearestPlayer);
+                if (!GetEntities<IUnitEntity>(Channeler).Any(c => c.IsAlive && c != entity))
+                    EndChannelerPhase();
+            }
+
+            if (creatureId == GetCreature(GustOfAethros) && gusts.Count > 0 && gusts.All(g => g == entity || !g.IsAlive))
+            {
+                gusts.Clear();
+                if (mapInstance.GetEntity<IUnitEntity>(aethrosGuid) is IUnitEntity aethros)
+                    aethros.InvokeScriptCollection<Script.StormtalonsLairAethrosAI>(s => s.OnGustsDead());
+            }
+
             if ((Phase)publicEvent.Phase == Phase.Rush && Pell.Contains(creatureId))
                 Update(Objective.Rush);
 
@@ -156,20 +172,86 @@ namespace NexusForever.Script.Instance.Dungeon.StormtalonsLair
                     player.AchievementManager.GrantAchievement(achievementId);
         }
 
+        private const uint Channeler      = 17173;
+        private const uint StaticBarrier  = 26613;
+        private bool channelerPhase;
+        private readonly List<IUnitEntity> gusts = [];
+        private uint aethrosGuid;
+        private readonly List<IUnitEntity> twisters = [];
+
         /// <summary>
-        /// Blade-Wind the Invoker calls Static Wisps from the storm (guessed: two at a time).
+        /// Blade-Wind the Invoker at 55%: the Thundercall Channelers in his room raise their Static Barrier, he is immune until they fall.
         /// </summary>
-        public void OnInvokerAdds(IWorldEntity invoker)
+        public void OnInvokerChannelers(IWorldEntity invoker)
         {
-            SpawnAround(invoker, [StaticWisp, StaticWisp], 10f);
+            channelerPhase = true;
+            List<IUnitEntity> channelers = GetEntities<IUnitEntity>(Channeler).Where(c => c.IsAlive).ToList();
+            foreach (IUnitEntity channeler in channelers)
+                CastOnSelf(channeler, StaticBarrier);
+            if (channelers.Count == 0)
+                EndChannelerPhase();
+        }
+
+        private void EndChannelerPhase()
+        {
+            channelerPhase = false;
+            foreach (IUnitEntity invoker in GetEntities<IUnitEntity>(Invoker))
+                invoker.InvokeScriptCollection<Script.StormtalonsLairInvokerAI>(s => s.OnChannelersDead());
         }
 
         /// <summary>
-        /// Aethros splits off Gusts of Aethros and sends an Aethros Twister across the platform (guessed).
+        /// Aethros' Air Shift: he dissipates into three Gusts of Aethros.
         /// </summary>
-        public void OnAethrosAdds(IWorldEntity aethros, bool twister)
+        public void OnAethrosAirShift(IWorldEntity aethros)
         {
-            SpawnAround(aethros, twister ? [GustOfAethros, GustOfAethros, AethrosTwister] : [GustOfAethros, GustOfAethros], 12f);
+            aethrosGuid = aethros.Guid;
+            gusts.Clear();
+            for (int i = 0; i < 3; i++)
+            {
+                float angle = MathF.Tau / 3f * i;
+                Vector3 position = aethros.Position + new Vector3(MathF.Cos(angle) * 12f, 0f, MathF.Sin(angle) * 12f);
+                SpawnCreature(GustOfAethros, position, angle + MathF.PI, (map, guid, vector) =>
+                {
+                    if (mapInstance.GetEntity<IUnitEntity>(guid) is IUnitEntity gust)
+                        gusts.Add(gust);
+                    AggroNearestPlayer(map, guid, vector);
+                });
+            }
+        }
+
+        /// <summary>
+        /// Aethros' Tempest: tornadoes cross the room back and forth (for the cast, or for good in his last phase).
+        /// </summary>
+        public void OnAethrosTempest(IWorldEntity aethros, bool lastPhase)
+        {
+            foreach (IUnitEntity twister in twisters)
+                twister.RemoveFromMap();
+            twisters.Clear();
+
+            for (int i = 0; i < 3; i++)
+            {
+                float offset = (i - 1) * 12f;
+                Vector3 a = aethros.Position + new Vector3(-30f, 0f, offset);
+                Vector3 b = aethros.Position + new Vector3(30f, 0f, offset);
+                SpawnCreature(AethrosTwister, i % 2 == 0 ? a : b, 0f, (map, guid, vector) =>
+                {
+                    if (mapInstance.GetEntity<IUnitEntity>(guid) is not IUnitEntity twister)
+                        return;
+                    twisters.Add(twister);
+                    var path = new List<Vector3>();
+                    for (int n = 0; n < 12; n++)
+                        path.Add(n % 2 == 0 ? (vector == a ? b : a) : (vector == a ? a : b));
+                    Walk(twister, path, 6f);
+                });
+            }
+
+            if (!lastPhase)
+                Delay(20d, () =>
+                {
+                    foreach (IUnitEntity twister in twisters)
+                        twister.RemoveFromMap();
+                    twisters.Clear();
+                });
         }
 
         private void SpawnAround(IWorldEntity source, uint[] creatures, float radius)
