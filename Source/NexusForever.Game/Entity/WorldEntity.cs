@@ -677,7 +677,41 @@ namespace NexusForever.Game.Entity
 
             scriptCollection?.Invoke<IWorldEntityScript>(s => s.OnActivateSuccess(activator));
 
+            // after the scripts, one with its own destination (the tutorial departure terminals) has already started a teleport
+            DepartForQuestDestination(activator);
+
             DespawnUsedQuestObject();
+        }
+
+        /// <summary>
+        /// Zone departure objects ("Depart" yes/no interactions, eg: the Dominion ship controls in Northern Wilds) carry no teleport data,
+        /// retail scripts sent the player to the next zone: the hand in location of the quest the object belongs to.
+        /// </summary>
+        private void DepartForQuestDestination(IPlayer activator)
+        {
+            if (CreatureInfo?.Entry == null || !activator.CanTeleport())
+                return;
+
+            Spell4Entry spell = GameTableManager.Instance.Spell4.GetEntry(CreatureInfo.Entry.Spell4IdActivate[0]);
+            Spell4BaseEntry spellBase = spell != null ? GameTableManager.Instance.Spell4Base.GetEntry(spell.Spell4BaseIdBaseSpell) : null;
+            if (spellBase == null || GameTableManager.Instance.GetTextTable(NexusForever.Game.Static.Language.English)?.GetEntry(spellBase.LocalizedTextIdName) != "Depart")
+                return;
+
+            var targetGroups = AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureInfo.Entry.Id).ToHashSet();
+            foreach (IQuest quest in activator.QuestManager.GetActiveQuests())
+            {
+                if (!quest.Any(o => o.ObjectiveInfo.Entry.Data == CreatureInfo.Entry.Id
+                    || targetGroups.Contains(o.ObjectiveInfo.Entry.Data)
+                    || targetGroups.Contains(o.ObjectiveInfo.Entry.TargetGroupIdRewardPane)))
+                    continue;
+
+                WorldLocation2Entry destination = GameTableManager.Instance.WorldLocation2.GetEntry(quest.Info.Entry.WorldLocation2IdReceiver);
+                if (destination == null || destination.WorldId == Map.Entry.Id)
+                    continue;
+
+                activator.TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
+                return;
+            }
         }
 
         /// <summary>
