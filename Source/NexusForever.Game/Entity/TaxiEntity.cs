@@ -61,7 +61,8 @@ namespace NexusForever.Game.Entity
             return new TaxiEntityModel
             {
                 CreatureId    = CreatureId,
-                UnitVehicleId = (ushort)VehicleEntry.Id,
+                // taxis spawned from the world database (quest taxis, flavour objects) never get a vehicle entry
+                UnitVehicleId = (ushort)(VehicleEntry?.Id ?? CreatureInfo?.Entry?.UnitVehicleId ?? 0u),
                 OwnerId       = OwnerGuid,
                 Passengers    = this
                     .Select(p => new TaxiEntityModel.Passenger
