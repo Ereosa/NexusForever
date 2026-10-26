@@ -103,7 +103,7 @@ namespace NexusForever.Script.Instance.Adventure
             if (phase != 0u)
                 return;
 
-            Delay(1d, () => StartSubEvent(IntroEvent));
+            Delay(1d, StartIntro);
         }
 
         public override void OnAddToMap(IGridEntity entity)
@@ -116,6 +116,20 @@ namespace NexusForever.Script.Instance.Adventure
             if (current != null && entity is IUnitEntity unit and not IPlayer && unit.Faction1 != Faction.FriendlyToAll
                 && unit.CreatureInfo?.Entry?.CreationTypeEnum == Game.Static.Entity.EntityType.NonPlayer)
                 hostiles.Add(unit);
+        }
+
+        /// <summary>
+        /// The intro starts once the first player is in (some adventures pick it by the player's faction).
+        /// </summary>
+        private void StartIntro()
+        {
+            if (!Players.Any())
+            {
+                Delay(1d, StartIntro);
+                return;
+            }
+
+            StartSubEvent(IntroEvent);
         }
 
         protected void StartSubEvent(uint id)
