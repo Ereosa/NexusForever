@@ -8,10 +8,10 @@ namespace NexusForever.Script.Main.Challenge
     /// Objects used by challenges that are counted by a challenge script, using one starts the challenge and counts as its first.
     /// </summary>
     /// <remarks>
-    /// Green Thumb (Ch185 vegetables), Defusing the Situation (Sunderstone Proximity Mines), Lowland Lavender Eggs and What's on Tap?
+    /// Green Thumb (Ch185 vegetables), Defusing the Situation (Sunderstone Proximity Mines), Lowland Lavender Eggs, What's on Tap? and Scrap Yard
     /// aren't flagged to start by hand only and have nothing in the game data that starts them.
     /// </remarks>
-    [ScriptFilterCreatureId(21185, 21187, 23151, 33152, 31482)]
+    [ScriptFilterCreatureId(21185, 21187, 23151, 33152, 31482, 18441)]
     public class ActivateChallengeStarterEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>, IOwnedScript<INonPlayerEntity>
     {
         private static readonly Dictionary<uint, (uint ChallengeId, bool Counts)> challengeByCreature = new()
@@ -20,7 +20,8 @@ namespace NexusForever.Script.Main.Challenge
             [21187] = (185, true),  // Green Thumb, Galaraddish
             [23151] = (236, true),  // Defusing the Situation, Sunderstone Proximity Mine
             [33152] = (505, true),  // Lowland Lavender Eggs, Lowland Lavender Eggy
-            [31482] = (460, false)  // What's on Tap?, Bartender's Bottle (the first drink is poured when it starts)
+            [31482] = (460, false), // What's on Tap?, Bartender's Bottle (the first drink is poured when it starts)
+            [18441] = (80, true)    // Scrap Yard, Eldan Scrap
         };
 
         private IWorldEntity owner;
