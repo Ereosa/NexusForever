@@ -2,6 +2,7 @@ using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Trigger;
+using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Quest;
@@ -79,17 +80,19 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private WorldDifficulty difficulty;
         private byte primeLevel;
 
-        private uint friendlySkeechGuid;
-        private uint projectionGuid;
+        // entities the script spawns are tracked by reference, their guid is only assigned once the map adds them
+        private IWorldEntity friendlySkeech;
+        private IWorldEntity projection;
+        private IWorldEntity hugoAura;
+        private IUnitEntity hugoRunner;
         private uint lifeOverseerGuid;
         private uint hugoLockedGuid;
-        private uint hugoAuraGuid;
-        private uint hugoRunnerGuid;
         private readonly Dictionary<PublicEventCreature, uint> forceFields = [];
         private readonly List<uint> biomaticsBeams = [];
         private readonly List<uint> blackBoxes = [];
-        private readonly List<uint> ambushers = [];
-        private readonly List<uint> objectiveRings = [];
+        private readonly List<IWorldEntity> ambushers = [];
+        private readonly HashSet<IWorldEntity> ambushersAdded = [];
+        private readonly List<IWorldEntity> objectiveRings = [];
         private readonly HashSet<int> ambushesTriggered = [];
 
         private bool blackBoxFound;
@@ -223,7 +226,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             blackBoxes.Remove(worldEntity.Guid);
         }
 
-        private IWorldEntity SpawnCreature(uint creatureId, Vector3 position, float yaw = 0f)
+        private IWorldEntity SpawnCreature(uint creatureId, Vector3 position, float yaw = 0f, OnAddDelegate add = null)
         {
             ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(GetCreature(creatureId));
             if (creatureInfo == null)
@@ -232,13 +235,13 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             IWorldEntity entity = entityFactory.CreateWorldEntity(creatureInfo.Entry.CreationTypeEnum);
             entity.Initialise(creatureInfo);
             entity.Rotation = new Vector3(yaw, 0f, 0f);
-            entity.AddToMap(mapInstance, position);
+            entity.AddToMap(mapInstance, position, add);
             return entity;
         }
 
-        private IWorldEntity SpawnCreature(PublicEventCreature creature, Vector3 position, float yaw = 0f)
+        private IWorldEntity SpawnCreature(PublicEventCreature creature, Vector3 position, float yaw = 0f, OnAddDelegate add = null)
         {
-            return SpawnCreature((uint)creature, position, yaw);
+            return SpawnCreature((uint)creature, position, yaw, add);
         }
 
         private void RemoveEntity(ref uint guid)
@@ -248,6 +251,13 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
             mapInstance.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
             guid = 0u;
+        }
+
+        private static void RemoveEntity<T>(ref T entity) where T : class, IWorldEntity
+        {
+            if (entity?.InWorld == true)
+                entity.RemoveFromMap();
+            entity = null;
         }
 
         private void RemoveForceField(PublicEventCreature forceField)
@@ -276,8 +286,8 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         /// </summary>
         private void MoveProjection(uint worldLocationId)
         {
-            RemoveEntity(ref projectionGuid);
-            projectionGuid = SpawnCreature(PublicEventCreature.LifeOverseerProjection, GetLocation(worldLocationId), MathF.PI)?.Guid ?? 0u;
+            RemoveEntity(ref projection);
+            projection = SpawnCreature(PublicEventCreature.LifeOverseerProjection, GetLocation(worldLocationId), MathF.PI);
         }
 
         /// <summary>
@@ -286,8 +296,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private void CycleAirlock(Vector3 position, uint textId)
         {
             IWorldEntity gas = SpawnCreature(PublicEventCreature.AirlockGas, position);
-            uint guid = gas?.Guid ?? 0u;
-            Delay(6d, () => RemoveEntity(ref guid));
+            Delay(6d, () => RemoveEntity(ref gas));
 
             if (textId != 0u)
                 BroadcastSystemMessage(textId);
@@ -304,7 +313,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
             IWorldEntity ringEntity = SpawnCreature(ring, position);
             if (ringEntity != null)
-                objectiveRings.Add(ringEntity.Guid);
+                objectiveRings.Add(ringEntity);
         }
 
         private void SpawnAmbush(Vector2[] positions, int count)
@@ -313,9 +322,9 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             {
                 PublicEventCreature creature = i % 2 == 0 ? PublicEventCreature.AmbusherOpening : PublicEventCreature.TrapperOpening;
                 Vector2 point = positions[i % positions.Length] + new Vector2((float)(Random.Shared.NextDouble() * 3d - 1.5d), (float)(Random.Shared.NextDouble() * 3d - 1.5d));
-                IWorldEntity ambusher = SpawnCreature(creature, Surface(point), (float)(Random.Shared.NextDouble() * MathF.Tau));
+                IWorldEntity ambusher = SpawnCreature(creature, Surface(point), (float)(Random.Shared.NextDouble() * MathF.Tau), AggroNearestPlayer);
                 if (ambusher != null)
-                    ambushers.Add(ambusher.Guid);
+                    ambushers.Add(ambusher);
             }
         }
 
@@ -329,8 +338,9 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         public void OnPublicEventPhase(uint phase)
         {
             // the previous phase's objective ring has served its purpose
-            foreach (uint guid in objectiveRings)
-                mapInstance.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+            foreach (IWorldEntity ring in objectiveRings)
+                if (ring.InWorld)
+                    ring.RemoveFromMap();
             objectiveRings.Clear();
 
             switch ((PublicEventPhase)phase)
@@ -402,7 +412,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                 publicEvent.ActivateObjective(PublicEventObjective.LocateBlackBox, 1u);
             }
 
-            friendlySkeechGuid = SpawnCreature(PublicEventCreature.FriendlySkeech, Surface(FriendlySkeechPath[0]), MathF.PI)?.Guid ?? 0u;
+            friendlySkeech = SpawnCreature(PublicEventCreature.FriendlySkeech, Surface(FriendlySkeechPath[0]), MathF.PI);
         }
 
         private void OnPhaseFollowFriendlySkeech()
@@ -414,7 +424,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             Delay(4d, () => BroadcastCommunicatorMessage(7523u));
 
             // the friendly skeech runs ahead to the crash site... straight into the ambush
-            if (mapInstance.GetEntity<IUnitEntity>(friendlySkeechGuid) is IUnitEntity skeech)
+            if (friendlySkeech is IUnitEntity { InWorld: true } skeech)
                 skeech.MovementManager.LaunchSpline(BuildPath(FriendlySkeechPath), Game.Static.Entity.Movement.Spline.SplineType.Linear,
                     Game.Static.Entity.Movement.Spline.SplineMode.OneShot, 5f);
         }
@@ -426,26 +436,27 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             // bone traps snap shut on everyone at the crash site
             foreach (Vector2 point in BoneTraps)
             {
-                IWorldEntity trap = SpawnCreature(PublicEventCreature.BoneTrap, Surface(point));
-                if (trap is not IUnitEntity trapUnit)
-                    continue;
-
-                foreach (IPlayer player in mapInstance.GetPlayers().Where(p => p.Position.GetDistance(trapUnit.Position) < 12f))
+                IWorldEntity trap = SpawnCreature(PublicEventCreature.BoneTrap, Surface(point), 0f, (map, guid, vector) =>
                 {
-                    ISpellParameters parameters = spellParametersFactory.Resolve();
-                    parameters.PrimaryTargetId = player.Guid;
-                    trapUnit.CastSpell(76786, parameters);
-                }
+                    if (mapInstance.GetEntity<IUnitEntity>(guid) is not IUnitEntity trapUnit)
+                        return;
 
-                uint guid = trap.Guid;
-                Delay(8d, () => RemoveEntity(ref guid));
+                    foreach (IPlayer player in mapInstance.GetPlayers().Where(p => p.Position.GetDistance(vector) < 12f))
+                    {
+                        ISpellParameters parameters = spellParametersFactory.Resolve();
+                        parameters.PrimaryTargetId = player.Guid;
+                        trapUnit.CastSpell(76786, parameters);
+                    }
+                });
+
+                Delay(8d, () => RemoveEntity(ref trap));
             }
 
-            projectionGuid = SpawnCreature(PublicEventCreature.LifeOverseerProjection, Surface(new Vector2(9902f, -6040f)), 2.5f)?.Guid ?? 0u;
+            projection = SpawnCreature(PublicEventCreature.LifeOverseerProjection, Surface(new Vector2(9902f, -6040f)), 2.5f);
             BroadcastCommunicatorMessage(CommunicatorMessage.OverseerUnworthy);
             Delay(12d, () => BroadcastCommunicatorMessage(CommunicatorMessage.HugoRoughWaters));
 
-            RemoveEntity(ref friendlySkeechGuid);
+            RemoveEntity(ref friendlySkeech);
             SpawnAmbush(OpeningAmbush, 8);
         }
 
@@ -464,7 +475,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
         private void OnPhaseIncubationComplex()
         {
-            RemoveEntity(ref projectionGuid);
+            RemoveEntity(ref projection);
             CycleAirlock(new Vector3(9687f, -767.6f, -6094f), 0u);
 
             publicEvent.ActivateObjective(PublicEventObjective.SearchIncubationForJo);
@@ -493,7 +504,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
         private void OnPhaseBiomaticsChamber()
         {
-            RemoveEntity(ref projectionGuid);
+            RemoveEntity(ref projection);
             CycleAirlock(new Vector3(10119f, -776.5f, -6119f), 639390); // Airlock cycle complete. Welcome to the Biomatics Chamber.
 
             publicEvent.ActivateObjective(PublicEventObjective.SearchBiomaticsForSyrus);
@@ -525,7 +536,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
         private void OnPhaseLifeOverseersCreche()
         {
-            RemoveEntity(ref projectionGuid);
+            RemoveEntity(ref projection);
             CycleAirlock(new Vector3(9829f, -780.7f, -6316f), 639387); // Airlock cycle complete. Welcome to Life-Overseer's Creche.
 
             publicEvent.ActivateObjective(PublicEventObjective.SearchCrecheForHugo, mapInstance.PlayerCount);
@@ -546,7 +557,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private void OnPhaseSeeIfHugoHasAWayOut()
         {
             publicEvent.ActivateObjective(PublicEventObjective.SeeIfHugoHasAWayOut);
-            hugoAuraGuid = SpawnCreature(PublicEventCreature.CaptainHugoAura, GetLocation(49299), 0f)?.Guid ?? 0u;
+            hugoAura = SpawnCreature(PublicEventCreature.CaptainHugoAura, GetLocation(49299), 0f);
         }
 
         private void OnPhaseWaitForHugo()
@@ -566,27 +577,34 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         {
             publicEvent.ActivateObjective(PublicEventObjective.StayCloseToHugo);
 
-            Vector3 position = mapInstance.GetEntity<IWorldEntity>(hugoAuraGuid)?.Position ?? Surface(HugoEscapePath[0]);
-            RemoveEntity(ref hugoAuraGuid);
+            Vector3 position = hugoAura?.InWorld == true ? hugoAura.Position : Surface(HugoEscapePath[0]);
+            RemoveEntity(ref hugoAura);
 
-            IWorldEntity hugo = SpawnCreature(PublicEventCreature.CaptainHugoRunner, position, 0f);
-            hugoRunnerGuid = hugo?.Guid ?? 0u;
-            hugoWaypoint   = 1;
-            hugoTarget     = null;
-            hugoWaveTimer  = 6d;
-            hugoZapTimer   = 10d;
+            SpawnHugoRunner(position);
+            hugoWaypoint  = 1;
+            hugoTarget    = null;
+            hugoWaveTimer = 6d;
+            hugoZapTimer  = 10d;
+        }
 
-            // the Life-Overseer's device: an aura that protects and empowers everyone close to Hugo
-            if (hugo is IUnitEntity hugoUnit)
-                CastOnSelf(hugoUnit, 76947);
+        /// <summary>
+        /// Spawn Hugo for the escape, the Life-Overseer's device gives him an aura that protects and empowers everyone close to him.
+        /// </summary>
+        private void SpawnHugoRunner(Vector3 position)
+        {
+            hugoRunner = SpawnCreature(PublicEventCreature.CaptainHugoRunner, position, 0f, (map, guid, vector) =>
+            {
+                if (mapInstance.GetEntity<IUnitEntity>(guid) is IUnitEntity hugo)
+                    CastOnSelf(hugo, 76947);
+            }) as IUnitEntity;
         }
 
         private void OnPhaseSpeakWithHugo()
         {
             publicEvent.ActivateObjective(PublicEventObjective.SpeakWithHugo);
 
-            Vector3 position = mapInstance.GetEntity<IWorldEntity>(hugoRunnerGuid)?.Position ?? GetLocation(48683);
-            RemoveEntity(ref hugoRunnerGuid);
+            Vector3 position = hugoRunner?.InWorld == true ? hugoRunner.Position : GetLocation(48683);
+            RemoveEntity(ref hugoRunner);
             SpawnCreature(PublicEventCreature.CaptainHugoEnd, position, 0f);
         }
 
@@ -747,6 +765,10 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     GrantAchievement(player, 6005); // Gold Medal: They Came from Fragment Zero! (Prime)
             }
 
+            // entering Fragment Zero again starts a new run
+            if (mapInstance.MapLock != null)
+                mapInstance.MapLock.IsCompleted = true;
+
             publicEvent.Finish(PublicEventTeam.PublicTeam);
         }
 
@@ -781,7 +803,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             for (int i = 0; i < 2; i++)
             {
                 Vector3 offset = new((float)(Random.Shared.NextDouble() * 2d - 1d), 0f, (float)(Random.Shared.NextDouble() * 2d - 1d));
-                SpawnCreature(PublicEventCreature.Hatchling, egg.Position + offset, (float)(Random.Shared.NextDouble() * MathF.Tau));
+                SpawnCreature(PublicEventCreature.Hatchling, egg.Position + offset, (float)(Random.Shared.NextDouble() * MathF.Tau), AggroNearestPlayer);
             }
         }
 
@@ -795,7 +817,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             {
                 float angle = MathF.Tau / creatures.Length * i;
                 Vector3 position = lifeOverseer.Position + new Vector3(MathF.Cos(angle) * 8f, 0f, MathF.Sin(angle) * 8f);
-                SpawnCreature(creatures[i], position, angle + MathF.PI);
+                SpawnCreature(creatures[i], position, angle + MathF.PI, AggroNearestPlayer);
             }
         }
 
@@ -845,7 +867,10 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                         publicEvent.UpdateObjective(PublicEventObjective.SearchForMissingCrew, 1);
                     break;
                 case PublicEventPhase.SkeechAmbush:
-                    ambushers.RemoveAll(g => mapInstance.GetEntity<IUnitEntity>(g) is not { IsAlive: true });
+                    // ambushers count as alive until the map has added them
+                    foreach (IWorldEntity ambusher in ambushers.Where(a => a.InWorld))
+                        ambushersAdded.Add(ambusher);
+                    ambushers.RemoveAll(a => ambushersAdded.Contains(a) && (!a.InWorld || a is IUnitEntity { IsAlive: false }));
                     if (ambushers.Count == 0)
                         publicEvent.UpdateObjective(PublicEventObjective.SurviveSkeechAmbush, 1);
                     break;
@@ -864,7 +889,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     CheckAmbush(players, 2, CrecheAmbush);
                     // veteran: Lola wants the black box before going further
                     if (IsVeteran && !blackBoxFound && !ambushesTriggered.Contains(100)
-                        && players.Any(p => p.Position.GetDistance(GetLocation(48713)) < 30f))
+                        && players.Any(p => p.Position.GetDistance(new Vector3(9838.019f, -782.127f, -6283.94f)) < 20f))
                     {
                         ambushesTriggered.Add(100);
                         BroadcastCommunicatorMessage(CommunicatorMessage.LolaBlackBox);
@@ -891,21 +916,17 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         /// </summary>
         private void UpdateHugoEscape(double lastTick)
         {
-            if (mapInstance.GetEntity<IUnitEntity>(hugoRunnerGuid) is not IUnitEntity hugo)
+            if (hugoRunner is not { InWorld: true } hugo)
                 return;
 
             // the Skeech can knock Hugo down but he gets back up, the escort carries on from where he fell
             if (!hugo.IsAlive)
             {
                 Vector3 position = hugo.Position;
-                RemoveEntity(ref hugoRunnerGuid);
-                hugo = SpawnCreature(PublicEventCreature.CaptainHugoRunner, position, 0f) as IUnitEntity;
-                if (hugo == null)
-                    return;
-
-                hugoRunnerGuid = hugo.Guid;
-                hugoTarget     = null;
-                CastOnSelf(hugo, 76947);
+                RemoveEntity(ref hugoRunner);
+                SpawnHugoRunner(position);
+                hugoTarget = null;
+                return;
             }
 
             List<IPlayer> close = mapInstance.GetPlayers().Where(p => p.IsAlive && p.Position.GetDistance(hugo.Position) < 20f).ToList();
@@ -958,7 +979,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             {
                 float angle = (float)(Random.Shared.NextDouble() * MathF.Tau);
                 var point = new Vector2(hugo.Position.X + MathF.Cos(angle) * 18f, hugo.Position.Z + MathF.Sin(angle) * 18f);
-                SpawnCreature(creatures[Random.Shared.Next(creatures.Length)], Surface(point), angle + MathF.PI);
+                SpawnCreature(creatures[Random.Shared.Next(creatures.Length)], Surface(point), angle + MathF.PI, AggroNearestPlayer);
             }
 
             if (Random.Shared.Next(3) == 0)
@@ -980,6 +1001,22 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             }
 
             return nodes;
+        }
+
+        /// <summary>
+        /// Scripted attackers (ambushes, Skeech waves, summoned creations) go straight for the closest player.
+        /// </summary>
+        private void AggroNearestPlayer(IBaseMap map, uint guid, Vector3 position)
+        {
+            if (mapInstance.GetEntity<IUnitEntity>(guid) is not IUnitEntity unit)
+                return;
+
+            IPlayer player = mapInstance.GetPlayers()
+                .Where(p => p.IsAlive)
+                .OrderBy(p => p.Position.GetDistance(position))
+                .FirstOrDefault();
+            if (player != null && player.Position.GetDistance(position) < 60f)
+                unit.ThreatManager.UpdateThreat(player, 1);
         }
 
         private void CastOnSelf(IUnitEntity unit, uint spellId)

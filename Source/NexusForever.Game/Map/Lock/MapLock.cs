@@ -14,6 +14,7 @@ namespace NexusForever.Game.Map.Lock
         public WorldDifficulty Difficulty { get; set; }
         public byte PrimeLevel { get; set; }
         public bool IsInstanceLoaded { get; set; }
+        public bool IsCompleted { get; set; }
 
         private readonly HashSet<Identity> characters = [];
 

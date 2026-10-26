@@ -90,7 +90,7 @@ namespace NexusForever.Game.Entity
 
             // an instance still running for the player keeps its settings, the client then only offers to enter it
             IMapLock mapLock = MapLockManager.Instance.GetSoloLock(activator.Identity, world.Id);
-            bool existing = mapLock is { IsInstanceLoaded: true };
+            bool existing = mapLock is { IsInstanceLoaded: true, IsCompleted: false };
 
             activator.Session.EnqueueMessageEncrypted(new ServerShowInstanceGameModeDialog
             {
@@ -174,9 +174,10 @@ namespace NexusForever.Game.Entity
             if (difficulty != WorldDifficulty.Veteran)
                 primeLevel = 0;
 
-            // a finished or unloaded instance is replaced by a new one with the new settings, a running one is kept
+            // a completed instance or an unloaded one with other settings is replaced by a new one, a running one is kept
             IMapLock mapLock = MapLockManager.Instance.GetSoloLock(player.Identity, world.Id);
-            if (mapLock != null && !mapLock.IsInstanceLoaded && (mapLock.Difficulty != difficulty || mapLock.PrimeLevel != primeLevel))
+            if (mapLock != null && (mapLock.IsCompleted
+                || (!mapLock.IsInstanceLoaded && (mapLock.Difficulty != difficulty || mapLock.PrimeLevel != primeLevel))))
             {
                 MapLockManager.Instance.RemoveSoloLock(player.Identity, world.Id);
                 mapLock = null;

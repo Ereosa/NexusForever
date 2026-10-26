@@ -25,6 +25,11 @@ namespace NexusForever.Game.Abstract.Map.Lock
         bool IsInstanceLoaded { get; set; }
 
         /// <summary>
+        /// Returns if the content of the instance has been completed, entering again starts a new instance.
+        /// </summary>
+        bool IsCompleted { get; set; }
+
+        /// <summary>
         /// Initialise new map lock with supplied <see cref="MapLockType"/> and world id.
         /// </summary>
         void Initialise(MapLockType mapLockType, uint worldId);
