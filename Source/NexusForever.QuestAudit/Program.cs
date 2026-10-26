@@ -32,6 +32,24 @@ namespace NexusForever.QuestAudit
         private static GameTable<PrerequisiteEntry> prerequisites;
         private static GameTable<TargetGroupEntry> targetGroups;
         private static TextTable text;
+        private static readonly Dictionary<string, int> textHandled = [];
+
+        // target-less activate objectives the server handles by their short text (QuestObjectiveInfo: area verbs, Listen to, Follow, Use/Open/Select)
+        private static readonly string[] areaVerbs = ["Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow"];
+
+        private static bool TextHandled(QuestObjectiveEntry objective, out string how)
+        {
+            how = null;
+            uint textId = objective.LocalizedTextIdShort != 0u ? objective.LocalizedTextIdShort : objective.LocalizedTextIdFull;
+            string t = textId != 0u ? text.GetEntry(textId) ?? "" : "";
+            bool creature = System.Text.RegularExpressions.Regex.IsMatch(t, @"\$\w*\(creature=\d+\)");
+            bool marker = objective.WorldLocationsIdIndicator00 != 0u || objective.QuestDirectionId != 0u;
+            if (t.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase) && creature) how = "Listen to";
+            else if (t.StartsWith("Follow", StringComparison.OrdinalIgnoreCase) && creature && marker) how = "Follow";
+            else if ((t.StartsWith("Use the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Open the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Select the", StringComparison.OrdinalIgnoreCase)) && creature) how = "Use/Open/Select";
+            else if (marker && areaVerbs.Any(v => t.StartsWith(v, StringComparison.OrdinalIgnoreCase))) how = "Area verb";
+            return how != null;
+        }
 
         private static HashSet<PrerequisiteType> handledPrerequisites;
         private static Dictionary<uint, HashSet<uint>> spawned;
@@ -195,6 +213,11 @@ namespace NexusForever.QuestAudit
                             stat.DataZeroSpell++;
                         else if (objective.TargetGroupIdRewardPane != 0u && rewardPaneTypes.Contains(objective.Type))
                             stat.DataZeroPane++;
+                        else if (objective.Type == 5 && TextHandled(objective, out string how))
+                        {
+                            stat.DataZeroText++;
+                            textHandled[how] = textHandled.GetValueOrDefault(how) + 1;
+                        }
                         else if (hidden && objective.LocalizedTextIdFull == 0u)
                             stat.DataZeroServer++;
                         else
@@ -307,13 +330,16 @@ namespace NexusForever.QuestAudit
 
             sb.AppendLine("## Objective types");
             sb.AppendLine();
-            sb.AppendLine("| Type | Name | Support | Hook | Objectives | Quests | Spell advanced | Data 0 | Data 0 via quest object | Data 0 via spell | Data 0 via reward pane | Data 0 server-only | Data 0 no target |");
-            sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+            sb.AppendLine("| Type | Name | Support | Hook | Objectives | Quests | Spell advanced | Data 0 | Data 0 via quest object | Data 0 via spell | Data 0 via reward pane | Data 0 via text | Data 0 server-only | Data 0 no target |");
+            sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
             foreach ((uint type, ObjectiveStat stat) in objectiveStats.OrderByDescending(s => s.Value.Quests.Count))
             {
                 QuestObjectiveSupport.Types.TryGetValue((QuestObjectiveType)type, out var support);
-                sb.AppendLine($"| {type} | {(QuestObjectiveType)type} | {QuestObjectiveSupport.GetLevel((QuestObjectiveType)type)} | {support.Hook} | {stat.Objectives} | {stat.Quests.Count} | {stat.SpellAdvanced} | {stat.DataZero} | {stat.DataZeroAnimObject} | {stat.DataZeroSpell} | {stat.DataZeroPane} | {stat.DataZeroServer} | {stat.DataZeroNoTarget} |");
+                sb.AppendLine($"| {type} | {(QuestObjectiveType)type} | {QuestObjectiveSupport.GetLevel((QuestObjectiveType)type)} | {support.Hook} | {stat.Objectives} | {stat.Quests.Count} | {stat.SpellAdvanced} | {stat.DataZero} | {stat.DataZeroAnimObject} | {stat.DataZeroSpell} | {stat.DataZeroPane} | {stat.DataZeroText} | {stat.DataZeroServer} | {stat.DataZeroNoTarget} |");
             }
+            sb.AppendLine();
+
+            sb.AppendLine("Target-less activate objectives handled by their text: " + string.Join(", ", textHandled.OrderByDescending(t => t.Value).Select(t => $"{t.Key} {t.Value}")));
             sb.AppendLine();
 
             sb.AppendLine("## Prerequisite types reachable from quests, communicator messages and objective targets");
@@ -460,6 +486,7 @@ namespace NexusForever.QuestAudit
             public int DataZeroAnimObject;
             public int DataZeroSpell;
             public int DataZeroPane;
+            public int DataZeroText;
             public int SpellAdvanced;
             public int DataZeroServer;
             public int DataZeroNoTarget;
