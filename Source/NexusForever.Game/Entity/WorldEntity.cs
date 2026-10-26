@@ -712,7 +712,12 @@ namespace NexusForever.Game.Entity
                 if (destination == null || destination.WorldId == Map.Entry.Id)
                     continue;
 
-                activator.TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
+                // a cinematic started by the departure (eg: the Levian Bay escape) plays before the player leaves the map
+                activator.CinematicManager.WhenFinished(() =>
+                {
+                    if (activator.CanTeleport())
+                        activator.TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
+                });
                 return;
             }
         }

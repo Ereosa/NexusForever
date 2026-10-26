@@ -1,4 +1,4 @@
-﻿using NexusForever.Game.Abstract.Cinematic;
+using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Cinematic;
 using NLog;
@@ -23,6 +23,7 @@ namespace NexusForever.Game.Entity
         private Action currentCallback;
         private double currentTimer;
         private readonly Queue<(ICinematicBase Cinematic, Action Callback)> queuedCinematics = new();
+        private readonly List<Action> finishedActions = [];
 
         /// <summary>
         /// Returns if a cinematic is currently playing for the <see cref="IPlayer"/>.
@@ -67,12 +68,26 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Invoke <paramref name="action"/> once every playing and queued cinematic has finished, immediately if none is playing.
+        /// </summary>
+        public void WhenFinished(Action action)
+        {
+            if (currentCinematic == null)
+                action();
+            else
+                finishedActions.Add(action);
+        }
+
+        /// <summary>
         /// Play the next queued <see cref="ICinematicBase"/>.
         /// </summary>
         private void PlayQueuedCinematic()
         {
             if (queuedCinematics.Count == 0)
+            {
+                RunFinishedActions();
                 return;
+            }
 
             (ICinematicBase cinematic, Action callback) = queuedCinematics.Dequeue();
             currentCinematic = cinematic;
@@ -115,6 +130,26 @@ namespace NexusForever.Game.Entity
 
                     FinishCurrentCinematic();
                     break;
+                }
+            }
+        }
+
+        private void RunFinishedActions()
+        {
+            if (finishedActions.Count == 0)
+                return;
+
+            List<Action> actions = [.. finishedActions];
+            finishedActions.Clear();
+            foreach (Action action in actions)
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception exception)
+                {
+                    log.Error(exception, $"Action waiting on cinematics failed for {owner.Name}.");
                 }
             }
         }

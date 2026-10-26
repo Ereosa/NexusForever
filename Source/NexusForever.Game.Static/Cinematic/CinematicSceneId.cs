@@ -28,6 +28,8 @@ namespace NexusForever.Game.Static.Cinematic
         AlgorocCannonSpawn              = 60,
         AlgorocSkullsEyeEscape          = 62,
         AlgorocJudgeKainLosesAnArm      = 267,
+        AlgorocArrival                  = 141,
+        AlgorocDeparture                = 197,
         AlgorocSkullsEyeArrival         = 1001,
         AlgorocSkullsEyeTakeoff         = 1002,
 
@@ -44,6 +46,7 @@ namespace NexusForever.Game.Static.Cinematic
 
         // Ellevar
         EllevarHighShamanRitual         = 66,
+        EllevarArrival                  = 142,
 
         // Celestion
         CelestionForestFightsBack       = 68,

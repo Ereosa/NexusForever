@@ -1,4 +1,4 @@
-﻿using NexusForever.Game.Abstract.Cinematic;
+using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Static.Cinematic;
 using NexusForever.Shared;
 
@@ -18,6 +18,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// <paramref name="onFinish"/> is invoked once the client reports the cinematic ended, or was skipped.
         /// </remarks>
         void QueueCinematic(ICinematicBase cinematic, Action onFinish = null);
+
+        /// <summary>
+        /// Invoke <paramref name="action"/> once every playing and queued cinematic has finished, immediately if none is playing.
+        /// </summary>
+        void WhenFinished(Action action);
 
         /// <summary>
         /// Handle the <see cref="CinematicState"/> the Client sent back. Only to be called from Client Handlers.

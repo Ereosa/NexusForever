@@ -109,13 +109,36 @@ namespace NexusForever.Game.Cinematic.Scene
 
             // GC062: the escape pod leaves the exploding Skull's Eye over Tremor Ridge, camera spline 6237
             // Spline 11125 is a copy of the same shot on another origin (3700.91, -1019.74, -4657.43), the first one was picked.
+            // Followed by "Tremor Ridge saved" (sound Play_Cinematic_TremorRidgeSaved_Stereo): the town camera splines 5891 and 5892 share
+            // the escape origin. Guessed that they follow the escape, no model sequence covers them.
             Add(CinematicSceneId.AlgorocSkullsEyeEscape)
-                .WithDuration(4667)
+                .WithDuration(24967)
                 .AtOrigin(3825.070f, -1018.220f, -4630.700f)
                 .WithSequenceVisual(SequenceVisualMisc03)
-                .SplineShot(0, 6237)
+                .SplineShot(0, 6237).SplineShot(4667, 5891).SplineShot(13600, 5892)
                 .WithActors(36964, 36965, 36970)
-                .WithPlayerVisual(18350);
+                .WithPlayerVisual(18350)
+                .WithPlayerVisual(11545, 4667);
+
+            // GC141: the borrowed Dominion transport from Camp Icefury lands at the Tremor Ridge pad. Generic ship arrival (10 s, one camera)
+            // placed on WorldLocation2 49496 and rotated by its facing: pi + 76 degrees is the facing of the parked transport world spawn
+            // (69781 "Dominion Transport - Algoroc - Cinematic Spawn") on the same spot. Engine sound guessed.
+            Add(CinematicSceneId.AlgorocArrival)
+                .WithDuration(10000)
+                .AtOrigin(3814.840f, -1001.468f, -4486.068f)
+                .WithAngle(-1.81479f)
+                .WithCamera(69782)
+                .WithActors(69783)
+                .WithPlayerVisual(7647);
+
+            // GC197: the Dominion transport leaves the Tremor Ridge pad, generic departure on WorldLocation2 49687 (same spot, the transport's
+            // facing). No trigger: how the player boards for Thayd isn't known.
+            Add(CinematicSceneId.AlgorocDeparture)
+                .WithDuration(17967)
+                .AtOrigin(3814.840f, -998.086f, -4486.066f)
+                .WithAngle(1.29275f)
+                .WithCamera(70036)
+                .WithActors(70037);
 
             // GC017: augmentors convert XAS scientists at Annihilator Silo 14, camera spline 10885
             Add(CinematicSceneId.AlgorocAugmentation)

@@ -11,12 +11,12 @@ namespace NexusForever.Game.Cinematic.Scene
         private static void AddOlyssia()
         {
             // GC029: Mechari arrival, the second scene of the models of the captured Cassian arrival (GC028),
-            // Cinematic_Misc_20 and cameras Cinematic_05 to _08 (model cameras 11-14).
-            // Origin guessed: WorldLocation2 40189 at Jagged Cove, created with the captured GC028 origin 40188 at Stormcaller Landing
-            // (the two Dominion landing sites of Levian Bay). Sound as in the GC028 capture, subtitle timings copied from it.
+            // Cinematic_Misc_20 and cameras Cinematic_05 to _08 (model cameras 11-14). Both scenes are authored on the captured GC028 origin,
+            // from there the Mechari camera ends exactly on WorldLocation2 40189 at Jagged Cove, the Mechari landing site.
+            // Sound as in the GC028 capture, subtitle timings copied from it.
             Add(CinematicSceneId.LevianBayMechariArrival)
                 .WithDuration(36000)
-                .AtOrigin(-3762.832f, -993.473f, -6342.372f)
+                .AtOrigin(-3784.270f, -988.663f, -6188.072f)
                 .WithSequenceVisual(SequenceVisualMisc20)
                 .WithCamera(50444, 11)
                 .CutTo(6333, 12).CutTo(23600, 13).CutTo(28700, 14)
@@ -178,6 +178,14 @@ namespace NexusForever.Game.Cinematic.Scene
                 .CutTo(21333, 15).CutTo(23767, 16).CutTo(27867, 17).CutTo(31300, 18).CutTo(37567, 19)
                 .WithActors(73184, 73185, 73186, 73187, 73188, 73189, 73190)
                 .WithPlayerVisual(50703);
+
+            // GC142: the stolen Exile transport (Levian Bay escape, Crimson Isle launch) lands at Lightreach Mission. Generic ship arrival on
+            // WorldLocation2 49517 (identity facing copy of 20541, from the same build as the scene), unrotated. Engine sound none in data.
+            Add(CinematicSceneId.EllevarArrival)
+                .WithDuration(10000)
+                .AtOrigin(-2601.710f, -789.645f, -3586.000f)
+                .WithCamera(69831)
+                .WithActors(69832);
 
             // GC066: the Stormseeker ritual in the Vein of the Flow ends with the High Priest dead, camera spline 14859
             Add(CinematicSceneId.EllevarHighShamanRitual)

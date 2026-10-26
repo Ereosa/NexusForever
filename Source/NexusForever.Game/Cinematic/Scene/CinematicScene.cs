@@ -76,6 +76,18 @@ namespace NexusForever.Game.Cinematic.Scene
             return this;
         }
 
+        /// <summary>
+        /// Rotation of the scene, the actors face <see cref="MathF.PI"/> in an unrotated scene.
+        /// </summary>
+        /// <remarks>
+        /// Scenes reused on several origins (generic ship arrivals) are rotated by the facing of the origin WorldLocation2, pass pi + its yaw.
+        /// </remarks>
+        public CinematicScene WithAngle(float angle)
+        {
+            Angle = angle;
+            return this;
+        }
+
         public CinematicScene WithCinematicId(ushort cinematicId)
         {
             CinematicId = cinematicId;
