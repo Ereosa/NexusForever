@@ -824,7 +824,10 @@ namespace NexusForever.Game.Entity
                 .OfType<IInstancePortalEntity>()
                 .FirstOrDefault(e => Vector3.Distance(e.Position, position) <= InstancePortalRange);
             if (portal == null)
+            {
+                CheckLevelTeleporters(position);
                 return;
+            }
 
             instancePortalCooldown = 5d;
 
@@ -845,6 +848,65 @@ namespace NexusForever.Game.Entity
                     TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
                     return;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Distance from a level teleporter (eg: the Eldan Teleporters of the Star-Comm station) that steps onto it.
+        /// </summary>
+        private const float LevelTeleporterRange = 2.5f;
+
+        private static readonly Dictionary<ushort, List<(uint CreatureId, string Name, Vector3 Position)>> levelTeleporters = [];
+
+        /// <remarks>
+        /// Teleporter creatures without an activate spell (Eldan Teleporter on the Levian Bay surface and in the station below) were moved
+        /// between by retail scripts, they come in pairs on different levels: stepping onto one moves the player to the nearest teleporter
+        /// with the same name at least 50 m above or below.
+        /// </remarks>
+        private void CheckLevelTeleporters(Vector3 position)
+        {
+            List<(uint CreatureId, string Name, Vector3 Position)> teleporters = GetLevelTeleporters((ushort)Map.Entry.Id);
+            if (teleporters.Count == 0)
+                return;
+
+            (uint CreatureId, string Name, Vector3 Position) source = teleporters
+                .FirstOrDefault(t => Vector3.Distance(t.Position, position) <= LevelTeleporterRange);
+            if (source.Name == null)
+                return;
+
+            (uint CreatureId, string Name, Vector3 Position) destination = teleporters
+                .Where(t => t.Name == source.Name && MathF.Abs(t.Position.Y - source.Position.Y) >= 50f
+                    && Vector3.Distance(t.Position, source.Position) <= 600f)
+                .OrderBy(t => Vector3.Distance(t.Position, source.Position))
+                .FirstOrDefault();
+            if (destination.Name == null)
+                return;
+
+            instancePortalCooldown = 5d;
+
+            // arrive beside the destination teleporter so it doesn't send the player straight back
+            Vector3 arrival = destination.Position + new Vector3(LevelTeleporterRange + 1.5f, 0f, 0f);
+            arrival.Y = Map.GetTerrainHeight(arrival.X, arrival.Z) is float height && MathF.Abs(height - destination.Position.Y) < 3f ? height : destination.Position.Y;
+            TeleportToLocal(arrival);
+        }
+
+        private static List<(uint CreatureId, string Name, Vector3 Position)> GetLevelTeleporters(ushort worldId)
+        {
+            lock (levelTeleporters)
+            {
+                if (levelTeleporters.TryGetValue(worldId, out var teleporters))
+                    return teleporters;
+
+                TextTable text = GameTableManager.Instance.GetTextTable(Language.English);
+                teleporters = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetEntities(worldId)
+                    .Where(e => e.Type is EntityType.NonPlayer or EntityType.Simple)
+                    .Select(e => (Model: e, Creature: GameTableManager.Instance.Creature2.GetEntry(e.Creature)))
+                    .Where(e => e.Creature != null && e.Creature.Spell4IdActivate.All(s => s == 0u))
+                    .Select(e => (e.Model.Creature, Name: text?.GetEntry(e.Creature.LocalizedTextIdName) ?? "", Position: new Vector3(e.Model.X, e.Model.Y, e.Model.Z)))
+                    .Where(e => e.Name.EndsWith("Teleporter", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                levelTeleporters.Add(worldId, teleporters);
+                return teleporters;
             }
         }
 
