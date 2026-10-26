@@ -173,7 +173,8 @@ namespace NexusForever.Game.Quest
                 for (byte i = 0; i < info.Objectives.Count; i++)
                     objectives.Add(new QuestObjective(player, info, info.Objectives[i], i));
 
-            if (objectives.Count == 0)
+            // objectives with a count of 0 are complete from the start, no update would ever achieve the quest
+            if (objectives.All(o => o.IsComplete()))
                 State = QuestState.Achieved;
 
             InitialiseItems();
