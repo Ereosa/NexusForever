@@ -89,7 +89,8 @@ namespace NexusForever.Game.Quest
             {
                 listenCreatureId = 0u;
                 string text = GetShortText();
-                if (IsTargetless() && text.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase))
+                // "Meet $(creature=20306) on the hill": being with them is the meeting
+                if (IsTargetless() && (text.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase) || text.StartsWith("Meet ", StringComparison.OrdinalIgnoreCase)))
                 {
                     Match match = Regex.Match(text, @"\$\w*\(creature=(\d+)\)");
                     if (match.Success)
@@ -101,7 +102,7 @@ namespace NexusForever.Game.Quest
         }
 
         private uint? useCreatureId;
-        private static readonly string[] useVerbs = { "Use the", "Open the", "Select the", "Use a", "Open a" };
+        private static readonly string[] useVerbs = { "Use the", "Open the", "Select the", "Use a", "Open a", "Squash" };
 
         /// <summary>
         /// Return the creature a target-less "Use/Open/Select the" objective names, 0 if it isn't one.
@@ -175,6 +176,51 @@ namespace NexusForever.Game.Quest
                 .OrderByDescending(f => f.Name.Length)
                 .Select(f => (uint?)f.Id)
                 .FirstOrDefault();
+        }
+
+        private (uint CreatureId, string Command)? emoteTrigger;
+
+        /// <summary>
+        /// Return the creature and emote command of an objective asking for an emote before a creature
+        /// ("Kneel before the $(creature=65411)", full text "Perform a /kneel before ..."), (0, null) if it isn't one.
+        /// </summary>
+        public (uint CreatureId, string Command) GetEmoteTrigger()
+        {
+            if (emoteTrigger == null)
+            {
+                emoteTrigger = (0u, null);
+                if (Type == QuestObjectiveType.ActivateEntity && Entry.Data == 0u)
+                {
+                    TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+                    string full = (Entry.LocalizedTextIdFull != 0u ? textTable?.GetEntry(Entry.LocalizedTextIdFull) : null) ?? "";
+                    Match command = Regex.Match(full, @"\bPerform an? /(?<command>\w+)", RegexOptions.IgnoreCase);
+                    Match creature = Regex.Match(GetShortText() + " " + full, @"\$\w*\(creature=(\d+)\)");
+                    if (command.Success && creature.Success)
+                        emoteTrigger = (uint.Parse(creature.Groups[1].Value), command.Groups["command"].Value.ToLowerInvariant());
+                }
+            }
+
+            return emoteTrigger.Value;
+        }
+
+        private bool? activationAtMarker;
+
+        /// <summary>
+        /// Returns if the objective has no target of its own and is advanced by using something at its marker
+        /// (eg: "Place protective wards on Elder Tree saplings", one objective per sapling).
+        /// </summary>
+        public bool IsActivationAtMarker()
+        {
+            activationAtMarker ??= Type is QuestObjectiveType.ActivateEntity or QuestObjectiveType.SucceedCSI
+                && Entry.Data == 0u
+                && Entry.TargetGroupIdRewardPane == 0u
+                && GetTextTrigger().Kind == QuestTextTrigger.None
+                && GetEmoteTrigger().CreatureId == 0u
+                && !IsAreaObjective()
+                && GetUseCreatureId() == 0u
+                && GetListenCreatureId() == 0u
+                && GetAreaLocations().Any(l => l.Radius <= 20f);
+            return activationAtMarker.Value;
         }
 
         private string GetShortText()

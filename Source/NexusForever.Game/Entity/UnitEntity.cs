@@ -672,6 +672,8 @@ namespace NexusForever.Game.Entity
         {
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature, CreatureId, 1u);
             player.QuestManager.OnHuntKill(this);
+            // "Squash $m(creature=24352)": killing them is the squashing
+            player.QuestManager.ObjectiveUpdateUseCreature(CreatureId);
 
             // "kill creatures of a difficulty or higher", data is the lowest Creature2Difficulty id (inferred: Prime is 6)
             for (uint difficultyId = 1u; difficultyId <= (CreatureInfo?.Entry?.Creature2DifficultyId ?? 0u); difficultyId++)

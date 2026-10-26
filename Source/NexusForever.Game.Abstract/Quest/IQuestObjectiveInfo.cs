@@ -56,5 +56,15 @@ namespace NexusForever.Game.Abstract.Quest
         /// Return what a target-less activate objective asks for when its text names it, <see cref="QuestTextTrigger.None"/> if it isn't one.
         /// </summary>
         (QuestTextTrigger Kind, uint Id, string Name) GetTextTrigger();
+
+        /// <summary>
+        /// Return the creature and emote command of an objective asking for an emote before a creature, (0, null) if it isn't one.
+        /// </summary>
+        (uint CreatureId, string Command) GetEmoteTrigger();
+
+        /// <summary>
+        /// Returns if the objective has no target of its own and is advanced by using something at its marker.
+        /// </summary>
+        bool IsActivationAtMarker();
     }
 }

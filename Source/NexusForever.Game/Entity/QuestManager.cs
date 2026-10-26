@@ -1005,6 +1005,61 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Distance to the creature an emote objective asks to perform the emote before.
+        /// </summary>
+        private const float EmoteObjectiveDistance = 15f;
+
+        /// <summary>
+        /// Invoked when the owner performs an emote, updates "Perform a /kneel before the ..." objectives near their creature.
+        /// </summary>
+        public void OnEmote(uint emoteId)
+        {
+            if (emoteId == 0u || player.Map == null)
+                return;
+
+            EmotesEntry emote = GameTableManager.Instance.Emotes.GetEntry(emoteId);
+            string command = emote != null ? GameTableManager.Instance.GetTextTable(Language.English)?.GetEntry(emote.LocalizedTextIdCommand) : null;
+            if (string.IsNullOrEmpty(command))
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete()).ToList())
+                {
+                    (uint creatureId, string objectiveCommand) = objective.ObjectiveInfo.GetEmoteTrigger();
+                    if (creatureId == 0u || !string.Equals(objectiveCommand, command.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (player.GetVisibleCreature<IWorldEntity>(creatureId).Any(e => Vector3.Distance(player.Position, e.Position) <= EmoteObjectiveDistance)
+                        || objective.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == player.Map.Entry.Id
+                            && Vector3.Distance(player.Position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(EmoteObjectiveDistance, l.Radius)))
+                        quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Distance from an objective's marker within which using something advances an objective without a target.
+        /// </summary>
+        private const float ActivationAtMarkerDistance = 10f;
+
+        /// <summary>
+        /// Invoked when the owner used an entity, updates objectives without a target of their own whose marker is where it stands.
+        /// </summary>
+        public void OnActivatedAt(IWorldEntity entity)
+        {
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete() && o.ObjectiveInfo.IsActivationAtMarker()).ToList())
+                {
+                    if (objective.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == entity.Map?.Entry.Id
+                        && Vector3.Distance(entity.Position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(ActivationAtMarkerDistance, l.Radius)))
+                        quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                }
+            }
+        }
+
+        /// <summary>
         /// Invoked when the owner gains reputation, updates "Gain 1000 Algoroc Accord Reputation" objectives by the amount.
         /// </summary>
         public void OnReputationGain(uint factionId, float amount)

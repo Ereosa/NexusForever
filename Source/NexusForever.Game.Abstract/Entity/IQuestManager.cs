@@ -169,6 +169,16 @@ namespace NexusForever.Game.Abstract.Entity
         void OnHuntKill(IUnitEntity victim);
 
         /// <summary>
+        /// Invoked when the owner performs an emote, updates "Perform a /kneel before the ..." objectives near their creature.
+        /// </summary>
+        void OnEmote(uint emoteId);
+
+        /// <summary>
+        /// Invoked when the owner used an entity, updates objectives without a target of their own whose marker is where it stands.
+        /// </summary>
+        void OnActivatedAt(IWorldEntity entity);
+
+        /// <summary>
         /// Invoked when a public event the owner took part in finishes, <paramref name="won"/> if the owner was on the winning team.
         /// </summary>
         void OnPublicEventFinish(PublicEventEntry entry, IMatchingMap matchingMap, bool won);
