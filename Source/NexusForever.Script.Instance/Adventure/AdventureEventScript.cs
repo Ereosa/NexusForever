@@ -48,7 +48,10 @@ namespace NexusForever.Script.Instance.Adventure
         protected override uint InitialPhase => 0u;
         protected override IReadOnlyDictionary<uint, uint> VeteranCreatures => new Dictionary<uint, uint>();
 
-        private const double StallTime = 480d;
+        /// <summary>
+        /// Seconds without progress after which a sub-event is finished for the players.
+        /// </summary>
+        protected virtual double StallTime(uint subEventId) => 480d;
 
         private readonly List<int> chosen = [];
         private readonly List<IUnitEntity> hostiles = [];
@@ -91,7 +94,7 @@ namespace NexusForever.Script.Instance.Adventure
                 hostiles.Add(unit);
         }
 
-        private void StartSubEvent(uint id)
+        protected void StartSubEvent(uint id)
         {
             hostiles.Clear();
             timed.Clear();
@@ -184,13 +187,28 @@ namespace NexusForever.Script.Instance.Adventure
             IPublicEvent finished = current;
             current = null;
             finished?.Finish(PublicEventTeam.PublicTeam);
+            NextSubEvent(finished?.Id ?? 0u);
+        }
 
+        /// <summary>
+        /// Credit the adventure's own objectives and finish it.
+        /// </summary>
+        protected void FinishAdventure()
+        {
+            foreach (uint objectiveId in FinalObjectives)
+                Update(objectiveId);
+            CompleteExpedition([], [], 0, 0, 0, false);
+        }
+
+        /// <summary>
+        /// A sub-event finished: storyline adventures vote or continue to the next stage, adventures with another structure override this.
+        /// </summary>
+        protected virtual void NextSubEvent(uint finishedId)
+        {
             stage++;
             if (stage > 5)
             {
-                foreach (uint objectiveId in FinalObjectives)
-                    Update(objectiveId);
-                CompleteExpedition([], [], 0, 0, 0, false);
+                FinishAdventure();
                 return;
             }
 
@@ -268,7 +286,7 @@ namespace NexusForever.Script.Instance.Adventure
                 return;
 
             stall += lastTick;
-            if (stall < StallTime)
+            if (stall < StallTime(current.Id))
                 return;
 
             // nothing moved for a long time: finish what only retail scripting could
