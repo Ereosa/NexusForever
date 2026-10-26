@@ -24,7 +24,7 @@ namespace NexusForever.WorldServer.Network.Internal.Handler.Friendship
         public Task Handle(FriendshipInviteRemovedMessage message)
         {
             IPlayer player = playerManager.GetPlayer(message.FriendInvite.Character.Identity.ToGameIdentity());
-            player.Session.EnqueueMessageEncrypted(new ServerFriendshipInviteRemove
+            player?.Session.EnqueueMessageEncrypted(new ServerFriendshipInviteRemove
             {
                 InviteId = message.FriendInvite.Id
             });

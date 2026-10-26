@@ -24,7 +24,7 @@ namespace NexusForever.WorldServer.Network.Internal.Handler.Friendship
         public Task Handle(FriendshipAddedMessage message)
         {
             IPlayer player = playerManager.GetPlayer(message.Friend.InviterCharacter.Identity.ToGameIdentity());
-            player.Session.EnqueueMessageEncrypted(new ServerFriendshipAdd
+            player?.Session.EnqueueMessageEncrypted(new ServerFriendshipAdd
             {
                 Friend = new FriendData
                 {

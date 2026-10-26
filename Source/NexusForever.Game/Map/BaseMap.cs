@@ -580,6 +580,11 @@ namespace NexusForever.Game.Map
             uint guid = entityCounter.Dequeue();
             entities.Add(guid, entity);
 
+            // RemoveEntity drops the player from the player manager on every map change, so add them back here
+            // or identity lookups (friends, whispers, groups, guilds) stop finding them until they relog
+            if (entity is IPlayer player)
+                PlayerManager.AddPlayer(player);
+
             add?.Invoke(this, guid, vector);
 
             PublicEventManager.OnAddToMap(entity);
