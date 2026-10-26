@@ -62,4 +62,48 @@ namespace NexusForever.Script.Alizar.Quest
             });
         }
     }
+
+    /// <summary>
+    /// The Calmwater Ritual (Whitevale): "Remain in the circle until the ritual is complete" once the offerings are made.
+    /// </summary>
+    /// <remarks>
+    /// The Ritual Ring (36763, tagged "Ritual Ring - Q5853") rises in the circle at the objective's marker while the player remains,
+    /// for the length of the wait. Its placement in the circle's middle is a guess.
+    /// </remarks>
+    [ScriptFilterOwnerId(5853)]
+    public class CalmwaterRitualQuestScript : QuestSceneScript
+    {
+        private const uint RemainObjectiveId = 8994u;
+        private const uint RitualRing        = 36763u;
+
+        // the objective's marker, WorldLocation2 19605
+        private static readonly Vector3 circle = new(2724.8f, -1072.8f, 1190f);
+
+        protected override IReadOnlyList<uint> SceneObjectiveIds => [RemainObjectiveId];
+
+        private readonly ICreatureInfoManager creatureInfoManager;
+        private uint? ringGuid;
+
+        public CalmwaterRitualQuestScript(
+            ICreatureInfoManager creatureInfoManager)
+        {
+            this.creatureInfoManager = creatureInfoManager;
+        }
+
+        protected override void OnSceneStart(uint objectiveId, IPlayer player)
+        {
+            ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(RitualRing);
+            if (creatureInfo == null)
+                return;
+
+            player.SummonFactory.Summon<ISimpleEntity>(creatureInfo, circle, Vector3.Zero, (map, guid, vector) => ringGuid = guid);
+        }
+
+        protected override void OnSceneEnd(uint objectiveId, IPlayer player)
+        {
+            if (ringGuid != null)
+                player.Map?.GetEntity<IWorldEntity>(ringGuid.Value)?.RemoveFromMap();
+            ringGuid = null;
+        }
+    }
 }
