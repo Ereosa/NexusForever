@@ -149,6 +149,58 @@ namespace NexusForever.Game
             return scientistCreatureInfos.TryGetValue(creatureId, out ImmutableList<uint> infoIds) ? infoIds : ImmutableList<uint>.Empty;
         }
 
+        /// <summary>
+        /// Some type 9 target groups of quest objectives list creatures unrelated to the quest (A Fiery Escape's "Rescue Trapped Aurin"
+        /// lists Frazzle and Frizz of Ellevar). When none of a group's creatures is tagged with the quest in its description ("Q6671 - ..."),
+        /// the creatures that are, and whose name the objective's text contains, join the group.
+        /// </summary>
+        private static void AddQuestTaggedTargetGroupCreatures(ImmutableDictionary<uint, List<uint>>.Builder entries)
+        {
+            TextTable text = GameTableManager.Instance.GetTextTable(Language.English);
+            if (text == null)
+                return;
+
+            List<Creature2Entry> creatures = GameTableManager.Instance.Creature2.Entries.Where(c => c != null).ToList();
+            foreach (Quest2Entry quest in GameTableManager.Instance.Quest2.Entries.Where(q => q != null))
+            {
+                string tag = $"Q{quest.Id}";
+                foreach (uint objectiveId in quest.Objectives.Where(o => o != 0u))
+                {
+                    QuestObjectiveEntry objective = GameTableManager.Instance.QuestObjective.GetEntry(objectiveId);
+                    if (objective == null || (QuestObjectiveType)objective.Type is not (QuestObjectiveType.TalkToTargetGroup
+                        or QuestObjectiveType.ActivateTargetGroup or QuestObjectiveType.ActivateTargetGroupChecklist or QuestObjectiveType.KillTargetGroups))
+                        continue;
+
+                    TargetGroupEntry group = GameTableManager.Instance.TargetGroup.GetEntry(objective.Data);
+                    if (group == null || (TargetGroupType)group.Type != TargetGroupType.Unknown9)
+                        continue;
+
+                    bool tagged = group.DataEntries
+                        .Where(d => d != 0u)
+                        .Select(d => GameTableManager.Instance.Creature2.GetEntry(d))
+                        .Any(c => c != null && System.Text.RegularExpressions.Regex.IsMatch(c.Description ?? "", $@"\b{tag}\b"));
+                    if (tagged)
+                        continue;
+
+                    string objectiveText = text.GetEntry(objective.LocalizedTextIdShort) ?? text.GetEntry(objective.LocalizedTextIdFull) ?? "";
+                    foreach (Creature2Entry creature in creatures)
+                    {
+                        if (!System.Text.RegularExpressions.Regex.IsMatch(creature.Description ?? "", $@"\b{tag}\b"))
+                            continue;
+
+                        string name = (text.GetEntry(creature.LocalizedTextIdName) ?? "").Split('{')[0];
+                        if (name.Length < 4 || !objectiveText.Contains(name, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        if (!entries.ContainsKey(creature.Id))
+                            entries.Add(creature.Id, new List<uint>());
+                        if (!entries[creature.Id].Contains(group.Id))
+                            entries[creature.Id].Add(group.Id);
+                    }
+                }
+            }
+        }
+
         private void CacheCreatureTargetGroups()
         {
             var entries = ImmutableDictionary.CreateBuilder<uint, List<uint>>();
@@ -216,6 +268,8 @@ namespace NexusForever.Game
                     }
                 }
             }
+
+            AddQuestTaggedTargetGroupCreatures(entries);
 
             // target groups can contain other target groups (eg: kill objectives covering several creature families),
             // a creature also belongs to every group above its own
