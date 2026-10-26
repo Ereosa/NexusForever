@@ -39,9 +39,14 @@ namespace NexusForever.Server.ChatServer.Job
                 if (message == null)
                     break;
 
+                // an unknown type is marked processed too, otherwise the same message is fetched again forever
                 var type = Type.GetType(message.Type);
                 if (type == null)
+                {
+                    message.ProcessedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
                     continue;
+                }
 
                 var metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(message.Metadata);
                 PropagationContext parent = Propagators.DefaultTextMapPropagator.Extract(default, metadata,

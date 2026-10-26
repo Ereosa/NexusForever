@@ -36,12 +36,13 @@ namespace NexusForever.Server.Friendship.Job
                 if (message == null)
                     break;
 
+                // an unknown type is marked processed too, otherwise the same message is fetched again forever
                 var type = Type.GetType(message.Type);
-                if (type == null)
-                    continue;
-
-                object payload = JsonSerializer.Deserialize(message.Payload, type);
-                await _messagePublisher.PublishAsync(payload);
+                if (type != null)
+                {
+                    object payload = JsonSerializer.Deserialize(message.Payload, type);
+                    await _messagePublisher.PublishAsync(payload);
+                }
 
                 message.ProcessedAt = DateTime.UtcNow;
 
