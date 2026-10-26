@@ -8,26 +8,6 @@ namespace NexusForever.Script.Farside.Quest
     // Server-only wave events of quest steps (objective type 25) whose reward pane target group lists the attackers.
 
     /// <summary>
-    /// Element of Surprise: "Defend against the Darkspur Cartel's ambush at the Dustrunner crash site".
-    /// </summary>
-    /// <remarks>
-    /// Darkspur Mugger 28948, Swindler 28120, Doubledealer 28119 and Safecracker 28950 (levels 31-32, never spawned). Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6179)]
-    public class ElementOfSurprise6179QuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (9513, [[28948, 28120], [28119, 28950], [28948, 28119, 28950]])
-        ];
-
-        public ElementOfSurprise6179QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Element of Surprise: the Dominion version of the Dustrunner ambush.
     /// </summary>
     /// <remarks>

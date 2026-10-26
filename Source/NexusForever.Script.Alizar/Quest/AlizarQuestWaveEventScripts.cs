@@ -30,50 +30,11 @@ namespace NexusForever.Script.Alizar.Quest
     }
 
     /// <summary>
-    /// Balancing Power (Galeras): "Defend Belle from the attackers on Skywind Beach".
-    /// </summary>
-    /// <remarks>
-    /// The attackers are the creature the objective text names (19147). Two waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(4909)]
-    public class BalancingPowerQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (6930, [[19147, 19147], [19147, 19147, 19147]])
-        ];
-
-        public BalancingPowerQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// The Lifeblood Pool (Celestion): "Defend against Liferoot Guardians at the Lifeblood Pool".
-    /// </summary>
-    /// <remarks>
-    /// Liferoot Guardian 33230 (level 11, never spawned, created with the quest's NPC 33231). Two waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6956)]
-    public class LifebloodPoolQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (12725, [[33230, 33230], [33230, 33230, 33230]])
-        ];
-
-        public LifebloodPoolQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Here They Come (Whitevale, Raxen's Holdout): "Ignite the Signal Flare and repel the Squirg Zombie attack", three flares.
     /// </summary>
     /// <remarks>
-    /// Squirg Zombie 24420-24423 (level 25, never spawned). Two waves per flare, guessed. The final flare is a kill objective of its own.
+    /// Squirg Zombie 24420-24423 (level 25, never spawned). Two waves per flare, guessed. At the final flare the Squirg Giant comes,
+    /// the objective's target (34203 here, 34237 at Inception's Stand, tagged "Squirg Giant - Q5655" in its description).
     /// </remarks>
     [ScriptFilterOwnerId(5655)]
     public class HereTheyComeRaxensHoldoutQuestScript : QuestWaveEventScript
@@ -82,7 +43,8 @@ namespace NexusForever.Script.Alizar.Quest
         [
             (8412, [[24420, 24421], [24422, 24423, 24420]]),
             (8449, [[24421, 24422], [24423, 24420, 24421]]),
-            (8450, [[24422, 24423], [24420, 24421, 24422]])
+            (8450, [[24422, 24423], [24420, 24421, 24422]]),
+            (8553, [[24420, 24421], [34203]])
         ];
 
         public HereTheyComeRaxensHoldoutQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
@@ -101,7 +63,8 @@ namespace NexusForever.Script.Alizar.Quest
         [
             (8540, [[24420, 24421], [24422, 24423, 24420]]),
             (8541, [[24421, 24422], [24423, 24420, 24421]]),
-            (8542, [[24422, 24423], [24420, 24421, 24422]])
+            (8542, [[24422, 24423], [24420, 24421, 24422]]),
+            (8555, [[24420, 24421], [34237]])
         ];
 
         public HereTheyComeInceptionsStandQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
