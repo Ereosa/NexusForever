@@ -1,4 +1,6 @@
 using System.Numerics;
+using NexusForever.Game.Abstract.Cinematic;
+using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Trigger;
@@ -57,16 +59,28 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         };
         private static readonly HashSet<uint> VeteranOnlyCreatures = [.. VeteranCreatures.Values, 69767, 69794, 69834];
 
-        // the friendly skeech's walk from the landing to the ambush and Hugo's escape from the creche to the ship (Jabbithole sightings)
+        // retail paths, the world 3180 splines: the friendly skeech's walk to the ambush (21412), Hugo's escape to the ship (21842, 21920)
         private static readonly Vector2[] FriendlySkeechPath =
         [
-            new(9870f, -5921f), new(9871f, -5933f), new(9876f, -5952f), new(9875f, -5968f), new(9878f, -5981f), new(9879f, -5987f),
-            new(9893f, -6021f), new(9895f, -6030f)
+            new(9870.6f, -5923.6f), new(9870.0f, -5929.8f), new(9876.8f, -5943.9f), new(9874.5f, -5964.0f), new(9877.6f, -5974.6f),
+            new(9879.6f, -5987.2f), new(9878.8f, -6000.2f), new(9887.5f, -6010.1f), new(9893.3f, -6021.0f), new(9896.4f, -6029.7f),
+            new(9897.8f, -6042.1f)
         ];
         private static readonly Vector2[] HugoEscapePath =
         [
-            new(9853f, -6263f), new(9855f, -6248f), new(9861f, -6219f), new(9866f, -6194f), new(9866f, -6160f), new(9864f, -6103f),
-            new(9878f, -6070f), new(9893f, -6023f), new(9876f, -5970f), new(9868f, -5906f), new(9866f, -5860f), new(9863.7f, -5836f)
+            new(9853.9f, -6256.8f), new(9861.4f, -6220.8f), new(9870.9f, -6157.8f), new(9869.8f, -6126.2f), new(9864.9f, -6092.8f),
+            new(9885.7f, -6071.3f), new(9896.7f, -6047.6f), new(9879.3f, -5987.7f), new(9874.0f, -5944.7f), new(9868.2f, -5906.3f),
+            new(9858.9f, -5880.7f), new(9856.0f, -5856.7f), new(9848.1f, -5838.6f)
+        ];
+
+        // Hugo leaves his lab for the Life-Overseer's device (21838) and walks out to the creche airlock (21841)
+        private static readonly Vector3[] HugoCrechePath =
+        [
+            new(9597.45f, -817.05f, -6524.18f), new(9596.70f, -817.05f, -6516.55f), new(9591.86f, -817.05f, -6508.03f), new(9588.54f, -817.05f, -6493.61f),
+            new(9580.03f, -817.05f, -6485.83f), new(9568.40f, -817.05f, -6482.25f), new(9584.44f, -817.05f, -6482.64f), new(9598.19f, -817.05f, -6471.25f),
+            new(9609.91f, -817.05f, -6460.20f), new(9627.72f, -816.64f, -6439.18f), new(9637.92f, -816.39f, -6402.75f), new(9671.90f, -817.23f, -6403.66f),
+            new(9721.14f, -817.22f, -6426.89f), new(9765.69f, -817.07f, -6445.46f), new(9794.36f, -817.23f, -6415.14f), new(9807.37f, -800.75f, -6379.36f),
+            new(9826.61f, -781.41f, -6339.61f), new(9827.37f, -781.31f, -6337.90f)
         ];
 
         // Skeech ambushes along the way (Jabbithole sightings of the ambushers): the opening ambush, the way to the incubation complex and the creche
@@ -87,6 +101,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private IUnitEntity hugoRunner;
         private uint lifeOverseerGuid;
         private uint hugoLockedGuid;
+        private uint deviceGuid;
         private readonly Dictionary<PublicEventCreature, uint> forceFields = [];
         private readonly Dictionary<PublicEventCreature, uint> doors = [];
         private readonly List<uint> biomaticsBeams = [];
@@ -113,14 +128,17 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private readonly IEntityFactory entityFactory;
         private readonly IFactory<ISpellParameters> spellParametersFactory;
         private readonly IGameTableManager gameTableManager;
+        private readonly ICinematicFactory cinematicFactory;
 
         public FragmentZeroEventScript(
             IGlobalQuestManager globalQuestManager,
             ICreatureInfoManager creatureInfoManager,
             IEntityFactory entityFactory,
             IFactory<ISpellParameters> spellParametersFactory,
-            IGameTableManager gameTableManager)
+            IGameTableManager gameTableManager,
+            ICinematicFactory cinematicFactory)
         {
+            this.cinematicFactory       = cinematicFactory;
             this.globalQuestManager     = globalQuestManager;
             this.creatureInfoManager    = creatureInfoManager;
             this.entityFactory          = entityFactory;
@@ -173,6 +191,9 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     break;
                 case PublicEventCreature.CaptainHugoLocked:
                     hugoLockedGuid = worldEntity.Guid;
+                    break;
+                case PublicEventCreature.LifeOverseersDevice:
+                    deviceGuid = worldEntity.Guid;
                     break;
                 case PublicEventCreature.XenobiteDoorForceField:
                 case PublicEventCreature.GronyxDoorForceField:
@@ -457,6 +478,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private void OnPhaseSkeechAmbush()
         {
             publicEvent.ActivateObjective(PublicEventObjective.SurviveSkeechAmbush);
+            PlayCinematic<IFragmentZeroOnPellIntro>(); // GC139
 
             // bone traps snap shut on everyone at the crash site
             foreach (Vector2 point in BoneTraps)
@@ -578,8 +600,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             publicEvent.ActivateObjective(PublicEventObjective.ReturnToCrecheAirlock, mapInstance.PlayerCount);
             AddTrigger(7893, GetLocation(48682), 18f, PublicEventCreature.RingReturnToAirlock);
 
-            // Hugo leaves his lab with the players
-            RemoveEntity(ref hugoLockedGuid);
+            // Hugo leaves his lab with the players, he is gone once the airlock is reached
         }
 
         private void OnPhaseSeeIfHugoHasAWayOut()
@@ -591,6 +612,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private void OnPhaseWaitForHugo()
         {
             publicEvent.ActivateObjective(PublicEventObjective.WaitForHugo);
+            PlayCinematic<IFragmentZeroOnHugosShield>(); // GC138, 22 seconds
 
             // Hugo gets the Life-Overseer's device working (communicator 7528 to 7531)
             BroadcastCommunicatorMessage(CommunicatorMessage.HugoGizmo);
@@ -598,7 +620,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             Delay(8d, () => BroadcastCommunicatorMessage(7530u));
             Delay(12d, () => BroadcastCommunicatorMessage(7531u));
             Delay(15d, () => BroadcastCommunicatorMessage(CommunicatorMessage.HugoSomethingYouDontSee));
-            Delay(16d, () => publicEvent.UpdateObjective(PublicEventObjective.WaitForHugo, 1));
+            Delay(23d, () => publicEvent.UpdateObjective(PublicEventObjective.WaitForHugo, 1));
         }
 
         private void OnPhaseStayCloseToHugo()
@@ -701,10 +723,11 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     publicEvent.ActivateObjective(PublicEventObjective.LocateHugo);
                     break;
                 case PublicEventObjective.LocateHugo:
-                    mapInstance.GetEntity<IWorldEntity>(hugoLockedGuid)?.NpcSay(GetText(640044)); // That overseer fella was working on some kind of gizmo...
+                    OnLocateHugo();
                     publicEvent.SetPhase(PublicEventPhase.ReturnToCrecheAirlock);
                     break;
                 case PublicEventObjective.ReturnToCrecheAirlock:
+                    RemoveEntity(ref hugoLockedGuid);
                     publicEvent.SetPhase(PublicEventPhase.SeeIfHugoHasAWayOut);
                     break;
                 case PublicEventObjective.SeeIfHugoHasAWayOut:
@@ -759,15 +782,33 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private void OnSearchCrecheForHugo()
         {
             publicEvent.ActivateObjective(PublicEventObjective.DefeatLifeOverseer);
+            PlayCinematic<IFragmentZeroOnBossIntro>(); // GC140
 
             // the Life-Overseer stops watching and fights
             IUnitEntity lifeOverseer = mapInstance.GetEntity<IUnitEntity>(lifeOverseerGuid);
             lifeOverseer?.InvokeScriptCollection<LifeOverseerEntityScript>(s => s.StartEncounter());
         }
 
+        /// <summary>
+        /// Hugo picks up the Life-Overseer's device on his way out of the lab and walks to the creche airlock.
+        /// </summary>
+        private void OnLocateHugo()
+        {
+            if (mapInstance.GetEntity<IUnitEntity>(hugoLockedGuid) is not IUnitEntity hugo)
+                return;
+
+            hugo.NpcSay(GetText(640044)); // That overseer fella was working on some kind of gizmo. Let's check it out before we leave, alright?
+
+            var nodes = new List<Vector3> { hugo.Position };
+            nodes.AddRange(HugoCrechePath);
+            hugo.MovementManager.LaunchSpline(nodes, Game.Static.Entity.Movement.Spline.SplineType.Linear,
+                Game.Static.Entity.Movement.Spline.SplineMode.OneShot, 4f);
+        }
+
         private void OnExpeditionComplete()
         {
             BroadcastCommunicatorMessage(CommunicatorMessage.HugoYouveDoneIt);
+            PlayCinematic<IFragmentZeroOnDeparture>(); // GC137
 
             bool gold = IsVeteran && noDeaths
                 && publicEvent.GetTeams().All(t => IsSucceeded(t, PublicEventObjective.SmashXenobiteEggs, PublicEventObjective.CollectCargoCrates,
@@ -945,6 +986,11 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             if (players.Any(p => !p.IsAlive))
                 noDeaths = false;
 
+            // Hugo takes the Life-Overseer's device as he walks past it
+            if (deviceGuid != 0u && mapInstance.GetEntity<IUnitEntity>(hugoLockedGuid) is IUnitEntity lockedHugo
+                && mapInstance.GetEntity<IWorldEntity>(deviceGuid) is IWorldEntity device && lockedHugo.Position.GetDistance(device.Position) < 3f)
+                RemoveEntity(ref deviceGuid);
+
             switch ((PublicEventPhase)publicEvent.Phase)
             {
                 case PublicEventPhase.SearchForMissingCrew:
@@ -1110,6 +1156,12 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             ISpellParameters parameters = spellParametersFactory.Resolve();
             parameters.PrimaryTargetId = unit.Guid;
             unit.CastSpell(spellId, parameters);
+        }
+
+        private void PlayCinematic<T>() where T : ICinematicBase
+        {
+            foreach (IPlayer player in mapInstance.GetPlayers())
+                player.CinematicManager.QueueCinematic(cinematicFactory.CreateCinematic<T>());
         }
 
         private void Delay(double seconds, Action action)

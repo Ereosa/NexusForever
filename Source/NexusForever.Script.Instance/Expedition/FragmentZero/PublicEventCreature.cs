@@ -34,6 +34,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         CaptainHugoAura         = 68886,
         LifeOverseerProjection  = 68913,
         BoneTrap                = 68969,
+        LifeOverseersDevice     = 68970,
         EscapeBrawler           = 69062,
         EscapeFighter           = 69063,
         EscapeBerserker         = 69064,

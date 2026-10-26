@@ -1,4 +1,6 @@
 ﻿using System.Numerics;
+using NexusForever.Game.Abstract.Cinematic;
+using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Spell;
@@ -24,11 +26,14 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
         private readonly IFactory<ISpellParameters> spellParametersFactory;
         private readonly IGameTableManager gameTableManager;
+        private readonly ICinematicFactory cinematicFactory;
 
         public FragmentZeroMapScript(
             IFactory<ISpellParameters> spellParametersFactory,
-            IGameTableManager gameTableManager)
+            IGameTableManager gameTableManager,
+            ICinematicFactory cinematicFactory)
         {
+            this.cinematicFactory       = cinematicFactory;
             this.spellParametersFactory = spellParametersFactory;
             this.gameTableManager       = gameTableManager;
         }
@@ -54,6 +59,10 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
             if (entity is not IPlayer player)
                 return;
+
+            // GC136, Lola's ship arrives (only before the search has started)
+            if (publicEvent != null && !publicEvent.HasFinished && publicEvent.Phase == 0u)
+                player.CinematicManager.QueueCinematic(cinematicFactory.CreateCinematic<IFragmentZeroOnArrival>());
 
             foreach (uint spellId in ZoneSpells)
             {
