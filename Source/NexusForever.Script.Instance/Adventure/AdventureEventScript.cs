@@ -53,6 +53,24 @@ namespace NexusForever.Script.Instance.Adventure
         /// </summary>
         protected virtual double StallTime(uint subEventId) => 480d;
 
+        /// <summary>
+        /// Objectives an adventure drives itself, left out of the generic kill counting.
+        /// </summary>
+        protected virtual bool IsScriptDriven(uint objectiveId) => false;
+
+        /// <summary>
+        /// Update an objective of the running sub-event.
+        /// </summary>
+        protected void UpdateSubObjective(uint objectiveId, int count = 1)
+        {
+            SubUpdate(objectiveId, count);
+        }
+
+        /// <summary>
+        /// The running sub-event, null between sub-events.
+        /// </summary>
+        protected IPublicEvent CurrentSubEvent => current;
+
         private readonly List<int> chosen = [];
         private readonly List<IUnitEntity> hostiles = [];
         private readonly HashSet<uint> timed = [];
@@ -264,7 +282,7 @@ namespace NexusForever.Script.Instance.Adventure
                 return;
 
             bool lastHostile = !hostiles.Any(u => u != entity && u.IsAlive && u.InWorld);
-            foreach (PublicEventObjectiveEntry objective in objectives)
+            foreach (PublicEventObjectiveEntry objective in objectives.Where(o => !IsScriptDriven(o.Id)))
             {
                 switch (objective.PublicEventObjectiveTypeEnum)
                 {
