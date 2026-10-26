@@ -1197,7 +1197,38 @@ namespace NexusForever.Game.Entity
             ObjectiveUpdateText(QuestTextTrigger.PublicEvent, i => won || i == 1u, n => PublicEventZoneMatches(n, entry));
 
             if (won && matchingMap != null)
+            {
                 ObjectiveUpdateText(QuestTextTrigger.CompleteContent, null, n => ContentNameMatches(n, matchingMap));
+                ObjectiveUpdateContentNamed(matchingMap);
+            }
+        }
+
+        /// <summary>
+        /// Update target-less objectives that name the finished content in other words ("Save Outpost M-13", "Survive the Gauntlet").
+        /// </summary>
+        private void ObjectiveUpdateContentNamed(IMatchingMap matchingMap)
+        {
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            string mapName = textTable?.GetEntry(matchingMap.GameMapEntry.LocalizedTextIdName) ?? "";
+            mapName = Regex.Replace(mapName, @"^(Veteran|Prime|Holiday Expedition):\s*", "", RegexOptions.IgnoreCase);
+            mapName = Regex.Replace(mapName, @"^The\s+", "", RegexOptions.IgnoreCase).Trim();
+            if (mapName.Length < 5)
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete()).ToList())
+                {
+                    QuestObjectiveEntry entry = objective.ObjectiveInfo.Entry;
+                    if (objective.ObjectiveInfo.Type != QuestObjectiveType.ActivateEntity || entry.Data != 0u || entry.TargetGroupIdRewardPane != 0u
+                        || objective.ObjectiveInfo.GetTextTrigger().Kind != QuestTextTrigger.None)
+                        continue;
+
+                    string text = textTable?.GetEntry(entry.LocalizedTextIdShort != 0u ? entry.LocalizedTextIdShort : entry.LocalizedTextIdFull) ?? "";
+                    if (text.Contains(mapName, StringComparison.OrdinalIgnoreCase))
+                        quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, Math.Max(1u, entry.Count));
+                }
+            }
         }
 
         private static bool PublicEventZoneMatches(string zoneName, PublicEventEntry entry)
