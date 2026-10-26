@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
@@ -120,6 +121,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
         private readonly List<(double Timer, Action Action)> delayed = [];
         private readonly UpdateTimer checkTimer = new(TimeSpan.FromSeconds(0.5d));
+        private double searchLogTimer;
 
         #region Dependency Injection
 
@@ -129,8 +131,10 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private readonly IFactory<ISpellParameters> spellParametersFactory;
         private readonly IGameTableManager gameTableManager;
         private readonly ICinematicFactory cinematicFactory;
+        private readonly ILogger<FragmentZeroEventScript> log;
 
         public FragmentZeroEventScript(
+            ILogger<FragmentZeroEventScript> log,
             IGlobalQuestManager globalQuestManager,
             ICreatureInfoManager creatureInfoManager,
             IEntityFactory entityFactory,
@@ -138,6 +142,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             IGameTableManager gameTableManager,
             ICinematicFactory cinematicFactory)
         {
+            this.log                    = log;
             this.cinematicFactory       = cinematicFactory;
             this.globalQuestManager     = globalQuestManager;
             this.creatureInfoManager    = creatureInfoManager;
@@ -1004,12 +1009,22 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             switch ((PublicEventPhase)publicEvent.Phase)
             {
                 case PublicEventPhase.SearchForMissingCrew:
-                    // the players find the friendly skeech near the crash site (the world location sits well above the ground, so
-                    // horizontal distance, or simply reaching the skeech)
-                    if (players.Any(p => NearHorizontally(p, GetLocation(48709), 15f)
-                        || friendlySkeech is { InWorld: true } && p.Position.GetDistance(friendlySkeech.Position) < 10f))
-                        publicEvent.UpdateObjective(PublicEventObjective.SearchForMissingCrew, 1);
+                {
+                    // the players find the friendly skeech near the crash site (horizontal distance, the world location sits above
+                    // the ground), the skeech itself also reports players reaching it
+                    Vector3 crashSite = GetLocation(48709);
+                    float nearest = players.Count == 0 ? float.MaxValue : players.Min(p => Vector2.Distance(new Vector2(p.Position.X, p.Position.Z), new Vector2(crashSite.X, crashSite.Z)));
+                    searchLogTimer -= 0.5d;
+                    if (searchLogTimer <= 0d)
+                    {
+                        searchLogTimer = 10d;
+                        log.LogTrace($"Fragment Zero search for the missing crew: {players.Count} player(s), nearest {nearest:0.0}m from the crash site, skeech in world {friendlySkeech?.InWorld}.");
+                    }
+
+                    if (nearest < 20f)
+                        OnFriendlySkeechFound();
                     break;
+                }
                 case PublicEventPhase.SkeechAmbush:
                     // ambushers count as alive until the map has added them
                     foreach (IWorldEntity ambusher in ambushers.Where(a => a.InWorld))
@@ -1039,6 +1054,27 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                         BroadcastCommunicatorMessage(CommunicatorMessage.LolaBlackBox);
                     }
                     break;
+            }
+        }
+
+        /// <summary>
+        /// A player reached the friendly skeech, it leads them to the crash site.
+        /// </summary>
+        public void OnFriendlySkeechFound()
+        {
+            if ((PublicEventPhase)publicEvent.Phase != PublicEventPhase.SearchForMissingCrew)
+                return;
+
+            log.LogTrace("Fragment Zero: the players found the friendly skeech.");
+            publicEvent.UpdateObjective(PublicEventObjective.SearchForMissingCrew, 1);
+            if ((PublicEventPhase)publicEvent.Phase == PublicEventPhase.SearchForMissingCrew)
+            {
+                // the objective didn't move the event on, don't leave the players stuck at the crash site
+                IPublicEventObjective objective = publicEvent.GetTeams()
+                    .SelectMany(t => t.GetObjectives())
+                    .FirstOrDefault(o => o.Entry.Id == (uint)PublicEventObjective.SearchForMissingCrew);
+                log.LogWarning($"Fragment Zero: search objective is {objective?.Status.ToString() ?? "missing"}, moving on to the escort anyway.");
+                publicEvent.SetPhase(PublicEventPhase.FollowFriendlySkeech);
             }
         }
 
