@@ -174,6 +174,11 @@ namespace NexusForever.Game.Abstract.Entity
         void OnEmote(uint emoteId);
 
         /// <summary>
+        /// Invoked when the owner casts a spell, updates objectives without a target whose text names the spell once it lands at their marker.
+        /// </summary>
+        void OnSpellCastNamed(uint spellNameTextId, IReadOnlyList<System.Numerics.Vector3> targetPositions);
+
+        /// <summary>
         /// Invoked when the owner used an entity, updates objectives without a target of their own whose marker is where it stands.
         /// </summary>
         void OnActivatedAt(IWorldEntity entity);
