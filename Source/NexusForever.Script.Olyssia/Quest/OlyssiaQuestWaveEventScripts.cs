@@ -132,4 +132,184 @@ namespace NexusForever.Script.Olyssia.Quest
         {
         }
     }
+
+    /// <summary>
+    /// Walking into a Trap: "Recover Dorian Walker's Datachron from the attacking pumera in the Undergrove".
+    /// </summary>
+    /// <remarks>
+    /// Torine Pumera 40967 (levels 34-38, the Sisterhood's pumera of Wilderrun). Two waves, guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6227)]
+    public class WalkingIntoATrapQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9498, [[40967, 40967], [40967, 40967, 40967]])
+        ];
+
+        public WalkingIntoATrapQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Artemis Pinned: "Recover Artemis Zin's Datachron from the attacking pumera in Wilderrun Chase".
+    /// </summary>
+    /// <remarks>
+    /// Torine Pumera 40967 (levels 34-38). Two waves, guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6271)]
+    public class ArtemisPinnedQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9574, [[40967, 40967], [40967, 40967, 40967]])
+        ];
+
+        public ArtemisPinnedQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Wildbranch Shrine: "Defend against Wildbranch razortails in the Undergrove".
+    /// </summary>
+    /// <remarks>
+    /// No razortail carries the Wildbranch name, Augmented Razortail Runt 43522 and Augmented Razortail 43483 (levels 34-35, never spawned) stand in. Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6441)]
+    public class WildbranchShrine6441QuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9921, [[43522, 43522], [43522, 43483], [43483, 43483]])
+        ];
+
+        public WildbranchShrine6441QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Wildbranch Shrine: "Defend against Wildbranch razortails in Discovery Heights".
+    /// </summary>
+    /// <remarks>
+    /// As the Undergrove shrine (6441). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(8029)]
+    public class WildbranchShrine8029QuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (14521, [[43522, 43522], [43522, 43483], [43483, 43483]])
+        ];
+
+        public WildbranchShrine8029QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Medical Defense: "Defend Collegium Researchers from Eldan Constructs at the Windfall Digsite".
+    /// </summary>
+    /// <remarks>
+    /// XT-9 Repair Construct 30815 and 38907 (level 18, Eldan, never spawned) stand in for the constructs. Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6421)]
+    public class MedicalDefenseQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9867, [[30815, 30815], [30815, 38907], [38907, 38907]])
+        ];
+
+        public MedicalDefenseQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Buzzbing Onslaught: "Defend the honey supplies from Buzzbings at the Protostar Honeyworks".
+    /// </summary>
+    /// <remarks>
+    /// Swarming Buzzbing 8569 (level 19, never spawned). Three waves, guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(5980)]
+    public class BuzzbingOnslaughtQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9054, [[8569, 8569], [8569, 8569, 8569], [8569, 8569, 8569]])
+        ];
+
+        public BuzzbingOnslaughtQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Fall of the Bladevault Keeper: "Use the Voreth War Drums to challenge the Bladevault Keeper".
+    /// </summary>
+    /// <remarks>
+    /// Bladevault Warhound 30960 and Bladevault Keeper 30954 (levels 20-21, never spawned, created with the drums 30968). The warhounds coming first is a guess.
+    /// </remarks>
+    [ScriptFilterOwnerId(6706)]
+    public class FallOfTheBladevaultKeeperQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (10335, [[30960, 30960], [30954]])
+        ];
+
+        public FallOfTheBladevaultKeeperQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Trial of Strength: "Survive the Trial of Strength in Fort Vigilance".
+    /// </summary>
+    /// <remarks>
+    /// The fort's hostile trial fighters, Vigilant Aspirant 28301 and Vigilant Petitioner 40266 (levels 34-35, faction 218). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6340)]
+    public class TrialOfStrengthQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (9747, [[28301, 28301], [28301, 28301], [40266]])
+        ];
+
+        public TrialOfStrengthQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Blademother's Refuge: "Defeat all of Tresayne's best Torine warriors to pass the final trial".
+    /// </summary>
+    /// <remarks>
+    /// One at a time: Torine Swordmaiden 40976, Deathbringer 40965 and Swordmaiden 47698 (levels 34-38, Sisterhood, never spawned). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6371)]
+    public class BlademothersRefugeQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (14704, [[40976], [40965], [47698]])
+        ];
+
+        public BlademothersRefugeQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
 }
