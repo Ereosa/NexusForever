@@ -7,6 +7,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         bool InHoldout { get; }
 
+        /// <summary>
+        /// Soldier event of the running holdout, 0 if none.
+        /// </summary>
+        uint CurrentHoldoutEventId { get; }
+
         void Update(double lastTick);
 
         /// <summary>

@@ -41,7 +41,7 @@ namespace NexusForever.Game.Quest
                 [QuestObjectiveType.EnterArea]                    = (QuestSupportLevel.Supported,   "QuestManager.OnRelocate (objective indicator locations, trigger volumes aren't in the client data)"),
                 [QuestObjectiveType.ActivateTargetGroup]          = (QuestSupportLevel.Supported,   "WorldEntity.OnActivateSuccess (checklist)"),
                 [QuestObjectiveType.CompleteQuest]                = (QuestSupportLevel.Supported,   "QuestManager.QuestComplete"),
-                [QuestObjectiveType.CompleteEvent]                = (QuestSupportLevel.Partial,     "PublicEvent finish (only scripted events run)"),
+                [QuestObjectiveType.CompleteEvent]                = (QuestSupportLevel.Partial,     "PathSoldierManager.StartQuestHoldout (data = soldier holdout event, spawns from the world database), PublicEvent finish, wave scripts"),
                 [QuestObjectiveType.Unknown28]                    = (QuestSupportLevel.Supported,   "WorldEntity.OnActivateSuccess (Creature2 QuestAnimStateId)"),
                 [QuestObjectiveType.VirtualCollect]               = (QuestSupportLevel.Supported,   "loot, kills and activations (TargetGroupIdRewardPane)"),
                 [QuestObjectiveType.CraftSchematic]               = (QuestSupportLevel.Supported,   "CraftingManager"),
@@ -52,6 +52,7 @@ namespace NexusForever.Game.Quest
                 [QuestObjectiveType.KillCreature2]                = (QuestSupportLevel.Supported,   "UnitEntity.RewardKiller (creature difficulty or higher)"),
                 [QuestObjectiveType.Unknown15]                    = (QuestSupportLevel.Supported,   "UnitEntity.RewardKiller (target groups)"),
                 [QuestObjectiveType.SpellSuccess3]                = (QuestSupportLevel.Supported,   "Spell.UpdateQuestObjectives (killing blow, or each target of a spell without damage)"),
+                [QuestObjectiveType.CompleteChallenge]            = (QuestSupportLevel.Supported,   "ChallengeManager.Finish (any challenge)"),
             }.ToImmutableDictionary();
 
         /// <summary>
