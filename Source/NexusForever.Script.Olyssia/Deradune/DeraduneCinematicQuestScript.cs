@@ -20,8 +20,8 @@ namespace NexusForever.Script.Olyssia.Deradune
         [
             // Blood for Blood: Zonaga appears once Kezzia is met at its lair
             new(3170, CinematicSceneId.DeraduneZonagaIntro) { AfterObjectiveId = 4324 },
-            // Blood for Blood: the Bloodfeast at the altar, Metal Maw breaks free
-            new(3170, CinematicSceneId.DeraduneMetalMawIntro) { AfterObjectiveId = 4326 },
+            // Blood for Blood: the Bloodfeast at the altar once the head is placed
+            new(3170, CinematicSceneId.DeraduneBloodfeast) { AfterObjectiveId = 4326 },
             // Hostile Negotiations: the Falkrin answer the ceremonial horn
             new(5511, CinematicSceneId.DeraduneFalkrinDiplomacy) { AfterObjectiveId = 8187 }
         ];

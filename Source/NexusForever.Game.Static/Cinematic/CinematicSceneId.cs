@@ -21,6 +21,7 @@ namespace NexusForever.Game.Static.Cinematic
         DeraduneMetalMawIntro           = 16,
         DeraduneFalkrinDiplomacy        = 239,
         DeraduneZonagaIntro             = 1003,
+        DeraduneBloodfeast              = 1005,
 
         // Algoroc
         AlgorocAugmentation             = 17,
@@ -60,6 +61,7 @@ namespace NexusForever.Game.Static.Cinematic
         // Northern Wilds
         NorthernWildsHumanIntro         = 2,
         NorthernWildsSadieDeath         = 174,
+        NorthernWildsDeparture          = 1004,
 
         // Transport ships
         IlliumDepartureTransport        = 145,
