@@ -23,6 +23,7 @@ using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
+using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Abstract.Reputation;
 using NexusForever.Game.Abstract.Reward;
 using NexusForever.Game.Abstract.Spell;
@@ -457,6 +458,7 @@ namespace NexusForever.Game.Entity
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
             QuestManager.Update(lastTick);
+            UpdateInstanceReturn(lastTick);
             PathScientistManager.Update(lastTick);
             PathSoldierManager.Update(lastTick);
             PathExplorerManager.Update(lastTick);
@@ -785,6 +787,115 @@ namespace NexusForever.Game.Entity
             }).FireAndForgetAsync();
         }
 
+        /// <summary>
+        /// Distance from an instance portal (eg: the Combat Training Room teleporters) that steps into it.
+        /// </summary>
+        private const float InstancePortalRange = 3.5f;
+
+        /// <summary>
+        /// Delay before a player is sent back from a quest instance once its quest is achieved.
+        /// </summary>
+        private const double InstanceReturnDelay = 5d;
+
+        private double instancePortalCooldown;
+        private (ushort WorldId, Vector3 Position, ushort QuestId)? instanceReturn;
+        private double instanceReturnTimer = -1d;
+
+        private static readonly Dictionary<uint, WorldLocation2Entry> zoneEntryLocations = [];
+
+        /// <remarks>
+        /// Quest instance portals carry no destination (InstancePortal only has a name and level range), retail scripts sent the player
+        /// to the zone the quest's enter zone objective names when they stepped into the portal at that objective's marker.
+        /// </remarks>
+        private void CheckInstancePortals(Vector3 position)
+        {
+            if (instancePortalCooldown > 0d || IsLoading || !CanTeleport())
+                return;
+
+            IInstancePortalEntity portal = visibleEntities.Values
+                .OfType<IInstancePortalEntity>()
+                .FirstOrDefault(e => Vector3.Distance(e.Position, position) <= InstancePortalRange);
+            if (portal == null)
+                return;
+
+            instancePortalCooldown = 5d;
+
+            foreach (IQuest quest in QuestManager.GetActiveQuests().Where(q => q.State == QuestState.Accepted))
+            {
+                foreach (IQuestObjective objective in quest.Where(o => o.ObjectiveInfo.Type == QuestObjectiveType.EnterZone && !o.IsComplete()))
+                {
+                    if (!objective.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == Map.Entry.Id
+                        && Vector3.Distance(new Vector3(l.Position0, l.Position1, l.Position2), portal.Position) <= 15f))
+                        continue;
+
+                    WorldLocation2Entry destination = GetZoneEntryLocation(objective.ObjectiveInfo.Entry.Data);
+                    if (destination == null)
+                        continue;
+
+                    instanceReturn = ((ushort)Map.Entry.Id, position, quest.Id);
+                    instanceReturnTimer = -1d;
+                    TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Return the location a player arrives at in the supplied zone, the zone's spawn point (radius 1 location) when it has one.
+        /// </summary>
+        private static WorldLocation2Entry GetZoneEntryLocation(uint zoneId)
+        {
+            lock (zoneEntryLocations)
+            {
+                if (zoneEntryLocations.TryGetValue(zoneId, out WorldLocation2Entry cached))
+                    return cached;
+
+                WorldLocation2Entry location = GameTableManager.Instance.WorldLocation2.Entries
+                    .Where(l => l != null && l.WorldZoneId == zoneId)
+                    .OrderBy(l => l.Radius)
+                    .FirstOrDefault();
+                zoneEntryLocations[zoneId] = location;
+                return location;
+            }
+        }
+
+        /// <summary>
+        /// Send the player back to where they entered a quest instance once that quest is achieved.
+        /// </summary>
+        private void UpdateInstanceReturn(double lastTick)
+        {
+            if (instancePortalCooldown > 0d)
+                instancePortalCooldown -= lastTick;
+
+            if (instanceReturn is not { } entry || Map == null || IsLoading)
+                return;
+
+            if (Map.Entry.Id == entry.WorldId)
+            {
+                // back on the original world (by other means), nothing to return from
+                if (instanceReturnTimer < 0d && !(pendingTeleport != null))
+                    instanceReturn = null;
+                return;
+            }
+
+            if (instanceReturnTimer < 0d)
+            {
+                if (QuestManager.GetQuestState(entry.QuestId) is QuestState.Accepted)
+                    return;
+
+                instanceReturnTimer = InstanceReturnDelay;
+                return;
+            }
+
+            instanceReturnTimer -= lastTick;
+            if (instanceReturnTimer > 0d || !CanTeleport())
+                return;
+
+            instanceReturn = null;
+            instanceReturnTimer = -1d;
+            TeleportTo(entry.WorldId, entry.Position.X, entry.Position.Y, entry.Position.Z);
+        }
+
         private bool clientZoneReported;
 
         /// <remarks>
@@ -816,6 +927,7 @@ namespace NexusForever.Game.Entity
 
             ZoneMapManager.OnRelocate(vector);
             PathMissionManager.OnRelocate(vector);
+            CheckInstancePortals(vector);
             QuestManager.OnRelocate(vector);
 
             if (!relocationTimer.IsTicking)
