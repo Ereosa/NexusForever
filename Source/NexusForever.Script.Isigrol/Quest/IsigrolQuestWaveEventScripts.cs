@@ -69,26 +69,6 @@ namespace NexusForever.Script.Isigrol.Quest
     }
 
     /// <summary>
-    /// Come Out and Play: "Survive the Strain ambush near the Widowmaker's exit".
-    /// </summary>
-    /// <remarks>
-    /// The Starblight Pest 46443, Skulker 46454 and Triturator 46470 of the other version's reward pane (7681). Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(8095)]
-    public class ComeOutAndPlay8095QuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (14619, [[46443, 46443], [46443, 46454], [46454, 46470]])
-        ];
-
-        public ComeOutAndPlay8095QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Science Without Bounds: "Defend the Golden Jabbit by the Auric Gardens".
     /// </summary>
     /// <remarks>

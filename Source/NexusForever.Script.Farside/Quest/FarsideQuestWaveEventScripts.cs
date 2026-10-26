@@ -8,26 +8,6 @@ namespace NexusForever.Script.Farside.Quest
     // Server-only wave events of quest steps (objective type 25) whose reward pane target group lists the attackers.
 
     /// <summary>
-    /// Element of Surprise: the Dominion version of the Dustrunner ambush.
-    /// </summary>
-    /// <remarks>
-    /// As 6179. Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6471)]
-    public class ElementOfSurprise6471QuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (9988, [[28948, 28120], [28119, 28950], [28948, 28119, 28950]])
-        ];
-
-        public ElementOfSurprise6471QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Showdown With Harlock: "Subdue Corporal Harlock at Arcanus Base".
     /// </summary>
     /// <remarks>
