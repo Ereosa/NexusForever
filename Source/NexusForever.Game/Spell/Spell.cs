@@ -538,6 +538,18 @@ namespace NexusForever.Game.Spell
                 // "give the killing blow with" or "destroy with" a quest spell, spells that don't deal damage credit each target they hit
                 if (!target.IsAlive || !dealsDamage)
                     player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess3, spell4Id, 1u);
+
+                // counted uses of a quest item on a target group ("Jumpstart the stalled Dynamos with Static Charges",
+                // "Drop psi-positories into Globellum spawns"), each target sets its own checklist bit
+                if (!dealsDamage)
+                {
+                    player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, target.CreatureId, target.QuestChecklistMask);
+                    foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(target.CreatureId))
+                    {
+                        player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, targetGroupId, target.QuestChecklistMask);
+                        player.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.Unknown10, targetGroupId, target.QuestChecklistMask);
+                    }
+                }
             }
         }
 

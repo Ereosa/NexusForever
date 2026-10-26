@@ -272,7 +272,8 @@ namespace NexusForever.QuestAudit
                 List<Creature2Entry> questReceivers = receivers.GetValueOrDefault(quest.Id) ?? [];
                 bool autoComplete = (quest.Flags & 0x01) != 0u;
                 bool communicatorReceived = (quest.Flags & 0x08) != 0u;
-                bool handIn = autoComplete || communicatorReceived || (questReceivers.Count > 0 && (spawned == null || IsSpawned(questReceivers)));
+                // flag 0x04: can be called back, handed in over the communicator (QuestInfo.CanBeCalledBack)
+                bool handIn = autoComplete || communicatorReceived || (quest.Flags & 0x04) != 0u || (questReceivers.Count > 0 && (spawned == null || IsSpawned(questReceivers)));
                 if (!handIn)
                     result.Blockers.Add(questReceivers.Count == 0 ? "no hand in" : "spawn: receiver unspawned");
 

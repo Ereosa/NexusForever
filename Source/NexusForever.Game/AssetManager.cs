@@ -399,14 +399,23 @@ namespace NexusForever.Game
                 .SelectMany(o => new[] { o.Data, o.TargetGroupIdRewardPane })
                 .Where(g => g != 0u)
                 .ToImmutableHashSet();
+
+            // counted objectives (type 10) whose data is a creature rather than a target group (eg: Firestorm Flingatrons)
+            checklistCreatures = GameTableManager.Instance.QuestObjective.Entries
+                .Where(o => o != null && (QuestObjectiveType)o.Type == QuestObjectiveType.Unknown10 && o.Data != 0u
+                    && GameTableManager.Instance.TargetGroup.GetEntry(o.Data) == null && GameTableManager.Instance.Creature2.GetEntry(o.Data) != null)
+                .Select(o => o.Data)
+                .ToImmutableHashSet();
         }
+
+        private ImmutableHashSet<uint> checklistCreatures;
 
         /// <summary>
         /// Returns if entities of the creature are targets of a checklist objective.
         /// </summary>
         public bool IsChecklistTarget(uint creatureId)
         {
-            return GetTargetGroupsForCreatureId(creatureId).Any(checklistTargetGroups.Contains);
+            return GetTargetGroupsForCreatureId(creatureId).Any(checklistTargetGroups.Contains) || checklistCreatures.Contains(creatureId);
         }
 
         /// <summary>
