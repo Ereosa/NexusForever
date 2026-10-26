@@ -12,11 +12,14 @@ using NexusForever.Script.Template;
 using NexusForever.Script.Template.Collection;
 using NexusForever.Shared;
 using NexusForever.Shared.Game.Events;
+using NLog;
 
 namespace NexusForever.Game.Entity
 {
     public abstract class GridEntity : IGridEntity
     {
+        private static readonly Logger log = LogManager.GetCurrentClassLogger();
+
         public uint Guid { get; protected set; }
         public IBaseMap Map { get; private set; }
         public Vector3 Position { get; protected set; }
@@ -413,11 +416,18 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private void UpdateVision()
         {
+            // a relocate for an entity that already left its map has nothing to see
+            if (Map == null)
+                return;
+
             var check = new SearchCheckRange<IGridEntity>();
             check.Initialise(Position, Map.VisionRange);
 
+            // entities still being added have no guid yet, a duplicate key here used to stop the whole map processing grid actions
             Dictionary<uint, IGridEntity> entities = Map.Search(Position, Map.VisionRange, check)
-                .ToDictionary(e => e.Guid, e => e);
+                .Where(e => e != null && e.Guid != 0)
+                .GroupBy(e => e.Guid)
+                .ToDictionary(g => g.Key, g => g.First());
 
             // new entities now in vision range
             foreach ((uint guid, IGridEntity entity) in entities)
@@ -426,21 +436,37 @@ namespace NexusForever.Game.Entity
                     || invisibleEntities.ContainsKey(guid))
                     continue;
                 
-                AddVisionEntity(entity);
-                if (entity != this)
-                    entity.AddVisionEntity(this);
+                // one broken entity must not stop the rest of the vision update
+                try
+                {
+                    AddVisionEntity(entity);
+                    if (entity != this)
+                        entity.AddVisionEntity(this);
+                }
+                catch (Exception ex)
+                {
+                    log.Error(ex, $"Failed to add entity {guid} to the vision of {Guid}!");
+                }
             }
 
             // old entities now out of vision range
             foreach ((uint guid, IGridEntity entity) in visibleEntities
-                .Concat(invisibleEntities))
+                .Concat(invisibleEntities)
+                .ToList())
             {
                 if (entities.ContainsKey(guid))
                     continue;
 
-                RemoveVisionEntity(entity);
-                if (entity != this)
-                    entity.RemoveVisionEntity(this);
+                try
+                {
+                    RemoveVisionEntity(entity);
+                    if (entity != this)
+                        entity.RemoveVisionEntity(this);
+                }
+                catch (Exception ex)
+                {
+                    log.Error(ex, $"Failed to remove entity {guid} from the vision of {Guid}!");
+                }
             }
         }
 
