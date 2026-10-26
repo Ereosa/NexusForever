@@ -164,7 +164,7 @@ namespace NexusForever.Script.Instance.Expedition
         /// </summary>
         private void ApplyPrimeLevel(IWorldEntity entity)
         {
-            if (!IsVeteran || primeLevel == 0 || entity is not IUnitEntity || entity.CreatureInfo?.Entry?.Creature2TierId != 2u)
+            if (!IsVeteran || primeLevel == 0 || entity is not IUnitEntity || entity.CreatureInfo?.Entry?.Creature2TierId is not (2u or 5u))
                 return;
 
             WorldEntry world = gameTableManager.World.GetEntry(WorldId);
