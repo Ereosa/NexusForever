@@ -9,10 +9,25 @@ namespace NexusForever.Game.Entity
     {
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
+        /// <summary>
+        /// Time after the scheduled end of a cinematic the server stops waiting for the client to report it ended.
+        /// </summary>
+        /// <remarks>
+        /// Guards scripts that continue after a cinematic (teleports, quest credit) against a client that never answers.
+        /// </remarks>
+        private const double EndTimeout = 15d;
+
         private IPlayer owner;
 
         private ICinematicBase currentCinematic;
-        private readonly Queue<ICinematicBase> queuedCinematics = new();
+        private Action currentCallback;
+        private double currentTimer;
+        private readonly Queue<(ICinematicBase Cinematic, Action Callback)> queuedCinematics = new();
+
+        /// <summary>
+        /// Returns if a cinematic is currently playing for the <see cref="IPlayer"/>.
+        /// </summary>
+        public bool IsPlaying => currentCinematic != null;
 
         /// <summary>
         /// Initialise a <see cref="ICinematicManager"/> for this <see cref="IPlayer"/>.
@@ -23,11 +38,30 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Invoked each world tick with the delta since the previous tick occurred.
+        /// </summary>
+        public void Update(double lastTick)
+        {
+            if (currentCinematic == null)
+                return;
+
+            currentTimer -= lastTick;
+            if (currentTimer > 0d)
+                return;
+
+            log.Warn($"Cinematic {currentCinematic.GetType().Name} for {owner.Name} never reported an end, finishing it server side.");
+            FinishCurrentCinematic();
+        }
+
+        /// <summary>
         /// Queue a <see cref="ICinematicBase"/> to be played.
         /// </summary>
-        public void QueueCinematic(ICinematicBase cinematic)
+        /// <remarks>
+        /// <paramref name="onFinish"/> is invoked once the client reports the cinematic ended, or was skipped.
+        /// </remarks>
+        public void QueueCinematic(ICinematicBase cinematic, Action onFinish = null)
         {
-            queuedCinematics.Enqueue(cinematic);
+            queuedCinematics.Enqueue((cinematic, onFinish));
             if (currentCinematic == null && queuedCinematics.Count >= 1u)
                 PlayQueuedCinematic();
         }
@@ -40,9 +74,23 @@ namespace NexusForever.Game.Entity
             if (queuedCinematics.Count == 0)
                 return;
 
-            ICinematicBase cinematic = queuedCinematics.Dequeue();
+            (ICinematicBase cinematic, Action callback) = queuedCinematics.Dequeue();
             currentCinematic = cinematic;
-            currentCinematic.StartPlayback(owner);
+            currentCallback  = callback;
+
+            try
+            {
+                currentCinematic.StartPlayback(owner);
+            }
+            catch (Exception exception)
+            {
+                // a broken cinematic must not stop the script waiting on it
+                log.Error(exception, $"Failed to play cinematic {cinematic.GetType().Name} for {owner.Name}.");
+                FinishCurrentCinematic();
+                return;
+            }
+
+            currentTimer = currentCinematic.Duration / 1000d + EndTimeout;
         }
 
         /// <summary>
@@ -62,14 +110,35 @@ namespace NexusForever.Game.Entity
                     break;
                 case CinematicState.Ended:
                 {
-                    // Player is back in the world. Continue any scripts that may've been paused.
-                    owner.Map.PublicEventManager.OnCinematicFinish(owner, currentCinematic.CinematicId);
+                    if (currentCinematic == null)
+                        break;
 
-                    currentCinematic = null;
-                    PlayQueuedCinematic();
+                    FinishCurrentCinematic();
                     break;
                 }
             }
+        }
+
+        private void FinishCurrentCinematic()
+        {
+            ICinematicBase cinematic = currentCinematic;
+            Action callback          = currentCallback;
+            currentCinematic = null;
+            currentCallback  = null;
+
+            // Player is back in the world. Continue any scripts that may've been paused.
+            owner.Map?.PublicEventManager.OnCinematicFinish(owner, cinematic.CinematicId);
+
+            try
+            {
+                callback?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                log.Error(exception, $"Cinematic {cinematic.GetType().Name} finish callback failed for {owner.Name}.");
+            }
+
+            PlayQueuedCinematic();
         }
     }
 }

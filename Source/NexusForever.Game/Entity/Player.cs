@@ -469,6 +469,7 @@ namespace NexusForever.Game.Entity
             PathExplorerManager.Update(lastTick);
             ChallengeManager.Update(lastTick);
             ResurrectionManager.Update(lastTick);
+            CinematicManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
             if (relocationTimer.HasElapsed)
@@ -1102,6 +1103,9 @@ namespace NexusForever.Game.Entity
             PathSettlerManager.OnZoneUpdate();
             ChallengeManager.OnZoneUpdate();
             RewardTrackManager.OnZoneUpdate();
+
+            if (Zone != null)
+                Map?.OnPlayerZoneChange(this, Zone.Id);
 
             messagePublisher.PublishAsync(new PlayerWorldZoneUpdatedMessage
             {
