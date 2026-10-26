@@ -377,7 +377,8 @@ namespace NexusForever.Game.Entity
         {
             if (!visibleEntities.TryGetValue(guid, out IGridEntity entity))
                 return default;
-            return (T)entity;
+            // an entity of another kind (eg: a spell asking for a unit on an instance portal) is not a match
+            return entity is T match ? match : default;
         }
 
         /// <summary>
@@ -386,8 +387,8 @@ namespace NexusForever.Game.Entity
         public IEnumerable<T> GetVisibleCreature<T>(uint creatureId) where T : IWorldEntity
         {
             foreach (IGridEntity entity in visibleEntities.Values)
-                if (entity is IWorldEntity worldEntity && worldEntity.CreatureId == creatureId)
-                    yield return (T)entity;
+                if (entity is T match && match.CreatureId == creatureId)
+                    yield return match;
         }
 
         /// <summary>

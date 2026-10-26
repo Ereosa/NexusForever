@@ -326,8 +326,11 @@ namespace NexusForever.Game.Entity
             }
             else
             {
-                // make sure the player is in range of a quest giver or they are eligible for a communicator message that starts the quest
-                if (!GlobalQuestManager.Instance.GetQuestGivers((ushort)info.Entry.Id)
+                // make sure the player is in range of a quest giver or they are eligible for a communicator message that starts the quest,
+                // a quest the communicator already delivered (mentioned) can be accepted from the communicator even though the message's
+                // conditions (eg: "quest unknown") no longer hold
+                if (quest?.State != QuestState.Mentioned
+                    && !GlobalQuestManager.Instance.GetQuestGivers((ushort)info.Entry.Id)
                         .Any(c => player.GetVisibleCreature<WorldEntity>(c).Any())
                     && !GlobalQuestManager.Instance.GetQuestCommunicatorMessages((ushort)info.Entry.Id)
                         .Any(m => m.Meets(player, false)))
