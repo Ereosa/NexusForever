@@ -32,7 +32,8 @@ namespace NexusForever.Script.Instance.Expedition
 
         private readonly List<Ability> abilities = [];
 
-        protected bool IsVeteran => entity.CreatureInfo?.Entry?.Creature2TierId == 2u;
+        // veteran creatures are tier 2 in expeditions, tier 5 in dungeons
+        protected bool IsVeteran => entity.CreatureInfo?.Entry?.Creature2TierId is 2u or 5u;
 
         /// <summary>
         /// Auto attacks the creature alternates between, null keeps the default unarmed punch and jab.
