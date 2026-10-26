@@ -903,6 +903,11 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private const float LevelTeleporterRange = 2.5f;
 
+        /// <summary>
+        /// How far above a level teleporter's origin its pad can be (the Eldan Teleporter pads are 2.4 to 4.6 m above).
+        /// </summary>
+        private const float LevelTeleporterHeight = 6f;
+
         private static readonly Dictionary<ushort, List<(uint CreatureId, string Name, Vector3 Position)>> levelTeleporters = [];
 
         /// <remarks>
@@ -916,8 +921,10 @@ namespace NexusForever.Game.Entity
             if (teleporters.Count == 0)
                 return;
 
+            // the creature's origin sits below the pad the player stands on (4.6 m on the Levian Bay surface), so only the horizontal distance counts
             (uint CreatureId, string Name, Vector3 Position) source = teleporters
-                .FirstOrDefault(t => Vector3.Distance(t.Position, position) <= LevelTeleporterRange);
+                .FirstOrDefault(t => Vector2.Distance(new Vector2(t.Position.X, t.Position.Z), new Vector2(position.X, position.Z)) <= LevelTeleporterRange
+                    && position.Y - t.Position.Y is > -2f and < LevelTeleporterHeight);
             if (source.Name == null)
                 return;
 
@@ -933,7 +940,10 @@ namespace NexusForever.Game.Entity
 
             // arrive beside the destination teleporter so it doesn't send the player straight back
             Vector3 arrival = destination.Position + new Vector3(LevelTeleporterRange + 1.5f, 0f, 0f);
-            arrival.Y = Map.GetTerrainHeight(arrival.X, arrival.Z) is float height && MathF.Abs(height - destination.Position.Y) < 3f ? height : destination.Position.Y;
+            // indoors there is no terrain, arrive above the pad and drop onto it rather than inside the floor below
+            arrival.Y = Map.GetTerrainHeight(arrival.X, arrival.Z) is float height && MathF.Abs(height - destination.Position.Y) < LevelTeleporterHeight
+                ? height
+                : destination.Position.Y + LevelTeleporterHeight - 1f;
             TeleportToLocal(arrival);
         }
 
