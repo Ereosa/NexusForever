@@ -31,6 +31,16 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithTextsSpread(15100, 20900, (578203, 24), (578204, 54))
                 .WithTextsSpread(21000, 26500, (578205, 36), (578206, 33));
 
+            // Leaving Camp Icefury in a borrowed Dominion shuttle (More Important Than Revenge). No scene of its own exists in the client
+            // beyond old camera splines, the generic Dominion transport departure of GC197 (the same shuttle leaving Tremor Ridge) is played
+            // on the Camp Icefury landing site WorldLocation2 49749 with the departure lines. Guessed reconstruction.
+            Add(CinematicSceneId.NorthernWildsDeparture)
+                .WithDuration(17967)
+                .AtOrigin(4548.010f, -700.209f, -5204.670f)
+                .WithCamera(70036)
+                .WithActors(70037)
+                .WithTextsSpread(500, 9500, (578229, 24), (578230, 25), (578231, 46), (578232, 11), (578233, 33));
+
             // GC174: Contact with Thayd, the rescue ship from Thayd lands at the flares and is shot down with Sadie aboard
             // Origin guessed: WorldLocation2 49637 at the landing site outside Settler's Reach, the camera path only fits the terrain there
             // and the entry is from the same build as the scene. Subtitle timings guessed from line lengths.

@@ -60,6 +60,7 @@ namespace NexusForever.Game.Static.Cinematic
         // Northern Wilds
         NorthernWildsHumanIntro         = 2,
         NorthernWildsSadieDeath         = 174,
+        NorthernWildsDeparture          = 1004,
 
         // Transport ships
         IlliumDepartureTransport        = 145,
