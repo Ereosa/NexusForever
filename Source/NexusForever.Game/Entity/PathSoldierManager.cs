@@ -53,7 +53,17 @@ namespace NexusForever.Game.Entity
             public double WaveElapsed;
             public readonly HashSet<uint> WaveUnits = new();
             public readonly HashSet<uint> DefendUnits = new();
+
+            /// <summary>
+            /// Units summoned but not yet added to the map, they only get a guid once the map adds them.
+            /// </summary>
+            public int PendingUnits;
         }
+
+        /// <summary>
+        /// Time after which units still waiting to be added to the map are assumed to have failed to spawn.
+        /// </summary>
+        private const double PendingSpawnTimeout = 5d;
 
         public bool InHoldout => holdout != null;
 
@@ -172,8 +182,7 @@ namespace NexusForever.Game.Entity
             initialDelay = entry.InitialSpawnTime / 1000d;
 
             foreach (PathSoldierHoldoutSpawnModel spawn in spawns.Where(s => ((HoldoutSpawnFlags)s.Flags & HoldoutSpawnFlags.Defend) != 0))
-                foreach (IWorldEntity unit in Spawn(spawn, DefaultDefendDistance, false))
-                    holdout.DefendUnits.Add(unit.Guid);
+                Spawn(spawn, DefaultDefendDistance, false);
 
             log.Trace($"Player {player.CharacterId} started holdout {entry.Id} for mission {mission.Id}.");
 
@@ -198,8 +207,7 @@ namespace NexusForever.Game.Entity
                 .Where(s => s.WaveIndex == holdout.WaveIndex && ((HoldoutSpawnFlags)s.Flags & HoldoutSpawnFlags.Defend) == 0))
             {
                 boss |= ((HoldoutSpawnFlags)spawn.Flags & HoldoutSpawnFlags.Boss) != 0;
-                foreach (IWorldEntity unit in Spawn(spawn, DefaultSpawnDistance, true))
-                    holdout.WaveUnits.Add(unit.Guid);
+                Spawn(spawn, DefaultSpawnDistance, true);
             }
 
             if (notify)
@@ -217,11 +225,22 @@ namespace NexusForever.Game.Entity
 
         private bool IsTimed => holdout.Type is HoldoutEventType.Timed or HoldoutEventType.TimedDefend;
 
-        private IEnumerable<IWorldEntity> Spawn(PathSoldierHoldoutSpawnModel spawn, float defaultDistance, bool hostile)
+        /// <summary>
+        /// Summon the units of a holdout spawn, hostile units join the current wave and friendly units are the units to defend.
+        /// </summary>
+        /// <remarks>
+        /// Units are tracked once the map adds them, a summoned entity has no guid before that.
+        /// </remarks>
+        private void Spawn(PathSoldierHoldoutSpawnModel spawn, float defaultDistance, bool hostile)
         {
             ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(spawn.CreatureId);
             if (creatureInfo == null)
-                yield break;
+            {
+                log.Warn($"Holdout {holdout.Entry.Id} spawn creature {spawn.CreatureId} doesn't exist.");
+                return;
+            }
+
+            Holdout owner = holdout;
 
             float distance = spawn.Distance > 0f ? spawn.Distance : defaultDistance;
             List<uint> defendGuids = hostile ? holdout.DefendUnits.ToList() : [];
@@ -236,14 +255,28 @@ namespace NexusForever.Game.Entity
                 // face the control point
                 float yaw = MathF.Atan2(holdout.Position.X - x, holdout.Position.Z - z);
 
-                IWorldEntity unit = player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, position, new Vector3(yaw, 0f, 0f), (map, guid, vector) =>
+                owner.PendingUnits++;
+                player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, position, new Vector3(yaw, 0f, 0f), (map, guid, vector) =>
                 {
-                    if (!hostile)
-                        return;
-
                     IUnitEntity summoned = map.GetEntity<IUnitEntity>(guid);
+                    if (holdout != owner)
+                    {
+                        // the holdout ended before the unit was added
+                        summoned?.RemoveFromMap();
+                        return;
+                    }
+
+                    owner.PendingUnits = Math.Max(0, owner.PendingUnits - 1);
                     if (summoned == null)
                         return;
+
+                    if (!hostile)
+                    {
+                        owner.DefendUnits.Add(guid);
+                        return;
+                    }
+
+                    owner.WaveUnits.Add(guid);
 
                     summoned.ThreatManager.UpdateThreat(player, 1);
 
@@ -252,9 +285,6 @@ namespace NexusForever.Game.Entity
                     if (defend != null)
                         summoned.ThreatManager.UpdateThreat(defend, 2);
                 });
-
-                if (unit != null)
-                    yield return unit;
             }
         }
 
@@ -283,6 +313,14 @@ namespace NexusForever.Game.Entity
             double maxEventTime = holdout.Entry.MaxEventTime / 1000d;
             bool lastWave = holdout.WaveIndex >= (int)holdout.WaveCount - 1;
 
+            // a wave still being added to the map isn't defeated yet
+            if (holdout.PendingUnits > 0 && holdout.WaveElapsed >= PendingSpawnTimeout)
+            {
+                log.Warn($"Holdout {holdout.Entry.Id} wave {holdout.WaveIndex} has {holdout.PendingUnits} unit(s) that were never added to the map.");
+                holdout.PendingUnits = 0;
+            }
+            bool waveDefeated = holdout.WaveUnits.Count == 0 && holdout.PendingUnits == 0;
+
             if (IsTimed)
             {
                 if (holdout.Elapsed >= maxEventTime)
@@ -293,7 +331,7 @@ namespace NexusForever.Game.Entity
             }
             else
             {
-                if (lastWave && holdout.WaveUnits.Count == 0)
+                if (lastWave && waveDefeated)
                 {
                     End(PlayerPathSoldierResult.Success);
                     return;
@@ -310,7 +348,7 @@ namespace NexusForever.Game.Entity
                 return;
 
             // the next wave is released when the current wave is defeated or the time between waves runs out
-            if (holdout.WaveUnits.Count == 0 || holdout.WaveElapsed >= holdout.Entry.MaxTimeBetweenWaves / 1000d)
+            if (waveDefeated || holdout.WaveElapsed >= holdout.Entry.MaxTimeBetweenWaves / 1000d)
                 ReleaseWave();
         }
 
