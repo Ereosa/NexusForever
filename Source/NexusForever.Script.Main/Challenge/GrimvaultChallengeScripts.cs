@@ -1,4 +1,6 @@
 using System.Numerics;
+using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Script.Template.Filter;
@@ -26,6 +28,75 @@ namespace NexusForever.Script.Main.Challenge
     [ScriptFilterOwnerId(1079)]
     public class ResonanceRunnerChallengeScript : RaceToAreaChallengeScript
     {
+    }
+
+    /// <summary>
+    /// Falling With Style (Western Grimvault): "Pass through vortex rings on the way down from the tower" of the Bio-Mech Facility,
+    /// two towers (994, 995).
+    /// </summary>
+    /// <remarks>
+    /// Reconstruction, the Vortex Rings (51041) aren't in any capture. The three rings hang on the line from the Butterfly Box on top
+    /// of the tower down to the challenge location below, a quarter, half and three quarters of the way down.
+    /// </remarks>
+    [ScriptFilterOwnerId(994, 995)]
+    public class FallingWithStyleChallengeScript : ChallengeScript
+    {
+        private const uint RingCreatureId = 51041;
+        private const float RingRange     = 6f;
+
+        private static readonly Dictionary<uint, Vector3> towerTop = new()
+        {
+            [994] = new(-239.43f, -520.72f, -3645.10f),
+            [995] = new(-236.71f, -520.72f, -4550.46f)
+        };
+
+        private readonly ICreatureInfoManager creatureInfoManager;
+        private readonly List<uint> rings = [];
+        private readonly HashSet<uint> passed = [];
+
+        public FallingWithStyleChallengeScript(ICreatureInfoManager creatureInfoManager)
+        {
+            this.creatureInfoManager = creatureInfoManager;
+        }
+
+        public override void OnActivate()
+        {
+            passed.Clear();
+
+            WorldLocation2Entry bottom = GameTableManager.Instance.WorldLocation2.GetEntry(Challenge.Entry.WorldLocation2IdIndicator);
+            ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(RingCreatureId);
+            if (bottom == null || creatureInfo == null || !towerTop.TryGetValue(Challenge.Entry.Id, out Vector3 top))
+                return;
+
+            var end = new Vector3(bottom.Position0, bottom.Position1, bottom.Position2);
+            for (int i = 1; i <= 3; i++)
+                Player.SummonFactory.Summon(creatureInfo, Vector3.Lerp(top, end, i / 4f), Vector3.Zero, (map, guid, p) => rings.Add(guid));
+        }
+
+        public override void Update(double lastTick)
+        {
+            foreach (uint guid in rings)
+            {
+                if (passed.Contains(guid))
+                    continue;
+
+                IWorldEntity ring = Player.GetVisible<IWorldEntity>(guid);
+                if (ring == null || Vector3.Distance(ring.Position, Player.Position) > RingRange)
+                    continue;
+
+                passed.Add(guid);
+                AddProgress();
+                if (!Challenge.Activated)
+                    return;
+            }
+        }
+
+        public override void OnStop(bool completed)
+        {
+            foreach (uint guid in rings)
+                Player.SummonFactory.Unsummon(guid);
+            rings.Clear();
+        }
     }
 
     /// <summary>
