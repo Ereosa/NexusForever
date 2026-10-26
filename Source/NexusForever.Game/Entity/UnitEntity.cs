@@ -732,6 +732,11 @@ namespace NexusForever.Game.Entity
         {
             UpdateCombatState();
             scriptCollection?.Invoke<IUnitScript>(s => s.OnThreatAddTarget(hostile));
+
+            // "Taunt" and "draw the attention of" objectives (Support Training: Tanking), target-less activate objectives listing this creature in their reward pane
+            if (this is not IPlayer && CreatureId != 0u && GetVisible<IPlayer>(hostile.HatedUnitId) is IPlayer player)
+                foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
+                    player.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.ActivateEntity, targetGroupId, 1u);
         }
 
         /// <summary>
