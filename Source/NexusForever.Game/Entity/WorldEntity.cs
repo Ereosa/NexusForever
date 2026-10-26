@@ -638,6 +638,7 @@ namespace NexusForever.Game.Entity
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, CreatureInfo.Entry.Id, 1u);
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity2, CreatureInfo.Entry.Id, 1u);
                 activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, CreatureInfo.Entry.Id, 1u);
+                activator.QuestManager.OnActivatedAt(this);
 
                 // some quest objects name the quest objective they advance directly (eg: rescuing captives from cages),
                 // only used for objective types that have no other way to match the object

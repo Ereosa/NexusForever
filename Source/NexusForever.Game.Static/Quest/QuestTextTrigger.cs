@@ -30,6 +30,14 @@ namespace NexusForever.Game.Static.Quest
         /// Wait while something happens at the step's place (eg: "Wait for $(creature=29356) to finish drinking", "Observe the Test",
         /// "Remain in the circle until the ritual is complete"), Id is the seconds to wait.
         /// </summary>
-        Wait
+        Wait,
+        /// <summary>
+        /// Gain reputation with the faction the text names (eg: "Gain 1000 Algoroc Accord Reputation"), Id is the faction.
+        /// </summary>
+        Reputation,
+        /// <summary>
+        /// Kill an animal while a creature of the named kind watches nearby (eg: "Hunt an animal near an Aurin Hunter").
+        /// </summary>
+        HuntNear
     }
 }

@@ -89,7 +89,8 @@ namespace NexusForever.Game.Quest
             {
                 listenCreatureId = 0u;
                 string text = GetShortText();
-                if (IsTargetless() && text.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase))
+                // "Meet $(creature=20306) on the hill": being with them is the meeting
+                if (IsTargetless() && (text.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase) || text.StartsWith("Meet ", StringComparison.OrdinalIgnoreCase)))
                 {
                     Match match = Regex.Match(text, @"\$\w*\(creature=(\d+)\)");
                     if (match.Success)
@@ -101,7 +102,7 @@ namespace NexusForever.Game.Quest
         }
 
         private uint? useCreatureId;
-        private static readonly string[] useVerbs = { "Use the", "Open the", "Select the", "Use a", "Open a" };
+        private static readonly string[] useVerbs = { "Use the", "Open the", "Select the", "Use a", "Open a", "Squash" };
 
         /// <summary>
         /// Return the creature a target-less "Use/Open/Select the" objective names, 0 if it isn't one.
@@ -160,6 +161,66 @@ namespace NexusForever.Game.Quest
             return Type == QuestObjectiveType.ActivateEntity
                 && Entry.Data == 0u
                 && Entry.TargetGroupIdRewardPane == 0u;
+        }
+
+        /// <summary>
+        /// Return the faction whose name the text contains, the longest name for nested factions ("Algoroc Accord" over "Algoroc").
+        /// </summary>
+        private static uint? FindReputationFaction(string text)
+        {
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            return GameTableManager.Instance.Faction2.Entries
+                .Where(f => f != null)
+                .Select(f => (f.Id, Name: Regex.Replace(textTable?.GetEntry(f.LocalizedTextIdName) ?? "", "^The ", "")))
+                .Where(f => !string.IsNullOrWhiteSpace(f.Name) && f.Name.Length > 3 && text.Contains(f.Name, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.Name.Length)
+                .Select(f => (uint?)f.Id)
+                .FirstOrDefault();
+        }
+
+        private (uint CreatureId, string Command)? emoteTrigger;
+
+        /// <summary>
+        /// Return the creature and emote command of an objective asking for an emote before a creature
+        /// ("Kneel before the $(creature=65411)", full text "Perform a /kneel before ..."), (0, null) if it isn't one.
+        /// </summary>
+        public (uint CreatureId, string Command) GetEmoteTrigger()
+        {
+            if (emoteTrigger == null)
+            {
+                emoteTrigger = (0u, null);
+                if (Type == QuestObjectiveType.ActivateEntity && Entry.Data == 0u)
+                {
+                    TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+                    string full = (Entry.LocalizedTextIdFull != 0u ? textTable?.GetEntry(Entry.LocalizedTextIdFull) : null) ?? "";
+                    Match command = Regex.Match(full, @"\bPerform an? /(?<command>\w+)", RegexOptions.IgnoreCase);
+                    Match creature = Regex.Match(GetShortText() + " " + full, @"\$\w*\(creature=(\d+)\)");
+                    if (command.Success && creature.Success)
+                        emoteTrigger = (uint.Parse(creature.Groups[1].Value), command.Groups["command"].Value.ToLowerInvariant());
+                }
+            }
+
+            return emoteTrigger.Value;
+        }
+
+        private bool? activationAtMarker;
+
+        /// <summary>
+        /// Returns if the objective has no target of its own and is advanced by using something at its marker
+        /// (eg: "Place protective wards on Elder Tree saplings", one objective per sapling).
+        /// </summary>
+        public bool IsActivationAtMarker()
+        {
+            activationAtMarker ??= Type is QuestObjectiveType.ActivateEntity or QuestObjectiveType.SucceedCSI
+                && Entry.Data == 0u
+                && Entry.TargetGroupIdRewardPane == 0u
+                && GetTextTrigger().Kind == QuestTextTrigger.None
+                && GetEmoteTrigger().CreatureId == 0u
+                && !IsAreaObjective()
+                && GetUseCreatureId() == 0u
+                && GetListenCreatureId() == 0u
+                && GetAreaLocations().Any(l => l.Radius <= 20f);
+            return activationAtMarker.Value;
         }
 
         private string GetShortText()
@@ -247,6 +308,10 @@ namespace NexusForever.Game.Quest
             else if (Regex.Match(text, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event\b", RegexOptions.IgnoreCase) is { Success: true } publicEvent)
                 // id 1: taking part is enough, otherwise the event must be won
                 textTrigger = (QuestTextTrigger.PublicEvent, publicEvent.Groups[1].Value.StartsWith("Participate", StringComparison.OrdinalIgnoreCase) ? 1u : 0u, publicEvent.Groups["zone"].Value.Trim());
+            else if (Regex.IsMatch(text, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && FindReputationFaction(text) is uint faction)
+                textTrigger = (QuestTextTrigger.Reputation, faction, null);
+            else if (Regex.Match(text, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? (?<name>.+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } hunt)
+                textTrigger = (QuestTextTrigger.HuntNear, 0u, hunt.Groups["name"].Value);
             // retail scripts played these out (an NPC drinking, a test running), they are waited out
             else if (Regex.IsMatch(text, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase))
                 textTrigger = (QuestTextTrigger.Wait, text.StartsWith("Remain", StringComparison.OrdinalIgnoreCase) ? 20u : 10u, null);

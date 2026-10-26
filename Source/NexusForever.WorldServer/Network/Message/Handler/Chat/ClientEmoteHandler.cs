@@ -11,6 +11,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Chat
                 session.Player.Unsit();
 
             session.Player.Emote(emote.EmoteId);
+            // "Perform a /kneel before the ..." quest objectives
+            session.Player.QuestManager.OnEmote(emote.EmoteId);
 
             session.Player.EnqueueToVisible(new ServerEmote
             {

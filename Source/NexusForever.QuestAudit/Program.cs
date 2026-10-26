@@ -47,9 +47,19 @@ namespace NexusForever.QuestAudit
             string t = textId != 0u ? text.GetEntry(textId) ?? "" : "";
             bool creature = System.Text.RegularExpressions.Regex.IsMatch(t, @"\$\w*\(creature=\d+\)");
             bool marker = objective.WorldLocationsIdIndicator00 != 0u || objective.QuestDirectionId != 0u;
-            if (t.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase) && creature) how = "Listen to";
+            string full = objective.LocalizedTextIdFull != 0u ? text.GetEntry(objective.LocalizedTextIdFull) ?? "" : "";
+            bool smallMarker = Enumerable.Range(0, 4).Select(i => (uint)typeof(QuestObjectiveEntry).GetField($"WorldLocationsIdIndicator0{i}").GetValue(objective))
+                .Any(id => worldLocations.GetEntry(id) is WorldLocation2Entry l && l.Radius <= 20f);
+            if (objective.Type == 12)
+            {
+                // QuestObjectiveInfo.IsActivationAtMarker: using something at the objective's marker
+                if (smallMarker) how = "Use at marker";
+                return how != null;
+            }
+            if (Regex.IsMatch(full, @"\bPerform an? /\w+", RegexOptions.IgnoreCase) && creature) how = "Emote";
+            else if ((t.StartsWith("Listen to", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Meet ", StringComparison.OrdinalIgnoreCase)) && creature) how = "Listen to";
             else if (t.StartsWith("Follow", StringComparison.OrdinalIgnoreCase) && creature && marker) how = "Follow";
-            else if ((t.StartsWith("Use the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Open the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Select the", StringComparison.OrdinalIgnoreCase)) && creature) how = "Use/Open/Select";
+            else if ((t.StartsWith("Use the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Open the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Select the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Squash", StringComparison.OrdinalIgnoreCase)) && creature) how = "Use/Open/Select";
             else if (marker && areaVerbs.Any(v => t.StartsWith(v, StringComparison.OrdinalIgnoreCase))) how = "Area verb";
             // QuestObjectiveInfo.GetTextTrigger, matched by QuestManager on equip, vendor purchase, talk, public event and content completion
             else if (Regex.IsMatch(t, @"\$\w*\(item=\d+\)") && t.StartsWith("Equip", StringComparison.OrdinalIgnoreCase)) how = "Equip item";
@@ -57,11 +67,16 @@ namespace NexusForever.QuestAudit
             else if (creature && t.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase)) how = "Learn more about";
             else if (Regex.IsMatch(t, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase)) how = "Public event";
             else if (Regex.IsMatch(t, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase)) how = "Wait";
+            else if (Regex.IsMatch(t, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && factionNames.Any(n => t.Contains(n, StringComparison.OrdinalIgnoreCase))) how = "Reputation";
+            else if (Regex.IsMatch(t, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? .+$", RegexOptions.IgnoreCase)) how = "Hunt near";
             else if (Regex.Match(t.Trim(), @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content && ContentKnown(content.Groups["name"].Value)) how = "Complete content";
+            else if (smallMarker) how = "Use at marker";
             return how != null;
         }
 
         private static List<string> contentNames;
+        private static GameTable<WorldLocation2Entry> worldLocations;
+        private static List<string> factionNames;
 
         /// <summary>
         /// Mirrors QuestManager.ContentNameMatches: a matching map name, a kind of content ("a Prime Dungeon") or quest titles ("... quests").
@@ -120,6 +135,12 @@ namespace NexusForever.QuestAudit
             var pathRewards   = new GameTable<PathRewardEntry>(Path.Combine(tbl, "PathReward.tbl"));
             var spellEffects  = new GameTable<Spell4EffectsEntry>(Path.Combine(tbl, "Spell4Effects.tbl"));
             text = new TextTable(Path.Combine(tbl, "en-US.bin"));
+            worldLocations = new GameTable<WorldLocation2Entry>(Path.Combine(tbl, "WorldLocation2.tbl"));
+            factionNames = new GameTable<Faction2Entry>(Path.Combine(tbl, "Faction2.tbl")).Entries
+                .Where(f => f != null)
+                .Select(f => Regex.Replace(text.GetEntry(f.LocalizedTextIdName) ?? "", "^The ", ""))
+                .Where(n => !string.IsNullOrWhiteSpace(n) && n.Length > 3)
+                .ToList();
             publicEventObjectives = new GameTable<PublicEventObjectiveEntry>(Path.Combine(tbl, "PublicEventObjective.tbl")).Entries
                 .ToLookup(o => o.PublicEventId);
             // [ScriptFilterOwnerId] of the public event scripts in the source next to the tool
@@ -292,7 +313,7 @@ namespace NexusForever.QuestAudit
                             stat.DataZeroSpell++;
                         else if (objective.TargetGroupIdRewardPane != 0u && rewardPaneTypes.Contains(objective.Type))
                             stat.DataZeroPane++;
-                        else if (objective.Type == 5 && TextHandled(objective, out string how))
+                        else if (objective.Type is 5 or 12 && TextHandled(objective, out string how))
                         {
                             stat.DataZeroText++;
                             textHandled[how] = textHandled.GetValueOrDefault(how) + 1;

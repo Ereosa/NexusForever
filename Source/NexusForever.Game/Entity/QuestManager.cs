@@ -1005,9 +1005,111 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Distance to the creature an emote objective asks to perform the emote before.
+        /// </summary>
+        private const float EmoteObjectiveDistance = 15f;
+
+        /// <summary>
+        /// Invoked when the owner performs an emote, updates "Perform a /kneel before the ..." objectives near their creature.
+        /// </summary>
+        public void OnEmote(uint emoteId)
+        {
+            if (emoteId == 0u || player.Map == null)
+                return;
+
+            EmotesEntry emote = GameTableManager.Instance.Emotes.GetEntry(emoteId);
+            string command = emote != null ? GameTableManager.Instance.GetTextTable(Language.English)?.GetEntry(emote.LocalizedTextIdCommand) : null;
+            if (string.IsNullOrEmpty(command))
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete()).ToList())
+                {
+                    (uint creatureId, string objectiveCommand) = objective.ObjectiveInfo.GetEmoteTrigger();
+                    if (creatureId == 0u || !string.Equals(objectiveCommand, command.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (player.GetVisibleCreature<IWorldEntity>(creatureId).Any(e => Vector3.Distance(player.Position, e.Position) <= EmoteObjectiveDistance)
+                        || objective.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == player.Map.Entry.Id
+                            && Vector3.Distance(player.Position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(EmoteObjectiveDistance, l.Radius)))
+                        quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Distance from an objective's marker within which using something advances an objective without a target.
+        /// </summary>
+        private const float ActivationAtMarkerDistance = 10f;
+
+        /// <summary>
+        /// Invoked when the owner used an entity, updates objectives without a target of their own whose marker is where it stands.
+        /// </summary>
+        public void OnActivatedAt(IWorldEntity entity)
+        {
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete() && o.ObjectiveInfo.IsActivationAtMarker()).ToList())
+                {
+                    if (objective.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == entity.Map?.Entry.Id
+                        && Vector3.Distance(entity.Position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(ActivationAtMarkerDistance, l.Radius)))
+                        quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Invoked when the owner gains reputation, updates "Gain 1000 Algoroc Accord Reputation" objectives by the amount.
+        /// </summary>
+        public void OnReputationGain(uint factionId, float amount)
+        {
+            if (amount >= 1f)
+                ObjectiveUpdateText(QuestTextTrigger.Reputation, i => i == factionId, null, (uint)amount);
+        }
+
+        /// <summary>
+        /// Invoked when the owner kills a creature, updates "Hunt an animal near an Aurin Hunter" objectives when such a creature is nearby.
+        /// </summary>
+        public void OnHuntKill(IUnitEntity victim)
+        {
+            if (victim is IPlayer || victim.Map == null)
+                return;
+
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            ObjectiveUpdateText(QuestTextTrigger.HuntNear, null, name => victim.Map
+                .Search(victim.Position, HuntWatcherDistance, new SearchCheckCreatureName(name, textTable))
+                .Any());
+        }
+
+        /// <summary>
+        /// Distance from a kill within which the watching creature of a hunt objective has to be.
+        /// </summary>
+        private const float HuntWatcherDistance = 40f;
+
+        private class SearchCheckCreatureName : Abstract.Map.Search.ISearchCheck<IWorldEntity>
+        {
+            private readonly string name;
+            private readonly TextTable textTable;
+
+            public SearchCheckCreatureName(string name, TextTable textTable)
+            {
+                this.name      = name;
+                this.textTable = textTable;
+            }
+
+            public bool CheckEntity(IWorldEntity entity)
+            {
+                return entity is not IPlayer
+                    && entity.CreatureInfo?.Entry is Creature2Entry entry
+                    && string.Equals(textTable?.GetEntry(entry.LocalizedTextIdName), name, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>
         /// Update target-less objectives whose text asks for the supplied <see cref="QuestTextTrigger"/> and whose id and name match.
         /// </summary>
-        private void ObjectiveUpdateText(QuestTextTrigger kind, Func<uint, bool> idMatches, Func<string, bool> nameMatches)
+        private void ObjectiveUpdateText(QuestTextTrigger kind, Func<uint, bool> idMatches, Func<string, bool> nameMatches, uint progress = 1u)
         {
             // quest state changes before the client has its quest init (still loading the map) confuse it
             if (player.Map == null || player.IsLoading)
@@ -1028,7 +1130,7 @@ namespace NexusForever.Game.Entity
                     if (nameMatches != null && !nameMatches(trigger.Name))
                         continue;
 
-                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, progress);
                 }
             }
         }

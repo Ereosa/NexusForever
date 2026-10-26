@@ -64,6 +64,8 @@ namespace NexusForever.Game.Reputation
                 FactionId = factionId,
                 Value     = value
             });
+
+            owner.QuestManager?.OnReputationGain((uint)factionId, value);
         }
 
         /// <summary>
