@@ -50,6 +50,7 @@ namespace NexusForever.Game.Static.Cinematic
         CelestionCannonShootsDownShip   = 70,
 
         // Northern Wilds
+        NorthernWildsHumanIntro         = 2,
         NorthernWildsSadieDeath         = 174,
 
         // New Player Experience

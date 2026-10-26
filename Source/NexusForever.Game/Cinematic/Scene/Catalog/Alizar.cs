@@ -15,6 +15,22 @@ namespace NexusForever.Game.Cinematic.Scene
         /// </summary>
         private static void AddAlizar()
         {
+            // GC002: the transport carrying the player is shot down and crashes in the Northern Wilds, camera splines 10824-10826
+            // start on the origin at the crash site. No actor creatures exist for the scene, Cinematic 2 holds the CinematicRace player
+            // models (Human, Aurin, Mordesh) played on the player copy. Voice clip order and subtitle timings guessed.
+            Add(CinematicSceneId.NorthernWildsHumanIntro)
+                .WithDuration(27000)
+                .AtOrigin(3890.446f, -696.264f, -5313.697f)
+                .SplineShot(0, 10824).SplineShot(7367, 10825).SplineShot(15033, 10826)
+                .WithPlayerClone()
+                .WithPlayerVisual(31265)
+                .WithPlayerVisual(30554, 300)
+                .WithPlayerVisual(30560, 15033)
+                .WithPlayerVisual(30558, 21000)
+                .WithTextsSpread(300, 7300, (578197, 25), (578198, 67), (578199, 50), (578200, 11), (578201, 33), (578202, 27))
+                .WithTextsSpread(15100, 20900, (578203, 24), (578204, 54))
+                .WithTextsSpread(21000, 26500, (578205, 36), (578206, 33));
+
             // GC174: Contact with Thayd, the rescue ship from Thayd lands at the flares and is shot down with Sadie aboard
             // Origin guessed: WorldLocation2 49637 at the landing site outside Settler's Reach, the camera path only fits the terrain there
             // and the entry is from the same build as the scene. Subtitle timings guessed from line lengths.
