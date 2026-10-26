@@ -33,20 +33,26 @@ namespace NexusForever.Server.ChatServer.Network.Internal.Handler.Guild
             if (mainChannelType != null)
             {
                 ChatChannel mainChannel = await _chatChannelManager.GetChatChannelAsync(mainChannelType.Value, ChatChannelReferenceType.Guild, message.GuildId);
-                if ((message.Permissions & GuildRankPermission.MemberChat) != 0)
-                    mainChannel?.AddMemberAsync(message.Member.ToChatIdentity());
-                else
-                    mainChannel?.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
+                if (mainChannel != null)
+                {
+                    if ((message.Permissions & GuildRankPermission.MemberChat) != 0)
+                        await mainChannel.AddMemberAsync(message.Member.ToChatIdentity());
+                    else
+                        await mainChannel.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
+                }
             }
 
             ChatChannelType? officerChannelType = _dataManager.GetOfficerChannelType(message.Type);
             if (officerChannelType != null)
             {
                 ChatChannel officerChannel = await _chatChannelManager.GetChatChannelAsync(officerChannelType.Value, ChatChannelReferenceType.Guild, message.GuildId);
-                if ((message.Permissions & GuildRankPermission.OfficerChat) != 0)
-                    officerChannel?.AddMemberAsync(message.Member.ToChatIdentity());
-                else
-                    officerChannel?.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
+                if (officerChannel != null)
+                {
+                    if ((message.Permissions & GuildRankPermission.OfficerChat) != 0)
+                        await officerChannel.AddMemberAsync(message.Member.ToChatIdentity());
+                    else
+                        await officerChannel.RemoveMemberAsync(message.Member.ToChatIdentity(), ChatChannelLeaveReason.Leave);
+                }
             }
 
             await _chatContext.SaveChangesAsync();

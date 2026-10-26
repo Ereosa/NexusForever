@@ -38,13 +38,54 @@ namespace NexusForever.WorldServer.Network.Internal.Handler.Chat
             builder.Text    = message.Text.Text;
             builder.Formats = chatFormatManager.ToNetwork(message.Text.Format).ToList();
 
-            builder.FromName = message.SenderName.Name;
+            builder.FromCharacterId      = message.Sender.Id;
+            builder.FromCharacterRealmId = message.Sender.RealmId;
+            builder.FromName             = message.SenderName.Name;
             if (message.Recipient.RealmId != message.Sender.RealmId)
                 builder.FromRealm = message.SenderName.RealmName;
 
+            IPlayer sender = playerManager.GetPlayer(message.Sender.ToGameIdentity());
+            if (sender != null)
+                builder.PresenceState = sender.Presence;
+
             player.Session.EnqueueMessageEncrypted(builder.Build());
 
+            SendAutoResponse(message, player, sender);
+
             return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Reply to the sender with the recipient's away or busy auto-response, the client shows it as "(Auto-Response)".
+        /// </summary>
+        private static void SendAutoResponse(ChatWhisperTextMessage message, IPlayer recipient, IPlayer sender)
+        {
+            if (sender == null)
+                return;
+
+            string text = recipient.Presence switch
+            {
+                AccountPresenceState.Away => recipient.AwayAutoResponse,
+                AccountPresenceState.Busy => recipient.BusyAutoResponse,
+                _                         => null
+            };
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            var builder = new ChatMessageBuilder
+            {
+                Type                 = message.IsAccountWhisper ? ChatChannelType.AccountWhisper : ChatChannelType.Whisper,
+                AutoResponse         = true,
+                FromCharacterId      = message.Recipient.Id,
+                FromCharacterRealmId = message.Recipient.RealmId,
+                FromName             = message.RecipientName.Name,
+                PresenceState        = recipient.Presence,
+                Text                 = text
+            };
+            if (message.Recipient.RealmId != message.Sender.RealmId)
+                builder.FromRealm = message.RecipientName.RealmName;
+
+            sender.Session.EnqueueMessageEncrypted(builder.Build());
         }
     }
 }

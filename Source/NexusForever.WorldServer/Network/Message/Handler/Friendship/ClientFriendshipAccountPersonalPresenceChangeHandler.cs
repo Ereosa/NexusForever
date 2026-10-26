@@ -22,6 +22,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Friendship
 
         public void HandleMessage(IWorldSession session, ClientFriendshipAccountPersonalPresenceChange message)
         {
+            // kept locally too, whispers use it to pick the away or busy auto-response
+            session.Player.Presence = message.Presence;
+
             messagePublisher.PublishAsync(new FriendshipAccountPresenceUpdateMessage
             {
                 AccountId = session.Account.Id,

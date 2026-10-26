@@ -127,8 +127,10 @@ namespace NexusForever.Game.Matching.Match
         /// </summary>
         public void MatchExit(Identity identity, bool teleport)
         {
+            // a member can leave the group (and so the match) while already outside the match map
             IMatchTeamMember matchTeamMember = GetMember(identity);
-            matchTeamMember?.MatchExit(teleport);
+            if (matchTeamMember?.InMatch == true)
+                matchTeamMember.MatchExit(teleport);
         }
 
         /// <summary>
@@ -143,7 +145,8 @@ namespace NexusForever.Game.Matching.Match
 
                 messagePublisher.PublishAsync(new MatchMemberLeftMessage
                 {
-                    Match         = match.ToInternalMatch(),
+                    Match  = match.ToInternalMatch(),
+                    Team   = this.ToInternalMatchTeam(),
                     Member = matchTeamMember.ToInternalMatchTeamMember()
                 }).FireAndForgetAsync();
             }

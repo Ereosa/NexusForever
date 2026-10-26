@@ -13,6 +13,7 @@ using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Reputation;
 using NexusForever.Game.Abstract.Reward;
 using NexusForever.Game.Abstract.Taxi;
+using NexusForever.Game.Static.Chat;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Option;
 using NexusForever.Game.Static.PVP;
@@ -76,6 +77,21 @@ namespace NexusForever.Game.Abstract.Entity
         /// Returns if <see cref="IPlayer"/>'s client is currently in a loading screen.
         /// </summary>
         bool IsLoading { get; set; }
+
+        /// <summary>
+        /// Account presence (available, away, busy, invisible) the client last set for this session.
+        /// </summary>
+        AccountPresenceState Presence { get; set; }
+
+        /// <summary>
+        /// Auto-response sent back to whispers while <see cref="Presence"/> is away.
+        /// </summary>
+        string AwayAutoResponse { get; set; }
+
+        /// <summary>
+        /// Auto-response sent back to whispers while <see cref="Presence"/> is busy.
+        /// </summary>
+        string BusyAutoResponse { get; set; }
 
         IInventory Inventory { get; }
         ICurrencyManager CurrencyManager { get; }

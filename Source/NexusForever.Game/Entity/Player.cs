@@ -245,6 +245,10 @@ namespace NexusForever.Game.Entity
 
         public bool IsOnline { get; private set; }
 
+        public AccountPresenceState Presence { get; set; }
+        public string AwayAutoResponse { get; set; }
+        public string BusyAutoResponse { get; set; }
+
         /// <summary>
         /// Returns if <see cref="IPlayer"/>'s client is currently in a loading screen.
         /// </summary>
@@ -764,6 +768,17 @@ namespace NexusForever.Game.Entity
 
         public override void OnAddToMap(IBaseMap map, uint guid, Vector3 vector)
         {
+            // a teleport that was still loading when the character logged out finished after cleanup,
+            // take the character straight back off the map instead of logging a ghost back in
+            if (cleanedUp)
+            {
+                base.OnAddToMap(map, guid, vector);
+                RemoveFromMap();
+
+                log.Trace($"Removed character {Name}({CharacterId}) from map {map.Entry.Id}, it was added after logout cleanup.");
+                return;
+            }
+
             MapEntryPosition = vector;
 
             // this must come before OnAddToMap
@@ -1414,6 +1429,8 @@ namespace NexusForever.Game.Entity
                 {
                     log.Trace($"Cleanup for character {Name}({CharacterId}) has started...");
 
+                    cleanedUp = true;
+
                     Save(() =>
                     {
                         if (Map != null)
@@ -1436,6 +1453,8 @@ namespace NexusForever.Game.Entity
                 }
             }));
         }
+
+        private bool cleanedUp;
 
         private bool CanCleanup()
         {
