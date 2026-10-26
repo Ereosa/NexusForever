@@ -101,6 +101,14 @@ namespace NexusForever.QuestAudit
             string questsOut = GetArg(args, "--quests");
             string spawnedFile = GetArg(args, "--spawned");
             string noTargetOut = GetArg(args, "--notarget");
+            // directory of the WorldDatabase checkout, its holdout spawn SQL files make type 25 objectives supported
+            string holdoutDir = GetArg(args, "--holdouts");
+            if (holdoutDir != null)
+                holdoutEvents = Directory.EnumerateFiles(holdoutDir, "*.sql", SearchOption.AllDirectories)
+                    .Select(File.ReadAllText)
+                    .Where(t => t.Contains("path_soldier_holdout_spawn"))
+                    .SelectMany(t => Regex.Matches(t, @"^\s*\((\d+), \d+, \d+, \d+,", RegexOptions.Multiline).Select(m => uint.Parse(m.Groups[1].Value)))
+                    .ToHashSet();
 
             quests        = new GameTable<Quest2Entry>(Path.Combine(tbl, "Quest2.tbl"));
             objectives    = new GameTable<QuestObjectiveEntry>(Path.Combine(tbl, "QuestObjective.tbl"));
@@ -265,7 +273,8 @@ namespace NexusForever.QuestAudit
                         level = FindTradeskillTier(quest.PrerequisiteId, 0) != 0u ? QuestSupportLevel.Supported : QuestSupportLevel.Unsupported;
                     // events without a script run when every main objective is one the server updates by itself
                     if ((QuestObjectiveType)objective.Type == QuestObjectiveType.CompleteEvent)
-                        level = PublicEventRuns(objective.Data) || waveEventQuests.Contains(quest.Id) ? QuestSupportLevel.Supported : QuestSupportLevel.Partial;
+                        level = PublicEventRuns(objective.Data) || waveEventQuests.Contains(quest.Id) || holdoutEvents.Contains(objective.Data)
+                            ? QuestSupportLevel.Supported : QuestSupportLevel.Partial;
                     bool hidden = (objective.Flags & 0x08) != 0u;
                     bool optional = (objective.Flags & 0x20) != 0u;
 
@@ -477,6 +486,11 @@ namespace NexusForever.QuestAudit
         private static ILookup<uint, PublicEventObjectiveEntry> publicEventObjectives;
         private static HashSet<uint> scriptedPublicEvents;
         private static HashSet<uint> waveEventQuests;
+
+        /// <summary>
+        /// Soldier holdout events with spawns in the world database (--holdouts, SQL files of path_soldier_holdout_spawn), type 25 objectives point at them.
+        /// </summary>
+        private static HashSet<uint> holdoutEvents = [];
 
         /// <summary>
         /// Public event objective types the server updates without a script (kills, activations and talks of a target group, timers).

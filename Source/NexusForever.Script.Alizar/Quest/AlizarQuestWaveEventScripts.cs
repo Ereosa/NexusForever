@@ -10,66 +10,6 @@ namespace NexusForever.Script.Alizar.Quest
     // between creatures aren't in any data or guide that survived and are guesses, kept small for a solo player.
 
     /// <summary>
-    /// Gallow's Departed (Algoroc): "Defend the memorial service behind the Chronicle House in Gallow" from Cartel thugs.
-    /// </summary>
-    /// <remarks>
-    /// Cartel Thug, Butcher and Striker 17796-17798 (level 9, never spawned), the memorial's Cartel variants. Three waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(4023)]
-    public class GallowsDepartedQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (5281, [[17796, 17796], [17797, 17798], [17796, 17797, 17798]])
-        ];
-
-        public GallowsDepartedQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Defend the Gate (Galeras): "Repel the Crimson Legion soldiers assaulting Kriton's Command Post".
-    /// </summary>
-    /// <remarks>
-    /// Crimson Legionnaire 18925 (level 14, never spawned; 19442 is the spawned one). Three waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(4954)]
-    public class DefendTheGateQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (7260, [[18925, 18925], [18925, 18925, 18925], [18925, 18925, 18925]])
-        ];
-
-        public DefendTheGateQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Hold the Line (Galeras): "Kill Stormwing Falkrin near Corporal Darby's troopers in Crosswind Fields", after speaking with Trooper Vog.
-    /// </summary>
-    /// <remarks>
-    /// Stormwing Striker 23953, Butcher 17205, Razorbeak 17092 and Aerial Scout 17360 (levels 17-21, never spawned). Three waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(4694)]
-    public class HoldTheLineQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (16116, [[23953, 23953], [17205, 17092], [17360, 17205, 23953]])
-        ];
-
-        public HoldTheLineQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Strange Idol (Galeras): "Survive an ambush by the Stormwing Falkrin at the Windy Hollow".
     /// </summary>
     /// <remarks>
@@ -84,27 +24,6 @@ namespace NexusForever.Script.Alizar.Quest
         ];
 
         public StrangeIdolQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Striking Morale (Galeras): "Hold out against incoming waves of Crimson forces at the top of Focus of Air Control Site".
-    /// </summary>
-    /// <remarks>
-    /// Crimson Ensign 21810, Conscript 21811, Attacker 22232 and Cavalier 22233 (level 18, never spawned, created with the
-    /// quest's banners 21759-21829). Three waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(4805)]
-    public class StrikingMoraleQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (7733, [[21810, 21811], [21811, 22232], [22233, 21810, 22232]])
-        ];
-
-        public StrikingMoraleQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }
@@ -131,26 +50,6 @@ namespace NexusForever.Script.Alizar.Quest
     }
 
     /// <summary>
-    /// Ravenous Dusk (Celestion): "Defend against attacking Ravenous as the detonator is rigged at Grimhold's Last Stand".
-    /// </summary>
-    /// <remarks>
-    /// Ravenous Ghoul, Ripper, Freak and Brute 33571-33574 (level 13, never spawned, one set of increasing difficulty). Three waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6900)]
-    public class RavenousDuskQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (12928, [[33571, 33571, 33572], [33572, 33573], [33574]])
-        ];
-
-        public RavenousDuskQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// The Lifeblood Pool (Celestion): "Defend against Liferoot Guardians at the Lifeblood Pool".
     /// </summary>
     /// <remarks>
@@ -165,26 +64,6 @@ namespace NexusForever.Script.Alizar.Quest
         ];
 
         public LifebloodPoolQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Rowsdower at Stake (Celestion): "Kill the Monster when it comes for the bait you've set in Tanglewood Grove".
-    /// </summary>
-    /// <remarks>
-    /// The objective's reward pane lists the Tanglemore Munchkin 33069 and Chomper 33070 that come for the bait. Two waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(7000)]
-    public class RowsdowerAtStakeQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (12763, [[33069, 33069], [33070]])
-        ];
-
-        public RowsdowerAtStakeQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }
@@ -272,28 +151,6 @@ namespace NexusForever.Script.Alizar.Quest
     }
 
     /// <summary>
-    /// Last One In, Shut the Door (Algoroc): "Fend off Exo-Lab security measures while Belle repairs the fractured Caretaker node in Exo-Lab 14", twice.
-    /// </summary>
-    /// <remarks>
-    /// Eldan Replicator 18349/18337 and Eradicator 18348/18350 (levels 11-13, never spawned, created with the quest's security door
-    /// consoles 18341/18342). Two waves per repair, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(4853)]
-    public class LastOneInShutTheDoorQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (6751, [[18349, 18349], [18348, 18349]]),
-            (6852, [[18337, 18350], [18350, 18348, 18337]])
-        ];
-
-        public LastOneInShutTheDoorQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Coming in Hot! (Algoroc): "Activate the beacon and defend the landing zone in Annihilator Silo 14".
     /// </summary>
     /// <remarks>
@@ -309,53 +166,6 @@ namespace NexusForever.Script.Alizar.Quest
         ];
 
         public ComingInHotQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Ghost Intel (Celestion): "Defend the Thayd Dispatches against ICI Operatives in Verdant Vale".
-    /// </summary>
-    /// <remarks>
-    /// No creature carries the name, the Dominion Zeta Agents 33467 and 33133 (level 11, never spawned) stand in for the operatives
-    /// coming for the Exile courier's dispatches. Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6981)]
-    public class GhostIntelQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (12696, [[33467, 33467], [33133, 33467]])
-        ];
-
-        public GhostIntelQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Primal Extraction (Celestion): "Defend the Primal Siphon against Torine in the Heart of the Godwood Tree", after signalling the
-    /// extraction crew at each of three Godwood Nodes.
-    /// </summary>
-    /// <remarks>
-    /// The defend objectives have no marker, they start where the player signalled the crew. Torine Swordsister 33924, Swordmaiden 34470
-    /// and Battlemaiden 58421 (level 12, never spawned). Wave sizes guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6995)]
-    public class PrimalExtractionQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (12780, [[33924, 33924], [33924, 34470]]),
-            (12961, [[33924, 34470], [34470, 34470]]),
-            (12965, [[33924, 34470], [34470, 33924], [58421]])
-        ];
-
-        protected override bool StartWithoutMarker => true;
-
-        public PrimalExtractionQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }
@@ -382,23 +192,4 @@ namespace NexusForever.Script.Alizar.Quest
         }
     }
 
-    /// <summary>
-    /// The Fall of the Ascendancy (Whitevale): "Kill Harbringer Sveltla in Augment Facility X426", after hacking the core terminal.
-    /// </summary>
-    /// <remarks>
-    /// Harbringer Sveltla 26005 is never spawned, she arrives with two Soulcore guards (Disciple 26001, Evocator 25999) once the terminal is hacked. Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(5826)]
-    public class FallOfTheAscendancyQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (8755, [[26001, 25999], [26005]])
-        ];
-
-        public FallOfTheAscendancyQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
 }
