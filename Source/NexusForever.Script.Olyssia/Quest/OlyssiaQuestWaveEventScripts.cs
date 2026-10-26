@@ -149,4 +149,48 @@ namespace NexusForever.Script.Olyssia.Quest
         }
     }
 
+    /// <summary>
+    /// Terminated! (Deradune): "Fight off waves of Terminites in the Broodlab sector of Exo-Lab 79" once the power controller is on.
+    /// </summary>
+    /// <remarks>
+    /// The soldier event (172) has no client data and no creature is tagged with the quest. The Hillscourge terminites of the area
+    /// (Hillscourge Plaguebug 11161, Hillscourge Protector 11164, Energized Hillscourge Glutton 61518 spawned at the lab) stand in.
+    /// The step has no marker, the waves come where the player activated the controller. Waves guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(5696)]
+    public class TerminatedQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (8494, [[11161, 11161], [11161, 11164], [11164, 61518]])
+        ];
+
+        protected override bool StartWithoutMarker => true;
+
+        public TerminatedQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Dropped and Gone (Auroria): "Recover the Stolen Data outside Meadow Point".
+    /// </summary>
+    /// <remarks>
+    /// The soldier event (304) has no client data and no creature is tagged with the quest. The Exile lancers spawned around the
+    /// marker (Lancer Ranger 30513, Lancer Pointer 30515, Lancer Elite 61977) stand in. Waves guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(6776)]
+    public class DroppedAndGoneQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (10588, [[30513, 30515], [30513, 30515], [61977]])
+        ];
+
+        public DroppedAndGoneQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
 }
