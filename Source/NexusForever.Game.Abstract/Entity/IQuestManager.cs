@@ -1,7 +1,9 @@
 ﻿using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
+using NexusForever.Game.Abstract.Matching;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Quest;
+using NexusForever.GameTable.Model;
 using NexusForever.Shared;
 
 namespace NexusForever.Game.Abstract.Entity
@@ -150,6 +152,16 @@ namespace NexusForever.Game.Abstract.Entity
         /// Fill work order objectives (type 31) of active quests asking for crafts of the supplied tradeskill tier.
         /// </summary>
         void OnCraft(uint tradeskillTierId, uint count);
+
+        /// <summary>
+        /// Update target-less objectives whose text asks for the supplied <see cref="QuestTextTrigger"/> with the supplied id (eg: the item equipped or bought).
+        /// </summary>
+        void ObjectiveUpdateText(QuestTextTrigger kind, uint id);
+
+        /// <summary>
+        /// Invoked when a public event the owner took part in finishes, <paramref name="won"/> if the owner was on the winning team.
+        /// </summary>
+        void OnPublicEventFinish(PublicEventEntry entry, IMatchingMap matchingMap, bool won);
 
         /// <summary>
         /// Mention quests from communicator messages whose conditions the owner now meets (zone, level, world, quest states).

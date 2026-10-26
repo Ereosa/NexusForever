@@ -51,5 +51,10 @@ namespace NexusForever.Game.Abstract.Quest
         /// Return the creature a target-less "Follow" objective names, 0 if it isn't one.
         /// </summary>
         uint GetFollowCreatureId();
+
+        /// <summary>
+        /// Return what a target-less activate objective asks for when its text names it, <see cref="QuestTextTrigger.None"/> if it isn't one.
+        /// </summary>
+        (QuestTextTrigger Kind, uint Id, string Name) GetTextTrigger();
     }
 }

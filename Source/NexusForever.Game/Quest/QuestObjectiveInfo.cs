@@ -220,7 +220,7 @@ namespace NexusForever.Game.Quest
 
         /// <summary>
         /// Return what a target-less activate objective asks for when its text names it (equip or buy an item, learn about a creature,
-        /// complete a public event or content).
+        /// complete a public event, adventure, dungeon, expedition or quest).
         /// </summary>
         /// <remarks>
         /// Retail scripts completed these, the short text is the only data naming the thing to do (eg: "Equip the $(item=12631)").
@@ -245,10 +245,10 @@ namespace NexusForever.Game.Quest
             else if (creature.Success && text.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase))
                 textTrigger = (QuestTextTrigger.TalkTo, uint.Parse(creature.Groups[1].Value), null);
             else if (Regex.Match(text, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase) is { Success: true } publicEvent)
-                textTrigger = (QuestTextTrigger.PublicEvent, 0u, publicEvent.Groups["zone"].Value.Trim());
-            else if (Regex.Match(text, @"^Complete (the )?(?<veteran>Veteran )?(?<name>.+?)(\s+(adventure|expedition|dungeon|shiphand mission|shiphand))?\s*$", RegexOptions.IgnoreCase) is { Success: true } content
-                && !content.Groups["name"].Value.Contains('$'))
-                textTrigger = (content.Groups["veteran"].Success ? QuestTextTrigger.CompleteVeteranContent : QuestTextTrigger.CompleteContent, 0u, content.Groups["name"].Value.Trim());
+                // id 1: taking part is enough, otherwise the event must be won
+                textTrigger = (QuestTextTrigger.PublicEvent, publicEvent.Groups[1].Value.StartsWith("Participate", StringComparison.OrdinalIgnoreCase) ? 1u : 0u, publicEvent.Groups["zone"].Value.Trim());
+            else if (Regex.Match(text, @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content)
+                textTrigger = (QuestTextTrigger.CompleteContent, 0u, content.Groups["name"].Value);
 
             return textTrigger.Value;
         }

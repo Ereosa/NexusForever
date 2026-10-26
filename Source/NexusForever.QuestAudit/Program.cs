@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Reflection;
 using System.Text;
 using NexusForever.Game.Prerequisite;
@@ -33,6 +34,7 @@ namespace NexusForever.QuestAudit
         private static GameTable<TargetGroupEntry> targetGroups;
         private static TextTable text;
         private static readonly Dictionary<string, int> textHandled = [];
+        private static readonly List<string> noTargetTexts = [];
 
         // target-less activate objectives the server handles by their short text (QuestObjectiveInfo: area verbs, Listen to, Follow, Use/Open/Select)
         private static readonly string[] areaVerbs = ["Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow"];
@@ -48,7 +50,43 @@ namespace NexusForever.QuestAudit
             else if (t.StartsWith("Follow", StringComparison.OrdinalIgnoreCase) && creature && marker) how = "Follow";
             else if ((t.StartsWith("Use the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Open the", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Select the", StringComparison.OrdinalIgnoreCase)) && creature) how = "Use/Open/Select";
             else if (marker && areaVerbs.Any(v => t.StartsWith(v, StringComparison.OrdinalIgnoreCase))) how = "Area verb";
+            // QuestObjectiveInfo.GetTextTrigger, matched by QuestManager on equip, vendor purchase, talk, public event and content completion
+            else if (Regex.IsMatch(t, @"\$\w*\(item=\d+\)") && t.StartsWith("Equip", StringComparison.OrdinalIgnoreCase)) how = "Equip item";
+            else if (Regex.IsMatch(t, @"\$\w*\(item=\d+\)") && (t.StartsWith("Buy", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Purchase", StringComparison.OrdinalIgnoreCase))) how = "Buy item";
+            else if (creature && t.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase)) how = "Learn more about";
+            else if (Regex.IsMatch(t, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase)) how = "Public event";
+            else if (Regex.Match(t.Trim(), @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content && ContentKnown(content.Groups["name"].Value)) how = "Complete content";
             return how != null;
+        }
+
+        private static List<string> contentNames;
+
+        /// <summary>
+        /// Mirrors QuestManager.ContentNameMatches: a matching map name, a kind of content ("a Prime Dungeon") or quest titles ("... quests").
+        /// </summary>
+        private static bool ContentKnown(string name)
+        {
+            if (Regex.IsMatch(name, @"\s+quests?$", RegexOptions.IgnoreCase))
+                return true;
+
+            Match category = Regex.Match(name, @"^an? (?<words>.+)$", RegexOptions.IgnoreCase);
+            if (category.Success)
+            {
+                var words = category.Groups["words"].Value.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+                words.Remove("veteran");
+                words.Remove("prime");
+                return words.Count == 1 && words[0] is "dungeon" or "expedition" or "adventure";
+            }
+
+            return contentNames.Contains(NormaliseContent(name), StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static string NormaliseContent(string text)
+        {
+            text = Regex.Replace(text.Trim(), @"^(Veteran|Prime|Holiday Expedition):?\s+", "", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"^The\s+", "", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\s+(adventure|dungeon|expedition|shiphand)$", "", RegexOptions.IgnoreCase);
+            return text.Trim();
         }
 
         private static HashSet<PrerequisiteType> handledPrerequisites;
@@ -60,6 +98,7 @@ namespace NexusForever.QuestAudit
             string out_    = GetArg(args, "--out");
             string questsOut = GetArg(args, "--quests");
             string spawnedFile = GetArg(args, "--spawned");
+            string noTargetOut = GetArg(args, "--notarget");
 
             quests        = new GameTable<Quest2Entry>(Path.Combine(tbl, "Quest2.tbl"));
             objectives    = new GameTable<QuestObjectiveEntry>(Path.Combine(tbl, "QuestObjective.tbl"));
@@ -71,6 +110,10 @@ namespace NexusForever.QuestAudit
             var pathRewards   = new GameTable<PathRewardEntry>(Path.Combine(tbl, "PathReward.tbl"));
             var spellEffects  = new GameTable<Spell4EffectsEntry>(Path.Combine(tbl, "Spell4Effects.tbl"));
             text = new TextTable(Path.Combine(tbl, "en-US.bin"));
+            contentNames = new GameTable<MatchingGameMapEntry>(Path.Combine(tbl, "MatchingGameMap.tbl")).Entries
+                .Select(m => NormaliseContent(text.GetEntry(m.LocalizedTextIdName) ?? ""))
+                .Where(n => n.Length > 0)
+                .ToList();
 
             handledPrerequisites = typeof(PrerequisiteManager).Assembly.GetTypes()
                 .SelectMany(t => t.GetCustomAttributes<PrerequisiteCheckAttribute>())
@@ -223,6 +266,8 @@ namespace NexusForever.QuestAudit
                         else
                         {
                             stat.DataZeroNoTarget++;
+                            uint noTargetTextId = objective.LocalizedTextIdShort != 0u ? objective.LocalizedTextIdShort : objective.LocalizedTextIdFull;
+                            noTargetTexts.Add($"{quest.Id}\t{index}\t{objective.Type}\t{(optional ? 1 : 0)}\t{(noTargetTextId != 0u ? text.GetEntry(noTargetTextId) : "")}");
                             if (!optional)
                                 result.Blockers.Add($"objective {index} type {objective.Type} has no target");
                         }
@@ -281,6 +326,10 @@ namespace NexusForever.QuestAudit
                     sb.Append($"{result.Quest.Id}\t{result.Title}\t{result.Live}\t{result.Status}\t{string.Join(",", result.StartPaths)}\t{string.Join("; ", result.Blockers.Distinct())}\n");
                 File.WriteAllText(questsOut, sb.ToString());
             }
+
+            // objectives of live quests with no target and no generic handling, the work left for scripts
+            if (noTargetOut != null)
+                File.WriteAllText(noTargetOut, "quest\tindex\ttype\toptional\ttext\n" + string.Join("\n", noTargetTexts) + "\n");
 
             return 0;
         }

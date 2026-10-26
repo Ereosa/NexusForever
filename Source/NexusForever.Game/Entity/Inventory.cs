@@ -756,7 +756,11 @@ namespace NexusForever.Game.Entity
             bag.AddItem(item, bagIndex);
 
             if (location == InventoryLocation.Equipped && player != null)
+            {
                 ApplyProperties(item);
+                // "Equip the $(item=N)"
+                player.QuestManager?.ObjectiveUpdateText(QuestTextTrigger.EquipItem, item.Info.Id);
+            }
 
             if (IsVisualItemSlot(item.Location, item.BagIndex) && player != null)
                 player.AddVisual((ItemSlot)item.Info.TypeEntry.ItemSlotId, item.Info.GetDisplayId());
