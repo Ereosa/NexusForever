@@ -196,7 +196,7 @@ namespace NexusForever.Game.Entity
                 return;
             questHoldoutCheck = 0.5d;
 
-            if (player.Map == null || player.IsLoading || !player.IsAlive || player.PathSoldierManager.InHoldout)
+            if (player?.Map == null || player.IsLoading || !player.IsAlive || player.PathSoldierManager.InHoldout)
                 return;
 
             if (questHoldoutRetry > 0d)
@@ -252,7 +252,7 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         private void UpdateWaitObjectives(double lastTick)
         {
-            if (player.Map == null || player.IsLoading)
+            if (player?.Map == null || player.IsLoading)
                 return;
 
             var waiting = new HashSet<uint>();
@@ -1014,7 +1014,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void OnEmote(uint emoteId)
         {
-            if (emoteId == 0u || player.Map == null)
+            if (emoteId == 0u || player?.Map == null)
                 return;
 
             EmotesEntry emote = GameTableManager.Instance.Emotes.GetEntry(emoteId);
@@ -1073,7 +1073,7 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         public void OnSpellCastNamed(uint spellNameTextId, IReadOnlyList<Vector3> targetPositions)
         {
-            if (spellNameTextId == 0u || player.Map == null)
+            if (spellNameTextId == 0u || player?.Map == null)
                 return;
 
             string name = GameTableManager.Instance.GetTextTable(Language.English)?.GetEntry(spellNameTextId);
@@ -1113,7 +1113,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void OnReputationGain(uint factionId, float amount)
         {
-            if (amount < 1f || player.Map == null || player.IsLoading)
+            if (amount < 1f || player?.Map == null || player.IsLoading)
                 return;
 
             foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
@@ -1178,7 +1178,7 @@ namespace NexusForever.Game.Entity
         private void ObjectiveUpdateText(QuestTextTrigger kind, Func<uint, bool> idMatches, Func<string, bool> nameMatches, uint progress = 1u)
         {
             // quest state changes before the client has its quest init (still loading the map) confuse it
-            if (player.Map == null || player.IsLoading)
+            if (player?.Map == null || player.IsLoading)
                 return;
 
             foreach (IQuest quest in activeQuests.Values.ToList())
@@ -1339,7 +1339,7 @@ namespace NexusForever.Game.Entity
         public void CheckCommunicatorMessages()
         {
             // quest state changes before the client has its quest init (still loading the map) confuse it, this runs again on entering the world
-            if (player.Map == null || player.IsLoading)
+            if (player?.Map == null || player.IsLoading)
                 return;
 
             foreach (ICommunicatorMessage message in GlobalQuestManager.Instance.GetQuestCommunicatorMessages())
@@ -1373,7 +1373,7 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         private void CheckQuestPublicEvents()
         {
-            if (publicEventCheckCooldown > 0d || player.Map == null || player.IsLoading)
+            if (publicEventCheckCooldown > 0d || player?.Map == null || player.IsLoading)
                 return;
 
             publicEventCheckCooldown = 2d;
@@ -1551,7 +1551,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void OnRelocate(Vector3 position)
         {
-            if (player.Map == null)
+            if (player?.Map == null)
                 return;
 
             CleanupFollowGuides();
