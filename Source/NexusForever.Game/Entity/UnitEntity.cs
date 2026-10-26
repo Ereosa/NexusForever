@@ -296,7 +296,8 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public ISpell GetSpellBySpellId(uint spellId)
         {
-            return spells.Values.SingleOrDefault(s => s.Spell4Id == spellId);
+            // a spell can be active more than once (stacks, recasts), prefer one that is still running
+            return spells.Values.Where(s => s.Spell4Id == spellId).OrderBy(s => s.IsFinished).FirstOrDefault();
         }
 
         /// <summary>
@@ -304,7 +305,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public ISpell GetSpellByBaseSpellId(uint baseSpellId)
         {
-            return spells.Values.SingleOrDefault(s => s.Parameters.SpellInfo.BaseInfo.Entry.Id == baseSpellId);
+            return spells.Values.Where(s => s.Parameters.SpellInfo.BaseInfo.Entry.Id == baseSpellId).OrderBy(s => s.IsFinished).FirstOrDefault();
         }
 
         /// <summary>

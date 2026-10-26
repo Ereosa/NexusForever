@@ -22,7 +22,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part1
         /// </summary>
         public bool CanSeeMe(IGridEntity entity)
         {
-            if (entity is not IPlayer player)
+            if (entity is not IPlayer player || owner == null || player.QuestManager == null)
                 return false;
 
             QuestId questId = player.Faction2 == Faction.Exile
