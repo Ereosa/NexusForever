@@ -2,6 +2,8 @@ using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Quest;
+using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -49,6 +51,25 @@ namespace NexusForever.Script.Template
         protected virtual bool StartWithoutMarker => false;
 
         /// <summary>
+        /// Creature escorted to the objective's marker during the event, 0 for none.
+        /// </summary>
+        /// <remarks>
+        /// The escort walks from the player to the marker while the waves attack, the step completes once it arrived and the waves are
+        /// beaten, it restarts if the escort dies.
+        /// </remarks>
+        protected virtual uint GetEscortCreatureId(uint objectiveId) => 0u;
+
+        /// <summary>
+        /// Distance to the marker within which an escort starts.
+        /// </summary>
+        protected virtual float EscortStartDistance => 150f;
+
+        /// <summary>
+        /// Walking speed of an escort, one the player can keep up with while fighting.
+        /// </summary>
+        protected virtual float EscortSpeed => 3f;
+
+        /// <summary>
         /// Seconds between a wave being defeated and the next one arriving.
         /// </summary>
         protected virtual double WaveDelay => 6d;
@@ -64,6 +85,9 @@ namespace NexusForever.Script.Template
         private double delay;
         private int pending;
         private readonly HashSet<uint> units = [];
+        private uint? escortGuid;
+        private bool escortPending;
+        private Vector3 escortDestination;
 
         #region Dependency Injection
 
@@ -142,7 +166,9 @@ namespace NexusForever.Script.Template
                 if (location != null)
                 {
                     var marker = new Vector3(location.Position0, location.Position1, location.Position2);
-                    if (Vector3.Distance(player.Position, marker) > Math.Max(StartDistance, location.Radius))
+                    // an escort starts where the player meets the escorted creature, on the way to the marker
+                    float startDistance = GetEscortCreatureId(current.ObjectiveId) != 0u ? EscortStartDistance : Math.Max(StartDistance, location.Radius);
+                    if (Vector3.Distance(player.Position, marker) > startDistance)
                         return;
 
                     // a large marked area (a whole pool or camp) is defended where the player stands
@@ -154,23 +180,37 @@ namespace NexusForever.Script.Template
                 running   = true;
                 waveIndex = -1;
                 delay     = 2d;
+
+                uint escortCreatureId = GetEscortCreatureId(current.ObjectiveId);
+                if (escortCreatureId != 0u && location != null)
+                    SummonEscort(player, escortCreatureId);
                 return;
             }
 
-            float distance = Vector3.Distance(player.Position, centre);
+            // an escorted event follows the escort, the waves come for it
+            IUnitEntity escort = escortGuid != null ? player.Map.GetEntity<IUnitEntity>(escortGuid.Value) : null;
+            if (escortGuid != null && escort is not { IsAlive: true })
+            {
+                Stop();
+                return;
+            }
 
-            if (!player.IsAlive || distance > LeaveDistance)
+            Vector3 focus = escort?.Position ?? centre;
+            if (!player.IsAlive || Vector3.Distance(player.Position, focus) > LeaveDistance)
             {
                 Stop();
                 return;
             }
 
             units.RemoveWhere(guid => player.Map.GetEntity<IUnitEntity>(guid) is not { IsAlive: true });
-            if (units.Count > 0 || pending > 0)
+            if (units.Count > 0 || pending > 0 || escortPending)
                 return;
 
             if (waveIndex >= current.Waves.Length - 1)
             {
+                if (escort != null && Vector3.Distance(escort.Position, escortDestination) > 3f)
+                    return;
+
                 Stop();
                 owner.ObjectiveUpdate(current.ObjectiveId, Math.Max(1u, objective.ObjectiveInfo.Entry.Count));
                 return;
@@ -182,10 +222,44 @@ namespace NexusForever.Script.Template
 
             waveIndex++;
             delay = WaveDelay;
-            SpawnWave(player, centre, current.Waves[waveIndex]);
+            SpawnWave(player, focus, current.Waves[waveIndex], escort);
         }
 
-        private void SpawnWave(IPlayer player, Vector3 centre, uint[] creatures)
+        private void SummonEscort(IPlayer player, uint creatureId)
+        {
+            ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(creatureId);
+            if (creatureInfo == null)
+                return;
+
+            escortDestination = new Vector3(location.Position0, location.Position1, location.Position2);
+            Vector3 direction = Vector3.Normalize(new Vector3(escortDestination.X - player.Position.X, 0f, escortDestination.Z - player.Position.Z));
+            if (float.IsNaN(direction.X))
+                direction = Vector3.UnitX;
+            Vector3 start = player.Position + direction * 3f;
+            start.Y = player.Map.GetTerrainHeight(start.X, start.Z) is float y && MathF.Abs(y - player.Position.Y) < 6f ? y : player.Position.Y;
+
+            var nodes = new List<Vector3> { start, escortDestination };
+            escortPending = true;
+            void OnAdd(Game.Abstract.Map.IBaseMap map, uint guid, Vector3 vector)
+            {
+                escortPending = false;
+                if (!running)
+                {
+                    map.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+                    return;
+                }
+
+                escortGuid = guid;
+                map.GetEntity<IWorldEntity>(guid)?.MovementManager.LaunchSpline(nodes, SplineType.Linear, SplineMode.OneShot, EscortSpeed);
+            }
+
+            if (creatureInfo.Entry.CreationTypeEnum == EntityType.NonPlayer)
+                player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, start, Vector3.Zero, OnAdd);
+            else
+                player.SummonFactory.Summon<ISimpleEntity>(creatureInfo, start, Vector3.Zero, OnAdd);
+        }
+
+        private void SpawnWave(IPlayer player, Vector3 centre, uint[] creatures, IUnitEntity escort)
         {
             // the wave arrives from one side, spread over a quarter circle
             float side = Random.Shared.NextSingle() * MathF.PI * 2f;
@@ -221,6 +295,9 @@ namespace NexusForever.Script.Template
 
                     units.Add(guid);
                     summoned.ThreatManager.UpdateThreat(player, 1);
+                    // waves go for the escort first
+                    if (escort is { IsAlive: true })
+                        summoned.ThreatManager.UpdateThreat(escort, 2);
                 });
             }
         }
@@ -238,6 +315,11 @@ namespace NexusForever.Script.Template
                 if (player?.Map?.GetEntity<IUnitEntity>(guid) is IUnitEntity unit && unit.IsAlive)
                     unit.RemoveFromMap();
             units.Clear();
+
+            if (escortGuid != null)
+                player?.Map?.GetEntity<IWorldEntity>(escortGuid.Value)?.RemoveFromMap();
+            escortGuid    = null;
+            escortPending = false;
         }
     }
 }
