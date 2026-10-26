@@ -56,6 +56,7 @@ namespace NexusForever.QuestAudit
             else if (Regex.IsMatch(t, @"\$\w*\(item=\d+\)") && (t.StartsWith("Buy", StringComparison.OrdinalIgnoreCase) || t.StartsWith("Purchase", StringComparison.OrdinalIgnoreCase))) how = "Buy item";
             else if (creature && t.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase)) how = "Learn more about";
             else if (Regex.IsMatch(t, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase)) how = "Public event";
+            else if (Regex.IsMatch(t, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase)) how = "Wait";
             else if (Regex.Match(t.Trim(), @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content && ContentKnown(content.Groups["name"].Value)) how = "Complete content";
             return how != null;
         }

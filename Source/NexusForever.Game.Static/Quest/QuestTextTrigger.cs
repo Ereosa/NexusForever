@@ -25,6 +25,11 @@ namespace NexusForever.Game.Static.Quest
         /// <summary>
         /// Complete the named adventure, dungeon, expedition or quest (eg: "Complete Veteran Bay of Betrayal", "Complete a Prime Dungeon").
         /// </summary>
-        CompleteContent
+        CompleteContent,
+        /// <summary>
+        /// Wait while something happens at the step's place (eg: "Wait for $(creature=29356) to finish drinking", "Observe the Test",
+        /// "Remain in the circle until the ritual is complete"), Id is the seconds to wait.
+        /// </summary>
+        Wait
     }
 }

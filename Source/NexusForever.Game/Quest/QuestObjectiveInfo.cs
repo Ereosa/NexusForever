@@ -244,9 +244,12 @@ namespace NexusForever.Game.Quest
                 textTrigger = (QuestTextTrigger.BuyItem, uint.Parse(item.Groups[1].Value), null);
             else if (creature.Success && text.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase))
                 textTrigger = (QuestTextTrigger.TalkTo, uint.Parse(creature.Groups[1].Value), null);
-            else if (Regex.Match(text, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase) is { Success: true } publicEvent)
+            else if (Regex.Match(text, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event\b", RegexOptions.IgnoreCase) is { Success: true } publicEvent)
                 // id 1: taking part is enough, otherwise the event must be won
                 textTrigger = (QuestTextTrigger.PublicEvent, publicEvent.Groups[1].Value.StartsWith("Participate", StringComparison.OrdinalIgnoreCase) ? 1u : 0u, publicEvent.Groups["zone"].Value.Trim());
+            // retail scripts played these out (an NPC drinking, a test running), they are waited out
+            else if (Regex.IsMatch(text, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase))
+                textTrigger = (QuestTextTrigger.Wait, text.StartsWith("Remain", StringComparison.OrdinalIgnoreCase) ? 20u : 10u, null);
             else if (Regex.Match(text, @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content)
                 textTrigger = (QuestTextTrigger.CompleteContent, 0u, content.Groups["name"].Value);
 

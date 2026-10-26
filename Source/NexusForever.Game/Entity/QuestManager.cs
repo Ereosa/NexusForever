@@ -138,6 +138,8 @@ namespace NexusForever.Game.Entity
             if (publicEventCheckCooldown > 0d)
                 publicEventCheckCooldown -= lastTick;
 
+            UpdateWaitObjectives(lastTick);
+
             var botchedQuests = new List<IQuest>();
             foreach (IQuest quest in activeQuests.Values)
             {
@@ -153,6 +155,61 @@ namespace NexusForever.Game.Entity
 
                 log.LogTrace($"Failed to complete quest {quest.Id} before the timer expired!");
             }
+        }
+
+        /// <summary>
+        /// Distance to a wait objective's marker the player has to stay within.
+        /// </summary>
+        private const float WaitObjectiveDistance = 30f;
+
+        private readonly Dictionary<uint /*objective id*/, double> waitObjectiveElapsed = [];
+
+        /// <summary>
+        /// Complete target-less "Wait for ...", "Observe ...", "Remain in ..." objectives once the player waited them out at their place.
+        /// </summary>
+        /// <remarks>
+        /// Retail scripts played something out meanwhile (an NPC drinking until he collapses, a test running), the client data only has
+        /// the text. The wait starts once the objective is the current step and restarts if the player leaves its marker.
+        /// </remarks>
+        private void UpdateWaitObjectives(double lastTick)
+        {
+            if (player.Map == null || player.IsLoading)
+                return;
+
+            var waiting = new HashSet<uint>();
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete()).ToList())
+                {
+                    (QuestTextTrigger Kind, uint Id, string Name) trigger = objective.ObjectiveInfo.GetTextTrigger();
+                    if (trigger.Kind != QuestTextTrigger.Wait)
+                        continue;
+
+                    // only the current step of the quest
+                    if (quest.Any(o => o.Index < objective.Index && !o.ObjectiveInfo.IsOptional() && !o.IsComplete()))
+                        continue;
+
+                    var locations = objective.ObjectiveInfo.GetAreaLocations().Where(l => l.WorldId == player.Map.Entry.Id).ToList();
+                    if (objective.ObjectiveInfo.GetAreaLocations().Any() && !locations.Any(l =>
+                        Vector3.Distance(player.Position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(WaitObjectiveDistance, l.Radius)))
+                        continue;
+
+                    uint id = objective.ObjectiveInfo.Id;
+                    waiting.Add(id);
+                    double elapsed = waitObjectiveElapsed.GetValueOrDefault(id) + lastTick;
+                    if (elapsed < trigger.Id)
+                    {
+                        waitObjectiveElapsed[id] = elapsed;
+                        continue;
+                    }
+
+                    waitObjectiveElapsed.Remove(id);
+                    quest.ObjectiveUpdate(id, Math.Max(1u, objective.ObjectiveInfo.Entry.Count));
+                }
+            }
+
+            foreach (uint id in waitObjectiveElapsed.Keys.Where(k => !waiting.Contains(k)).ToList())
+                waitObjectiveElapsed.Remove(id);
         }
 
         public void SendInitialPackets()
