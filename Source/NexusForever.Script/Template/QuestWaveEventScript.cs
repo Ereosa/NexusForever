@@ -5,9 +5,8 @@ using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
-using NexusForever.Script.Template;
 
-namespace NexusForever.Script.Alizar.Quest
+namespace NexusForever.Script.Template
 {
     /// <summary>
     /// A quest step where waves of attackers come for the player at the objective's marker ("Defend the memorial service", "Kill incoming Stormwing Falkrin").
