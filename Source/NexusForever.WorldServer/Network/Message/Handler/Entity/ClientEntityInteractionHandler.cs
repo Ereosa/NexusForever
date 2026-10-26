@@ -74,6 +74,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                     });
                     break;
                 }
+                case InteractionType.Vehicle: // world vehicles, boarding them is scripted
+                    entity?.InvokeScriptCollection<IWorldEntityScript>(s => s.OnBoard(session.Player));
+                    break;
                 case InteractionType.Vendor: // Handle Vendor
                     HandleVendor(session, entity);
                     break;

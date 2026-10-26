@@ -25,7 +25,10 @@ namespace NexusForever.Game.Entity
 
         public uint OwnerGuid { get; private set; }
 
-        private readonly Queue<ushort> splines = new();
+        private readonly Queue<TaxiLeg> legs = new();
+        private TaxiLeg currentLeg;
+        private double pauseTimer;
+        private Action<IPlayer> onFinished;
         public Vector3 Destination { get; private set; }
         public Vector3 DestinationRotation { get; private set; }
 
@@ -53,8 +56,27 @@ namespace NexusForever.Game.Entity
             Destination              = destination;
             DestinationRotation      = destinationRotation;
 
+            // the tbl splines carry client events at their ends (98 and 99) and the client drops the connection handling them
+            // on a taxi ("Failure Handling Network message 3610"), so the same points are sent as a custom path instead
             foreach (ushort splineId in splineIds)
-                splines.Enqueue(splineId);
+                legs.Enqueue(new TaxiLeg(Taxi.TaxiRouteSplines.GetPoints(splineId), Taxi.TaxiRouteSplines.GetType(splineId), FlightSpeed));
+        }
+
+        /// <summary>
+        /// Initialise the taxi for <see cref="IPlayer"/> to ride the supplied legs (a guided tour) and drop them at the supplied destination.
+        /// </summary>
+        public void Initialise(IPlayer owner, ICreatureInfo creatureInfo, IReadOnlyList<TaxiLeg> tourLegs, Vector3 destination, Vector3 destinationRotation, Action<IPlayer> onFinished)
+        {
+            Initialise(creatureInfo, 0u, 0u);
+
+            OwnerGuid           = owner.Guid;
+            Rotation            = owner.Rotation;
+            Destination         = destination;
+            DestinationRotation = destinationRotation;
+            this.onFinished     = onFinished;
+
+            foreach (TaxiLeg leg in tourLegs)
+                legs.Enqueue(leg);
         }
 
         protected override IEntityModel BuildEntityModel()
@@ -97,18 +119,53 @@ namespace NexusForever.Game.Entity
 
         private void LaunchNextSpline()
         {
-            // the tbl splines carry client events at their ends (98 and 99) and the client drops the connection handling them
-            // on a taxi ("Failure Handling Network message 3610"), so the same points are sent as a custom path instead
-            if (splines.TryDequeue(out ushort splineId))
+            while (legs.TryDequeue(out TaxiLeg leg))
             {
-                List<Vector3> points = Taxi.TaxiRouteSplines.GetPoints(splineId);
-                if (points.Count >= 2 && points[0] != points[^1])
-                    MovementManager.LaunchSpline(points, Taxi.TaxiRouteSplines.GetType(splineId), SplineMode.OneShot, FlightSpeed);
-                else
-                    LaunchNextSpline();
+                currentLeg = leg;
+                if (leg.Points.Count >= 2 && leg.Points[0] != leg.Points[^1])
+                {
+                    MovementManager.LaunchSpline(leg.Points.ToList(), leg.Type, SplineMode.OneShot, leg.Speed);
+                    return;
+                }
+
+                // a leg without movement (a stop right after another one)
+                if (OnLegFinished())
+                    return;
             }
-            else
-                Land();
+
+            currentLeg = null;
+            Land();
+        }
+
+        /// <summary>
+        /// Run the end of the current leg, returns true if the taxi now waits before the next leg.
+        /// </summary>
+        private bool OnLegFinished()
+        {
+            TaxiLeg leg = currentLeg;
+            if (leg == null)
+                return false;
+
+            if (leg.OnReached != null && GetVisible<IPlayer>(OwnerGuid) is IPlayer player)
+                leg.OnReached(player);
+
+            if (leg.PauseMs == 0u)
+                return false;
+
+            pauseTimer = leg.PauseMs / 1000d;
+            return true;
+        }
+
+        public override void Update(double lastTick)
+        {
+            base.Update(lastTick);
+
+            if (!flying || pauseTimer <= 0d)
+                return;
+
+            pauseTimer -= lastTick;
+            if (pauseTimer <= 0d && !PendingRemoval)
+                LaunchNextSpline();
         }
 
         public override void OnEntityCommandFinalise(IEntityCommand command)
@@ -116,7 +173,10 @@ namespace NexusForever.Game.Entity
             base.OnEntityCommandFinalise(command);
 
             if (flying && !PendingRemoval && command is PositionPathCommand { IsFinalised: true })
-                LaunchNextSpline();
+            {
+                if (!OnLegFinished())
+                    LaunchNextSpline();
+            }
         }
 
         private void Land()
@@ -137,6 +197,8 @@ namespace NexusForever.Game.Entity
 
             player.Rotation = DestinationRotation;
             player.TeleportToLocal(Destination, false);
+
+            onFinished?.Invoke(player);
         }
     }
 }
