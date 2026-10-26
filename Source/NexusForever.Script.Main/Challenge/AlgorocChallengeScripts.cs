@@ -156,3 +156,22 @@ namespace NexusForever.Script.Main.Challenge
         }
     }
 }
+
+namespace NexusForever.Script.Main.Challenge
+{
+    /// <summary>
+    /// Scrap Yard: "Collect Eldan Scrap near the Excavation Site before time runs out", the challenge names the Eldan Scrap virtual
+    /// item but no creature gives it in the data, it comes from the CH80 Eldan Scrap objects.
+    /// </summary>
+    [ScriptFilterOwnerId(80)]
+    public class ScrapYardChallengeScript : ChallengeScript
+    {
+        private const uint EldanScrapCreatureId = 18441;
+
+        public override void OnEntityActivated(NexusForever.Game.Abstract.Entity.IWorldEntity entity)
+        {
+            if (entity.CreatureId == EldanScrapCreatureId)
+                AddProgress();
+        }
+    }
+}
