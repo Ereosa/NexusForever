@@ -123,6 +123,13 @@ namespace NexusForever.QuestAudit
                 .Where(c => c.Contains("IPublicEventScript"))
                 .SelectMany(c => Regex.Matches(c, @"\[ScriptFilterOwnerId\(([\d, ]+)\)\]").SelectMany(m => m.Groups[1].Value.Split(',').Select(v => uint.Parse(v.Trim()))))
                 .ToHashSet();
+            // quests whose server-only wave events (objective type 25) are scripted (QuestWaveEventScript)
+            waveEventQuests = source == null ? [] : Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories)
+                .Where(f => f.Contains("NexusForever.Script.") && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
+                .Select(File.ReadAllText)
+                .Where(c => c.Contains(": QuestWaveEventScript"))
+                .SelectMany(c => Regex.Matches(c, @"\[ScriptFilterOwnerId\(([\d, ]+)\)\]\s*public class \w+ : QuestWaveEventScript").SelectMany(m => m.Groups[1].Value.Split(',').Select(v => uint.Parse(v.Trim()))))
+                .ToHashSet();
             contentNames = new GameTable<MatchingGameMapEntry>(Path.Combine(tbl, "MatchingGameMap.tbl")).Entries
                 .Select(m => NormaliseContent(text.GetEntry(m.LocalizedTextIdName) ?? ""))
                 .Where(n => n.Length > 0)
@@ -257,7 +264,7 @@ namespace NexusForever.QuestAudit
                         level = FindTradeskillTier(quest.PrerequisiteId, 0) != 0u ? QuestSupportLevel.Supported : QuestSupportLevel.Unsupported;
                     // events without a script run when every main objective is one the server updates by itself
                     if ((QuestObjectiveType)objective.Type == QuestObjectiveType.CompleteEvent)
-                        level = PublicEventRuns(objective.Data) ? QuestSupportLevel.Supported : QuestSupportLevel.Partial;
+                        level = PublicEventRuns(objective.Data) || waveEventQuests.Contains(quest.Id) ? QuestSupportLevel.Supported : QuestSupportLevel.Partial;
                     bool hidden = (objective.Flags & 0x08) != 0u;
                     bool optional = (objective.Flags & 0x20) != 0u;
 
@@ -468,6 +475,7 @@ namespace NexusForever.QuestAudit
 
         private static ILookup<uint, PublicEventObjectiveEntry> publicEventObjectives;
         private static HashSet<uint> scriptedPublicEvents;
+        private static HashSet<uint> waveEventQuests;
 
         /// <summary>
         /// Public event objective types the server updates without a script (kills, activations and talks of a target group, timers).
