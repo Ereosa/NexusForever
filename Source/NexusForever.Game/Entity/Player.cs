@@ -922,6 +922,10 @@ namespace NexusForever.Game.Entity
                     if (destination == null || destination.WorldId != Map.Entry.Id)
                         continue;
 
+                    // the player has to be inside the instance zone the objective leads to (same top level zone), not elsewhere on the world
+                    if (Zone == null || GetRootZoneId(Zone.Id) != GetRootZoneId(objective.Data))
+                        continue;
+
                     WorldLocation2Entry portal = GameTableManager.Instance.WorldLocation2.GetEntry(objective.WorldLocationsIdIndicator00);
                     if (portal == null || portal.WorldId == Map.Entry.Id)
                         continue;
@@ -946,6 +950,14 @@ namespace NexusForever.Game.Entity
         }
 
         private (ushort WorldId, Vector3 Position, ushort QuestId)? instanceReturnCandidate;
+
+        private static uint GetRootZoneId(uint zoneId)
+        {
+            WorldZoneEntry zone = GameTableManager.Instance.WorldZone.GetEntry(zoneId);
+            for (int i = 0; zone != null && zone.ParentZoneId != 0u && i < 16; i++)
+                zone = GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) ?? zone;
+            return zone?.Id ?? zoneId;
+        }
 
         private static readonly Lazy<HashSet<uint>> openWorlds = new(() => GameTableManager.Instance.TaxiNode.Entries
             .Where(n => n != null && n.TaxiNodeTypeEnum is 0u or 2u)
@@ -1056,6 +1068,9 @@ namespace NexusForever.Game.Entity
 
             clientZoneReported = true;
             SetZone(zone);
+
+            // instance maps without area data only know their zone once the client reports it
+            RestoreInstanceReturn();
         }
 
         /// <summary>
