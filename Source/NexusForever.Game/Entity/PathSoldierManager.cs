@@ -44,6 +44,11 @@ namespace NexusForever.Game.Entity
             public PathSoldierEventEntry Entry;
             public HoldoutEventType Type;
             public IPathMission Mission;
+            /// <summary>
+            /// Quest objective (type 25, CompleteEvent) the holdout runs for instead of a soldier mission.
+            /// </summary>
+            public ushort QuestId;
+            public uint QuestObjectiveId;
             public uint ControlPointGuid;
             public Vector3 Position;
             public uint WaveCount;
@@ -185,6 +190,47 @@ namespace NexusForever.Game.Entity
                 Spawn(spawn, DefaultDefendDistance, false);
 
             log.Trace($"Player {player.CharacterId} started holdout {entry.Id} for mission {mission.Id}.");
+
+            SendStatus((int)entry.InitialSpawnTime);
+            return true;
+        }
+
+        /// <summary>
+        /// Start the holdout a quest objective of type 25 (CompleteEvent) points at, at the supplied position.
+        /// </summary>
+        /// <remarks>
+        /// Quest steps such as "Defend the memorial service" are soldier holdout events (the objective data is a PathSoldierEvent id),
+        /// they run for any path and complete the objective instead of a mission.
+        /// </remarks>
+        public bool StartQuestHoldout(ushort questId, uint objectiveId, uint pathSoldierEventId, Vector3 position)
+        {
+            if (holdout != null || player.Map == null || !player.IsAlive)
+                return false;
+
+            PathSoldierEventEntry entry = GameTableManager.Instance.PathSoldierEvent.GetEntry(pathSoldierEventId);
+            if (entry == null || AssetManager.Instance.GetHoldoutSpawns(entry.Id).Count == 0)
+                return false;
+
+            holdout = new Holdout
+            {
+                Entry            = entry,
+                Type             = (HoldoutEventType)entry.PathSoldierEventType,
+                QuestId          = questId,
+                QuestObjectiveId = objectiveId,
+                Position         = position,
+                WaveCount        = (uint)GameTableManager.Instance.PathSoldierEventWave.Entries
+                    .Where(w => w != null && w.PathSoldierEventId == entry.Id)
+                    .Select(w => w.WaveIndex)
+                    .Distinct()
+                    .Count(),
+                Mode             = PlayerPathSoldierEventMode.InitialDelay
+            };
+            initialDelay = entry.InitialSpawnTime / 1000d;
+
+            foreach (PathSoldierHoldoutSpawnModel spawn in AssetManager.Instance.GetHoldoutSpawns(entry.Id).Where(s => ((HoldoutSpawnFlags)s.Flags & HoldoutSpawnFlags.Defend) != 0))
+                Spawn(spawn, DefaultDefendDistance, false);
+
+            log.Trace($"Player {player.CharacterId} started holdout {entry.Id} for quest {questId} objective {objectiveId}.");
 
             SendStatus((int)entry.InitialSpawnTime);
             return true;
@@ -389,8 +435,16 @@ namespace NexusForever.Game.Entity
 
             log.Trace($"Player {player.CharacterId} holdout {ended.Entry.Id} ended with {result}.");
 
-            if (result == PlayerPathSoldierResult.Success)
+            if (result != PlayerPathSoldierResult.Success)
+                return;
+
+            if (ended.Mission != null)
                 player.PathMissionManager.CompleteMission(ended.Mission);
+            else if (ended.QuestId != 0)
+            {
+                player.QuestManager.GetActiveQuest(ended.QuestId)?.ObjectiveUpdate(ended.QuestObjectiveId,
+                    Math.Max(1u, GameTableManager.Instance.QuestObjective.GetEntry(ended.QuestObjectiveId)?.Count ?? 1u));
+            }
         }
 
         public void OnDeath()

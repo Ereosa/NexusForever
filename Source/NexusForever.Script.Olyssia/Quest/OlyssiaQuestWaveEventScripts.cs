@@ -29,27 +29,6 @@ namespace NexusForever.Script.Olyssia.Quest
     }
 
     /// <summary>
-    /// Hostile Negotiations: "Defeat the waves of Falkrin near Bloodtalon Perch".
-    /// </summary>
-    /// <remarks>
-    /// The objective's reward pane lists the attackers: Bloodtalon Fighter 50877 (never spawned), Bloodtalon Warrior 50878 (never spawned), Bloodtalon Guardian 50880 (never spawned), Bloodtalon Apostle 50881 (never spawned), Bloodtalon Stormbringer 50882 (never spawned).
-    /// Wave sizes are guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(5511)]
-    public class HostileNegotiationsQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (8175, [[50877, 50877], [50877, 50878], [50878, 50880, 50881]])
-        ];
-
-        public HostileNegotiationsQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// The Ground Beneath Your Feet: "Poke the (creature=33893) and draw out the Terminites inside the Malignant Burrow".
     /// </summary>
     /// <remarks>
@@ -65,48 +44,6 @@ namespace NexusForever.Script.Olyssia.Quest
         ];
 
         public TheGroundBeneathYourFeetQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Field Study: "Activate the (creature=39208) in Twilight Grove".
-    /// </summary>
-    /// <remarks>
-    /// The objective's reward pane lists the attackers: Corrupted Screecher 39204, Corrupted Devourer 39205, Twisted Monstrosity 39206, Corrupted Chaser 48385.
-    /// Wave sizes are guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(7753)]
-    public class FieldStudy7753QuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (14398, [[39204, 39204], [39204, 48385], [48385, 39205], [39206]])
-        ];
-
-        public FieldStudy7753QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Field Study: "Activate the (creature=39208) in Twilight Grove".
-    /// </summary>
-    /// <remarks>
-    /// The objective's reward pane lists the attackers: Corrupted Screecher 39204, Corrupted Devourer 39205, Twisted Monstrosity 39206, Corrupted Chaser 48385.
-    /// Wave sizes are guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(8075)]
-    public class FieldStudy8075QuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (14588, [[39204, 39204], [39204, 48385], [48385, 39205], [39206]])
-        ];
-
-        public FieldStudy8075QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }
@@ -148,26 +85,6 @@ namespace NexusForever.Script.Olyssia.Quest
         ];
 
         public WalkingIntoATrapQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Artemis Pinned: "Recover Artemis Zin's Datachron from the attacking pumera in Wilderrun Chase".
-    /// </summary>
-    /// <remarks>
-    /// Torine Pumera 40967 (levels 34-38). Two waves, guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6271)]
-    public class ArtemisPinnedQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (9574, [[40967, 40967], [40967, 40967, 40967]])
-        ];
-
-        public ArtemisPinnedQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }
@@ -254,26 +171,6 @@ namespace NexusForever.Script.Olyssia.Quest
     }
 
     /// <summary>
-    /// Fall of the Bladevault Keeper: "Use the Voreth War Drums to challenge the Bladevault Keeper".
-    /// </summary>
-    /// <remarks>
-    /// Bladevault Warhound 30960 and Bladevault Keeper 30954 (levels 20-21, never spawned, created with the drums 30968). The warhounds coming first is a guess.
-    /// </remarks>
-    [ScriptFilterOwnerId(6706)]
-    public class FallOfTheBladevaultKeeperQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (10335, [[30960, 30960], [30954]])
-        ];
-
-        public FallOfTheBladevaultKeeperQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Trial of Strength: "Survive the Trial of Strength in Fort Vigilance".
     /// </summary>
     /// <remarks>
@@ -293,23 +190,4 @@ namespace NexusForever.Script.Olyssia.Quest
         }
     }
 
-    /// <summary>
-    /// Blademother's Refuge: "Defeat all of Tresayne's best Torine warriors to pass the final trial".
-    /// </summary>
-    /// <remarks>
-    /// One at a time: Torine Swordmaiden 40976, Deathbringer 40965 and Swordmaiden 47698 (levels 34-38, Sisterhood, never spawned). Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6371)]
-    public class BlademothersRefugeQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (14704, [[40976], [40965], [47698]])
-        ];
-
-        public BlademothersRefugeQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
 }

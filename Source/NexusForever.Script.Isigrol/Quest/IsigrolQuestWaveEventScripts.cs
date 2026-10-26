@@ -50,27 +50,6 @@ namespace NexusForever.Script.Isigrol.Quest
     }
 
     /// <summary>
-    /// Heresy Cubed: "Survive the attacking Probes on the edge of Flamedancer Commune".
-    /// </summary>
-    /// <remarks>
-    /// The objective's reward pane lists the attackers: Eldan Neutralization Probe 36140, Eldan Termination Probe 36141, Eldan Execution Probe 36144, Flamedancer Probe 37490.
-    /// Wave sizes are guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(7372)]
-    public class HeresyCubed7372QuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (13601, [[37490, 37490], [37490, 36144], [36144, 36141, 36140]])
-        ];
-
-        public HeresyCubed7372QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Yatish's Ultimatum: "Plant and defend the Lopp Banner in the upper levels of Scourwind Perch".
     /// </summary>
     /// <remarks>
@@ -107,27 +86,6 @@ namespace NexusForever.Script.Isigrol.Quest
         ];
 
         public ComeOutAndPlayQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Heresy Cubed: "Survive the attacking Probes on the edge of Flamedancer Commune".
-    /// </summary>
-    /// <remarks>
-    /// The objective's reward pane lists the attackers: Eldan Neutralization Probe 36140, Eldan Termination Probe 36141, Eldan Execution Probe 36144, Flamedancer Probe 37490.
-    /// Wave sizes are guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(8568)]
-    public class HeresyCubed8568QuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (15258, [[37490, 37490], [37490, 36144], [36144, 36141, 36140]])
-        ];
-
-        public HeresyCubed8568QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }
@@ -251,26 +209,6 @@ namespace NexusForever.Script.Isigrol.Quest
         ];
 
         public ComeOutAndPlay8095QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Clean Room: "Defend the Golden Jabbit near the Gilded Fields".
-    /// </summary>
-    /// <remarks>
-    /// Warped Chillcutter 52466 and Warped Icerender 52467 (level 50, never spawned, created with the Golden Jabbit 52465). Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(8993)]
-    public class CleanRoomQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (16259, [[52467, 52467], [52467, 52466], [52466, 52467, 52467]])
-        ];
-
-        public CleanRoomQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }

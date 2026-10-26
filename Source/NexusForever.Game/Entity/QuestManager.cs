@@ -139,6 +139,7 @@ namespace NexusForever.Game.Entity
                 publicEventCheckCooldown -= lastTick;
 
             UpdateWaitObjectives(lastTick);
+            UpdateQuestHoldouts(lastTick);
 
             var botchedQuests = new List<IQuest>();
             foreach (IQuest quest in activeQuests.Values)
@@ -154,6 +155,84 @@ namespace NexusForever.Game.Entity
                 inactiveQuests.Add(quest.Id, quest);
 
                 log.LogTrace($"Failed to complete quest {quest.Id} before the timer expired!");
+            }
+        }
+
+        /// <summary>
+        /// Distance to a holdout objective's marker that starts the holdout.
+        /// </summary>
+        private const float QuestHoldoutStartDistance = 25f;
+
+        /// <summary>
+        /// Seconds before a failed quest holdout can start again.
+        /// </summary>
+        private const double QuestHoldoutRetryDelay = 15d;
+
+        private double questHoldoutCheck;
+        private double questHoldoutRetry;
+        private bool questHoldoutRunning;
+
+        /// <summary>
+        /// Start the soldier holdout of a type 25 (CompleteEvent) objective once it is the current step and the player is at its marker.
+        /// </summary>
+        /// <remarks>
+        /// The objective data is the PathSoldierEvent id, the holdout waves come from the world database (path_soldier_holdout_spawn).
+        /// Objectives without holdout spawns are left to quest scripts.
+        /// </remarks>
+        private void UpdateQuestHoldouts(double lastTick)
+        {
+            if (questHoldoutRetry > 0d)
+                questHoldoutRetry -= lastTick;
+
+            // a holdout that ended (failed, or the step completed) can't start again right away
+            if (questHoldoutRunning && !player.PathSoldierManager.InHoldout)
+            {
+                questHoldoutRunning = false;
+                questHoldoutRetry   = QuestHoldoutRetryDelay;
+            }
+
+            questHoldoutCheck -= lastTick;
+            if (questHoldoutCheck > 0d)
+                return;
+            questHoldoutCheck = 0.5d;
+
+            if (player.Map == null || player.IsLoading || !player.IsAlive || player.PathSoldierManager.InHoldout)
+                return;
+
+            if (questHoldoutRetry > 0d)
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => o.ObjectiveInfo.Type == QuestObjectiveType.CompleteEvent && !o.IsComplete()).ToList())
+                {
+                    uint eventId = objective.ObjectiveInfo.Entry.Data;
+                    if (AssetManager.Instance.GetHoldoutSpawns(eventId).Count == 0)
+                        continue;
+
+                    if (quest.Any(o => o.Index < objective.Index && !o.ObjectiveInfo.IsOptional() && !o.IsComplete()))
+                        continue;
+
+                    // at the marker, a large marked area is defended where the player stands
+                    Vector3? position = null;
+                    var locations = objective.ObjectiveInfo.GetAreaLocations().ToList();
+                    if (locations.Count == 0)
+                        position = player.Position;
+                    foreach (WorldLocation2Entry location in locations.Where(l => l.WorldId == player.Map.Entry.Id))
+                    {
+                        var marker = new Vector3(location.Position0, location.Position1, location.Position2);
+                        if (Vector3.Distance(player.Position, marker) > Math.Max(QuestHoldoutStartDistance, location.Radius))
+                            continue;
+                        position = location.Radius > QuestHoldoutStartDistance ? player.Position : marker;
+                        break;
+                    }
+
+                    if (position == null)
+                        continue;
+
+                    questHoldoutRunning = player.PathSoldierManager.StartQuestHoldout(quest.Id, objective.ObjectiveInfo.Id, eventId, position.Value);
+                    return;
+                }
             }
         }
 

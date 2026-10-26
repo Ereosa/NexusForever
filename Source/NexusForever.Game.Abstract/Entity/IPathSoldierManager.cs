@@ -15,6 +15,11 @@ namespace NexusForever.Game.Abstract.Entity
         void OnActivate(IWorldEntity entity);
 
         /// <summary>
+        /// Start the holdout a quest objective of type 25 (CompleteEvent) points at, at the supplied position.
+        /// </summary>
+        bool StartQuestHoldout(ushort questId, uint objectiveId, uint pathSoldierEventId, System.Numerics.Vector3 position);
+
+        /// <summary>
         /// Invoked when the player dies.
         /// </summary>
         void OnDeath();
