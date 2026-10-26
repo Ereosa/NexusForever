@@ -50,27 +50,6 @@ namespace NexusForever.Script.Olyssia.Quest
     }
 
     /// <summary>
-    /// Experiment Extermination: "Kill (creature=49385) escaped experiments outside Fool's Hope".
-    /// </summary>
-    /// <remarks>
-    /// The objective's reward pane lists the attackers: Lab Slank Specimen 49610 (never spawned), Chemically Infused Embryo 49611 (never spawned), Failed Experiment 49612 (never spawned).
-    /// Wave sizes are guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(8914)]
-    public class ExperimentExterminationQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (16011, [[49610, 49610], [49610, 49611], [49611, 49611], [49612]])
-        ];
-
-        public ExperimentExterminationQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
     /// Walking into a Trap: "Recover Dorian Walker's Datachron from the attacking pumera in the Undergrove".
     /// </summary>
     /// <remarks>
@@ -165,26 +144,6 @@ namespace NexusForever.Script.Olyssia.Quest
         ];
 
         public BuzzbingOnslaughtQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
-            : base(gameTableManager, creatureInfoManager)
-        {
-        }
-    }
-
-    /// <summary>
-    /// Trial of Strength: "Survive the Trial of Strength in Fort Vigilance".
-    /// </summary>
-    /// <remarks>
-    /// The fort's hostile trial fighters, Vigilant Aspirant 28301 and Vigilant Petitioner 40266 (levels 34-35, faction 218). Guessed.
-    /// </remarks>
-    [ScriptFilterOwnerId(6340)]
-    public class TrialOfStrengthQuestScript : QuestWaveEventScript
-    {
-        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
-        [
-            (9747, [[28301, 28301], [28301, 28301], [40266]])
-        ];
-
-        public TrialOfStrengthQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
             : base(gameTableManager, creatureInfoManager)
         {
         }
