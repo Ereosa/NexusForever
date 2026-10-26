@@ -185,9 +185,14 @@ namespace NexusForever.Game.Spell.Target
             if (IsPending)
                 return;
 
+            // the target already left the map (logout, teleport), its properties went with it
+            IUnitEntity target = Target.GetTarget();
+            if (target == null)
+                return;
+
             try
             {
-                spellEffectHandlerInvoker.InvokeRemoveHandler(Target.Collection.Spell, Target.GetTarget(), this);
+                spellEffectHandlerInvoker.InvokeRemoveHandler(Target.Collection.Spell, target, this);
             }
             catch (Exception e)
             {
