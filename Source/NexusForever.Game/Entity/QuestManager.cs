@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Game.Abstract.Map;
@@ -12,6 +13,7 @@ using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Quest;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.GameTable;
@@ -130,6 +132,9 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void Update(double lastTick)
         {
+            if (publicEventCheckCooldown > 0d)
+                publicEventCheckCooldown -= lastTick;
+
             var botchedQuests = new List<IQuest>();
             foreach (IQuest quest in activeQuests.Values)
             {
@@ -852,6 +857,72 @@ namespace NexusForever.Game.Entity
             }
         }
 
+        private double publicEventCheckCooldown;
+
+        /// <remarks>
+        /// Open world public events (eg: defend the memorial service in Gallow) were started by retail scripts, the event's objectives,
+        /// teams and spawns are all in the data. A player with a "complete the event" objective (type 25) inside the event's zone starts
+        /// the event if it isn't running and joins it, leaving the zone leaves it.
+        /// </remarks>
+        private void CheckQuestPublicEvents()
+        {
+            if (publicEventCheckCooldown > 0d || player.Map == null || player.IsLoading)
+                return;
+
+            publicEventCheckCooldown = 2d;
+
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => o.ObjectiveInfo.Type == QuestObjectiveType.CompleteEvent && !o.IsComplete()).ToList())
+                {
+                    PublicEventEntry entry = GameTableManager.Instance.PublicEvent.GetEntry(objective.ObjectiveInfo.Entry.Data);
+                    if (entry == null || entry.WorldId != player.Map.Entry.Id)
+                        continue;
+
+                    bool inZone = entry.WorldZoneId == 0u || IsInZone(entry.WorldZoneId);
+                    IPublicEvent publicEvent = player.Map.PublicEventManager.GetEvents().FirstOrDefault(e => e.Id == entry.Id && !e.HasFinished);
+                    bool joined = publicEvent != null && player.Map.PublicEventManager.GetEvents()
+                        .Any(e => e == publicEvent && e.GetTeams().Any(t => t.GetMembers().Any(m => m.CharacterId == player.CharacterId)));
+
+                    if (!inZone)
+                    {
+                        if (joined)
+                            publicEvent.LeaveEvent(player, PublicEventRemoveReason.LeftArea);
+                        continue;
+                    }
+
+                    if (joined || player.Level < entry.MinPlayerLevel)
+                        continue;
+
+                    if (publicEvent == null)
+                    {
+                        // a finished event stays in the store until it is removed, it is started again once it is gone
+                        if (player.Map.PublicEventManager.GetEvents().Any(e => e.Id == entry.Id))
+                            continue;
+
+                        publicEvent = player.Map.PublicEventManager.CreateEvent(entry.Id);
+                        if (publicEvent == null)
+                            continue;
+                    }
+
+                    PublicEventTeam team = publicEvent.GetTeams().Any(t => t.Team == PublicEventTeam.PublicTeam)
+                        ? PublicEventTeam.PublicTeam
+                        : player.Faction1 == Faction.Dominion ? PublicEventTeam.Dominion : PublicEventTeam.Exiles;
+                    if (publicEvent.GetTeams().Any(t => t.Team == team))
+                        publicEvent.JoinEvent(player, team);
+                }
+            }
+        }
+
+        private bool IsInZone(uint zoneId)
+        {
+            for (WorldZoneEntry zone = player.Zone; zone != null; zone = zone.ParentZoneId != 0u ? GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) : null)
+                if (zone.Id == zoneId)
+                    return true;
+
+            return false;
+        }
+
         /// <summary>
         /// Speed of a summoned "Follow the ..." guide, a walking pace the player can keep up with.
         /// </summary>
@@ -977,6 +1048,7 @@ namespace NexusForever.Game.Entity
                 return;
 
             CleanupFollowGuides();
+            CheckQuestPublicEvents();
 
             foreach (IQuest quest in activeQuests.Values.ToList())
             {
