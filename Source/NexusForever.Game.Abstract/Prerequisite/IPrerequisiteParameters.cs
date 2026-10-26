@@ -9,5 +9,10 @@ namespace NexusForever.Game.Abstract.Prerequisite
         public CastResult? CastResult { get; set; }
         public IUnitEntity Target { get; set; }
         public ushort? TaxiNode { get; set; }
+
+        /// <summary>
+        /// Prerequisite types without a handler count as met (eg: visibility, hiding an NPC on an unknown condition is worse than showing it).
+        /// </summary>
+        public bool UnhandledMeets { get; set; }
     }
 }

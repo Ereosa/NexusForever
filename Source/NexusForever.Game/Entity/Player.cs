@@ -951,19 +951,18 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Returns if <see cref="IGridEntity"/> can see supplied <see cref="IGridEntity"/>.
         /// </summary>
+        private static readonly PrerequisiteParameters visibilityParameters = new() { UnhandledMeets = true };
+
         protected override bool CanSeeEntity(IGridEntity entity)
         {
             bool? canSeeMe = entity.InvokeScriptCollection<bool, ICanSeeMeScript>(c => c.CanSeeMe(this));
             if (canSeeMe != null && !canSeeMe.Value)
                 return false;
 
-            // TODO: implement me...
-            /*if (entity is IWorldEntity worldEntity && worldEntity.CreatureInfo != null)
-            {
-                if (worldEntity.CreatureInfo.PrerequisiteVisibilityEntry != null
-                    && !PrerequisiteManager.Instance.Meets(this, worldEntity.CreatureInfo.PrerequisiteVisibilityEntry.Id))
-                        return false;
-            }*/
+            // creatures with several story versions (Queen Myala before and after a quest) only show the one matching the player's progress
+            if (entity is IWorldEntity worldEntity && worldEntity.CreatureInfo?.PrerequisiteVisibilityEntry != null
+                && !PrerequisiteManager.Instance.Meets(this, worldEntity.CreatureInfo.PrerequisiteVisibilityEntry.Id, visibilityParameters))
+                return false;
 
             return base.CanSeeEntity(entity);
         }

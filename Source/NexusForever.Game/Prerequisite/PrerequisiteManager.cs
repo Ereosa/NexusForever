@@ -110,7 +110,7 @@ namespace NexusForever.Game.Prerequisite
                     log.LogError($"Unhandled PrerequisiteType {type} ({(uint)type}) in prerequisite {prerequisiteId}, comparison {comparison}, value {value}, object {objectId}! Everything gated by it fails, run NexusForever.QuestAudit for the affected quests.");
                 else
                     log.LogWarning($"Unhandled PrerequisiteType {type} in prerequisite {prerequisiteId}!");
-                return false;
+                return parameters?.UnhandledMeets ?? false;
             }
 
             return handler.Meets(player, comparison, value, objectId, parameters);
