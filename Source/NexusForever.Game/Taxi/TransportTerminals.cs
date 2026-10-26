@@ -22,7 +22,7 @@ namespace NexusForever.Game.Taxi
     /// 1. the spaceport terminals spawned in a zone named X (or inside it), preferring the one that ships back to where the
     ///    player came from, eg: "Ship to Thayd" in Fool's Hope lands at the "Ship to Wilderrun" terminal in Thayd's spaceport;
     /// 2. a taxi or rapid transport node named X or "Somewhere, X" of the player's faction, lowest level first;
-    /// 3. the entry location of a zone named X.
+    /// 3. a landing site in the zone named X or its sub zones ("Darkstone's Landing"), else the first location found there.
     /// Terminals whose spell has its own Teleport effect are left to the spell.
     /// </remarks>
     public static class TransportTerminals
@@ -160,12 +160,9 @@ namespace NexusForever.Game.Taxi
                 .Select(n => GameTableManager.Instance.WorldLocation2.GetEntry(n.Node.WorldLocation2Id))
                 .FirstOrDefault(l => l != null);
 
-            // 3. zone entry location
-            location ??= GameTableManager.Instance.WorldZone.Entries
-                .Where(z => z != null && string.Equals(text?.GetEntry(z.LocalizedTextIdName), destination, StringComparison.OrdinalIgnoreCase))
-                .SelectMany(z => GameTableManager.Instance.WorldLocation2.Entries.Where(l => l != null && l.WorldZoneId == z.Id))
-                .OrderBy(l => l.Radius)
-                .FirstOrDefault();
+            // 3. a landing site in the zone (eg: Darkstone's Landing in Northern Wastes, Bloodstone Landing in Crimson Badlands),
+            //    else the first location of the zone or one of its sub zones
+            location ??= GetZoneLocation(destination, text);
 
             if (location == null)
             {
@@ -177,6 +174,44 @@ namespace NexusForever.Game.Taxi
             worldId  = location.WorldId;
             position = new Vector3(location.Position0, location.Position1, location.Position2);
             return true;
+        }
+
+        private static readonly string[] landingNames = { "Landing", "Spaceport", "Dock" };
+
+        private static WorldLocation2Entry GetZoneLocation(string destination, TextTable text)
+        {
+            if (text == null)
+                return null;
+
+            ILookup<uint, WorldZoneEntry> children = GameTableManager.Instance.WorldZone.Entries
+                .Where(z => z != null && z.ParentZoneId != 0u)
+                .ToLookup(z => z.ParentZoneId);
+
+            // the zone itself first, then its sub zones breadth first, the top zone of a pocket world often has no locations of its own
+            var zones = new List<WorldZoneEntry>();
+            var queue = new Queue<WorldZoneEntry>(GameTableManager.Instance.WorldZone.Entries
+                .Where(z => z != null && string.Equals(text.GetEntry(z.LocalizedTextIdName)?.Trim(), destination, StringComparison.OrdinalIgnoreCase)));
+            var seen = new HashSet<uint>();
+            while (queue.TryDequeue(out WorldZoneEntry zone) && zones.Count < 512)
+            {
+                if (!seen.Add(zone.Id))
+                    continue;
+
+                zones.Add(zone);
+                foreach (WorldZoneEntry child in children[zone.Id])
+                    queue.Enqueue(child);
+            }
+
+            ILookup<uint, WorldLocation2Entry> locations = GameTableManager.Instance.WorldLocation2.Entries
+                .Where(l => l != null && l.WorldZoneId != 0u && seen.Contains(l.WorldZoneId))
+                .ToLookup(l => l.WorldZoneId);
+
+            WorldZoneEntry best = zones
+                .Where(z => locations[z.Id].Any())
+                .OrderByDescending(z => landingNames.Any(n => (text.GetEntry(z.LocalizedTextIdName) ?? "").Contains(n, StringComparison.OrdinalIgnoreCase)))
+                .FirstOrDefault();
+
+            return best != null ? locations[best.Id].OrderBy(l => l.Id).First() : null;
         }
 
         private static bool IsFactionNode(TaxiNodeEntry entry, IPlayer player)
