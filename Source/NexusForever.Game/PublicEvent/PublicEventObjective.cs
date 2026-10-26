@@ -252,12 +252,26 @@ namespace NexusForever.Game.PublicEvent
 
         private Network.World.Message.Model.Shared.PublicEventObjectiveStatus BuildObjectiveStatus()
         {
-            return new Network.World.Message.Model.Shared.PublicEventObjectiveStatus
+            var status = new Network.World.Message.Model.Shared.PublicEventObjectiveStatus
             {
                 Status        = Status,
                 ObjectiveData = IsChecklist ? Checklist : Count,
                 DynamicMax    = DynamicMax
             };
+
+            // collected virtual items also go out as the objective's item list, the client's count of a virtual collect objective
+            // follows the items it holds rather than the objective data alone
+            if (Entry.PublicEventObjectiveTypeEnum == PublicEventObjectiveType.VirtualCollect)
+            {
+                status.DataType = PublicEventObjectiveDataType.VirtualItemDepot;
+                status.VirtualItems.Add(new Network.World.Message.Model.Shared.PublicEventObjectiveStatus.VirtualItem
+                {
+                    ItemId = Entry.ObjectId,
+                    Count  = Count
+                });
+            }
+
+            return status;
         }
     }
 }
