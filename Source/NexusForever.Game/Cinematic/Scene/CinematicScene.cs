@@ -258,5 +258,10 @@ namespace NexusForever.Game.Cinematic.Scene
         public Sex? Sex { get; init; }
         public List<SceneVisual> Visuals { get; init; }
         public List<(uint Delay, bool Hide)> Visibility { get; init; }
+
+        /// <summary>
+        /// Map prop (area file prop unique id) the actor stands in for, for props whose model holds the scene animation.
+        /// </summary>
+        public ulong ActivePropId { get; init; }
     }
 }

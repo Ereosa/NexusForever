@@ -68,7 +68,8 @@ namespace NexusForever.Game.Cinematic.Scene
                     continue;
 
                 var actor = new Actor(sceneActor.CreatureId, ActorCreateFlags, sceneActor.Angle ?? angle,
-                    sceneActor.Position.HasValue ? new Position(sceneActor.Position.Value) : OriginPosition, sceneActor.Delay);
+                    sceneActor.Position.HasValue ? new Position(sceneActor.Position.Value) : OriginPosition, sceneActor.Delay,
+                    activePropId: sceneActor.ActivePropId);
 
                 List<IVisualEffect> visuals = sceneActor.Visuals != null
                     ? sceneActor.Visuals.Select(v => (IVisualEffect)new VisualEffect(v.VisualEffectId, delay: v.Delay)).ToList()
