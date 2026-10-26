@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
@@ -124,8 +124,31 @@ namespace NexusForever.Script.Instance.Expedition
         /// </summary>
         public virtual void OnAddToMap(IGridEntity entity)
         {
-            if (entity is IWorldEntity worldEntity)
-                ApplyPrimeLevel(worldEntity);
+            if (entity is not IWorldEntity worldEntity)
+                return;
+
+            ApplyPrimeLevel(worldEntity);
+            if (worldEntity.CreatureId != 0u)
+            {
+                if (!entitiesByCreature.TryGetValue(worldEntity.CreatureId, out HashSet<uint> guids))
+                    entitiesByCreature.Add(worldEntity.CreatureId, guids = []);
+                guids.Add(worldEntity.Guid);
+            }
+        }
+
+        private readonly Dictionary<uint, HashSet<uint>> entitiesByCreature = [];
+
+        /// <summary>
+        /// Entities of a creature (or its veteran version) currently on the map.
+        /// </summary>
+        protected IEnumerable<T> GetEntities<T>(uint creatureId) where T : class, IWorldEntity
+        {
+            if (!entitiesByCreature.TryGetValue(GetCreature(creatureId) is uint id && id != 0u ? id : creatureId, out HashSet<uint> guids))
+                yield break;
+
+            foreach (uint guid in guids.ToList())
+                if (mapInstance.GetEntity<T>(guid) is T entity)
+                    yield return entity;
         }
 
         /// <summary>
@@ -148,6 +171,8 @@ namespace NexusForever.Script.Instance.Expedition
         /// </summary>
         public virtual void OnRemoveFromMap(IGridEntity entity)
         {
+            if (entity is IWorldEntity worldEntity && entitiesByCreature.TryGetValue(worldEntity.CreatureId, out HashSet<uint> guids))
+                guids.Remove(worldEntity.Guid);
         }
 
         protected IWorldEntity SpawnCreature(uint creatureId, Vector3 position, float yaw = 0f, OnAddDelegate add = null)
@@ -435,6 +460,17 @@ namespace NexusForever.Script.Instance.Expedition
 
             foreach (IPlayer player in mapInstance.GetPlayers())
                 player.SendSystemMessage(text);
+        }
+
+        /// <summary>
+        /// A creature on the map yells a line to the whole expedition (the expeditions are small, the range covers them).
+        /// </summary>
+        protected void Yell(uint creatureId, uint textId, float range = 500f)
+        {
+            IWorldEntity speaker = GetEntities<IWorldEntity>(creatureId).FirstOrDefault();
+            string text = GetText(textId);
+            if (speaker != null && !string.IsNullOrEmpty(text))
+                speaker.NpcYell(text, range);
         }
 
         protected string GetText(uint textId)
