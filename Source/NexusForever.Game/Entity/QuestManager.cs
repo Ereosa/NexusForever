@@ -1448,7 +1448,30 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private const float FollowGuideSpeed = 3.5f;
 
-        private readonly Dictionary<uint /*objective id*/, (uint Guid, Vector3 End)> followGuides = [];
+        /// <summary>
+        /// Guide summoned for a follow objective, tracked by reference because the map only assigns its guid once it is added.
+        /// </summary>
+        private class FollowGuide
+        {
+            public IWorldEntity Entity { get; init; }
+            public Vector3 End { get; init; }
+            public bool Added { get; set; }
+
+            /// <summary>
+            /// The guide was added to a map and has since been removed (despawned, or the player summoned it on a map they left).
+            /// </summary>
+            public bool IsGone(IBaseMap map) => Added && Entity.Map != map;
+        }
+
+        private readonly Dictionary<uint /*objective id*/, FollowGuide> followGuides = [];
+
+        /// <summary>
+        /// Distance from the start of a guide's walk the player has to be for the guide to appear.
+        /// </summary>
+        /// <remarks>
+        /// Retail guides waited where the previous step ended (the Spatial Anomaly at the ship wreckage), they didn't appear next to the player anywhere in the zone.
+        /// </remarks>
+        private const float FollowGuideSummonRange = 120f;
 
         /// <summary>
         /// Distance to a guide at the end of its walk that catches it.
@@ -1464,12 +1487,13 @@ namespace NexusForever.Game.Entity
         /// <returns>True once the player caught up with the guide at the end of its walk.</returns>
         private bool StartFollowGuide(IQuest quest, IQuestObjective objective)
         {
-            if (followGuides.TryGetValue(objective.ObjectiveInfo.Id, out (uint Guid, Vector3 End) existing))
+            if (followGuides.TryGetValue(objective.ObjectiveInfo.Id, out FollowGuide existing))
             {
-                IWorldEntity current = player.Map.GetEntity<IWorldEntity>(existing.Guid);
-                if (current != null)
-                    return Vector3.Distance(current.Position, existing.End) < 3f
-                        && Vector3.Distance(player.Position, current.Position) <= FollowCatchDistance;
+                // a guide that is still waiting to be added to the map has no guid yet, it must not be summoned again
+                if (!existing.IsGone(player.Map))
+                    return existing.Added
+                        && Vector3.Distance(existing.Entity.Position, existing.End) < 3f
+                        && Vector3.Distance(player.Position, existing.Entity.Position) <= FollowCatchDistance;
                 followGuides.Remove(objective.ObjectiveInfo.Id);
             }
 
@@ -1488,6 +1512,9 @@ namespace NexusForever.Game.Entity
                 return false;
 
             var first = new Vector3(destinations[0].Position0, destinations[0].Position1, destinations[0].Position2);
+            if (Vector3.Distance(player.Position, first) > FollowGuideSummonRange + destinations[0].Radius)
+                return false;
+
             Vector3 direction = Vector3.Normalize(new Vector3(first.X - player.Position.X, 0f, first.Z - player.Position.Z));
             if (float.IsNaN(direction.X))
                 direction = Vector3.UnitX;
@@ -1514,15 +1541,24 @@ namespace NexusForever.Game.Entity
                 }
             }
 
+            FollowGuide followGuide = null;
             void OnAdd(IBaseMap map, uint guid, Vector3 vector)
             {
+                if (followGuide != null)
+                    followGuide.Added = true;
                 map.GetEntity<IWorldEntity>(guid)?.MovementManager.LaunchSpline(nodes, SplineType.Linear, SplineMode.OneShot, FollowGuideSpeed);
             }
 
             IWorldEntity guide = creatureInfo.Entry.CreationTypeEnum == EntityType.NonPlayer
                 ? player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, start, Vector3.Zero, OnAdd)
                 : player.SummonFactory.Summon<ISimpleEntity>(creatureInfo, start, Vector3.Zero, OnAdd);
-            followGuides[objective.ObjectiveInfo.Id] = (guide.Guid, nodes[^1]);
+            followGuide = new FollowGuide
+            {
+                Entity = guide,
+                End    = nodes[^1],
+                Added  = guide.Map != null
+            };
+            followGuides[objective.ObjectiveInfo.Id] = followGuide;
             return false;
         }
 
@@ -1534,14 +1570,16 @@ namespace NexusForever.Game.Entity
             if (followGuides.Count == 0)
                 return;
 
-            foreach ((uint objectiveId, (uint guid, Vector3 _)) in followGuides.ToList())
+            foreach ((uint objectiveId, FollowGuide guide) in followGuides.ToList())
             {
                 bool active = activeQuests.Values.Any(q => q.State == QuestState.Accepted
                     && q.Any(o => o.ObjectiveInfo.Id == objectiveId && !o.IsComplete()));
                 if (active)
                     continue;
 
-                player.Map?.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+                // only a guide that is on the player's map, a pending add would put it on the map after the removal
+                if (guide.Added && guide.Entity.Map != null && guide.Entity.Map == player.Map)
+                    guide.Entity.RemoveFromMap();
                 followGuides.Remove(objectiveId);
             }
         }
