@@ -35,29 +35,6 @@ namespace NexusForever.Script.Instance.Dungeon.Skullcano.Script
     }
 
     /// <summary>
-    /// Stew-Shaman Tugga.
-    /// </summary>
-    [ScriptFilterCreatureId(24493, 24898)]
-    public class SkullcanoStewShamanTuggaAI : ExpeditionCreatureAI
-    {
-        public SkullcanoStewShamanTuggaAI(IFactory<ISpellParameters> spellParametersFactory, IGameTableManager gameTableManager)
-            : base(spellParametersFactory, gameTableManager)
-        {
-        }
-
-        public override void OnLoad(ICreatureEntity owner)
-        {
-            base.OnLoad(owner);
-            AddAbility(36097, 0d, 4d); // Fiery Bolt
-            AddAbility(36172, 0d, 7d); // Blast Force
-            AddAbility(41016, 0d, 10d); // Molten Rain
-            AddAbility(63270, 0d, 13d); // Burning
-            AddAbility(63344, 0d, 16d); // Molten Rain
-            AddAbility(72508, 0d, 19d); // Burning
-        }
-    }
-
-    /// <summary>
     /// Grim-Grim Doomcaller.
     /// </summary>
     [ScriptFilterCreatureId(24494, 24899)]
