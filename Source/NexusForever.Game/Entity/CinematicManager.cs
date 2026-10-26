@@ -24,6 +24,7 @@ namespace NexusForever.Game.Entity
         private double currentTimer;
         private readonly Queue<(ICinematicBase Cinematic, Action Callback)> queuedCinematics = new();
         private readonly List<Action> finishedActions = [];
+        private readonly List<ICinematicBase> afterEnteringWorld = [];
 
         /// <summary>
         /// Returns if a cinematic is currently playing for the <see cref="IPlayer"/>.
@@ -76,6 +77,28 @@ namespace NexusForever.Game.Entity
                 action();
             else
                 finishedActions.Add(action);
+        }
+
+        /// <summary>
+        /// Queue a <see cref="ICinematicBase"/> to be played once the <see cref="IPlayer"/> has entered the world after a teleport.
+        /// </summary>
+        public void QueueAfterEnteringWorld(ICinematicBase cinematic)
+        {
+            afterEnteringWorld.Add(cinematic);
+        }
+
+        /// <summary>
+        /// Invoked when the <see cref="IPlayer"/> has finished loading and entered the world.
+        /// </summary>
+        public void OnEnteredWorld()
+        {
+            if (afterEnteringWorld.Count == 0)
+                return;
+
+            List<ICinematicBase> cinematics = [.. afterEnteringWorld];
+            afterEnteringWorld.Clear();
+            foreach (ICinematicBase cinematic in cinematics)
+                QueueCinematic(cinematic);
         }
 
         /// <summary>

@@ -20,6 +20,7 @@ namespace NexusForever.Game.Cinematic.Scene
             AddNewPlayerExperience();
             AddAlizar();
             AddOlyssia();
+            AddShips();
         }
 
         /// <summary>

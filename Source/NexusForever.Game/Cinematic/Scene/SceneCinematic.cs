@@ -17,9 +17,22 @@ namespace NexusForever.Game.Cinematic.Scene
 
         public CinematicScene Scene { get; }
 
+        private readonly Vector3 origin;
+        private readonly float angle;
+
         public SceneCinematic(CinematicScene scene)
+            : this(scene, scene.Origin, scene.Angle)
         {
-            Scene = scene;
+        }
+
+        /// <summary>
+        /// Play <paramref name="scene"/> on another origin, for generic scenes used on several sites (ship arrivals and departures).
+        /// </summary>
+        public SceneCinematic(CinematicScene scene, Vector3 origin, float angle)
+        {
+            Scene       = scene;
+            this.origin = origin;
+            this.angle  = angle;
         }
 
         protected override void Setup()
@@ -43,7 +56,7 @@ namespace NexusForever.Game.Cinematic.Scene
                 Keyframes.Add(new VisualEffect(visual.VisualEffectId, Player.Guid, delay: visual.Delay, duration: visual.Duration));
         }
 
-        private Position OriginPosition => new(Scene.Origin);
+        private Position OriginPosition => new(origin);
 
         private void SetupActors()
         {
@@ -54,7 +67,7 @@ namespace NexusForever.Game.Cinematic.Scene
                 if (sceneActor.Sex.HasValue && sceneActor.Sex != Player.Sex)
                     continue;
 
-                var actor = new Actor(sceneActor.CreatureId, ActorCreateFlags, sceneActor.Angle ?? Scene.Angle,
+                var actor = new Actor(sceneActor.CreatureId, ActorCreateFlags, sceneActor.Angle ?? angle,
                     sceneActor.Position.HasValue ? new Position(sceneActor.Position.Value) : OriginPosition, sceneActor.Delay);
 
                 List<IVisualEffect> visuals = sceneActor.Visuals != null
@@ -72,7 +85,7 @@ namespace NexusForever.Game.Cinematic.Scene
             {
                 foreach (IWorldEntity entity in Player.GetVisibleCreature<IWorldEntity>(worldActor.CreatureId))
                 {
-                    if (Vector3.Distance(entity.Position, Scene.Origin) > worldActor.Range)
+                    if (Vector3.Distance(entity.Position, origin) > worldActor.Range)
                         continue;
 
                     AddActor(new Actor(worldActor.CreatureId, ActorCreateFlags, entity.Rotation.X, new Position(entity.Position)), []);
@@ -89,7 +102,7 @@ namespace NexusForever.Game.Cinematic.Scene
             if (scenePlayer.CloneAt.HasValue)
             {
                 (Vector3? position, float? angle) = scenePlayer.CloneAt.Value;
-                AddActor(new Actor(0, EntityCreateFlag.UseDefaultBirthSequence | ActorCreateFlags, angle ?? Scene.Angle,
+                AddActor(new Actor(0, EntityCreateFlag.UseDefaultBirthSequence | ActorCreateFlags, angle ?? this.angle,
                     position.HasValue ? new Position(position.Value) : OriginPosition), []);
                 return;
             }
@@ -97,7 +110,7 @@ namespace NexusForever.Game.Cinematic.Scene
             IActor platform = GetActor(scenePlayer.PlatformCreatureId);
             if (platform == null)
             {
-                platform = new Actor(scenePlayer.PlatformCreatureId, ActorCreateFlags, Scene.Angle, OriginPosition);
+                platform = new Actor(scenePlayer.PlatformCreatureId, ActorCreateFlags, angle, OriginPosition);
                 AddActor(platform, [new VisualEffect(Scene.SequenceVisual)]);
             }
 
@@ -111,7 +124,7 @@ namespace NexusForever.Game.Cinematic.Scene
                 IActor cameraActor = GetActor(Scene.CameraCreatureId);
                 if (cameraActor == null)
                 {
-                    cameraActor = new Actor(Scene.CameraCreatureId, ActorCreateFlags, Scene.Angle, OriginPosition);
+                    cameraActor = new Actor(Scene.CameraCreatureId, ActorCreateFlags, angle, OriginPosition);
                     AddActor(cameraActor, [new VisualEffect(Scene.SequenceVisual)]);
                 }
 
