@@ -705,7 +705,7 @@ namespace NexusForever.Game.Quest
             scriptCollection?.Invoke<IQuestScript>(s => s.OnQuestStateChange(State, oldState));
 
             // quest givers, receivers and objects with a visibility prerequisite on this quest appear or disappear
-            if (player.Map != null)
+            if (player.Map != null && !player.IsLoading)
                 player.VisibilityUpdate();
         }
 
