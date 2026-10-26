@@ -255,4 +255,134 @@ namespace NexusForever.Script.Isigrol.Quest
         {
         }
     }
+
+    /// <summary>
+    /// Clean Room: "Defend the Golden Jabbit near the Gilded Fields".
+    /// </summary>
+    /// <remarks>
+    /// Warped Chillcutter 52466 and Warped Icerender 52467 (level 50, never spawned, created with the Golden Jabbit 52465). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(8993)]
+    public class CleanRoomQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (16259, [[52467, 52467], [52467, 52466], [52466, 52467, 52467]])
+        ];
+
+        public CleanRoomQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Science Without Bounds: "Defend the Golden Jabbit by the Auric Gardens".
+    /// </summary>
+    /// <remarks>
+    /// As Clean Room (8993). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(9003)]
+    public class ScienceWithoutBoundsQuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (16516, [[52467, 52467], [52467, 52466], [52466, 52467, 52467]])
+        ];
+
+        public ScienceWithoutBoundsQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Brawn and Brains: "Activate the Portable Generator and defend the Alpha and Beta Team scientists".
+    /// </summary>
+    /// <remarks>
+    /// Repair Construct 56108 and Enforcer Construct 56109 (level 50, never spawned, created with the generators 56099-56102). Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(9177)]
+    public class BrawnAndBrains9177QuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (16615, [[56108, 56108], [56108, 56109]]),
+            (16616, [[56108, 56109], [56109, 56109]])
+        ];
+
+        public BrawnAndBrains9177QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Brawn and Brains: "Activate the Portable Generator and defend the Epsilon and Gamma Squad scientists".
+    /// </summary>
+    /// <remarks>
+    /// As 9177. Guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(9183)]
+    public class BrawnAndBrains9183QuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (17859, [[56108, 56108], [56108, 56109]]),
+            (17860, [[56108, 56109], [56109, 56109]])
+        ];
+
+        public BrawnAndBrains9183QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Adventures in Archaeology: escort the archaeologist (54689) through the Sonic Plaza, attacked on the way.
+    /// </summary>
+    /// <remarks>
+    /// The reward panes name the attackers: Executioner Construct 58289 on the way to the first stop and Mysterious Assailant 56309 on the way to the third, the last walk to the makeshift camp is unopposed. The second stop is a console the player uses. Wave sizes guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(9176)]
+    public class AdventuresInArchaeology9176QuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (16595, [[58289], [58289, 58289]]),
+            (18186, [[56309], [56309, 56309]]),
+            (18187, [[]])
+        ];
+
+        protected override uint GetEscortCreatureId(uint objectiveId) => 54689u;
+
+        public AdventuresInArchaeology9176QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Adventures in Archaeology: escort the archaeologist (54686) through the Sonic Plaza, attacked on the way.
+    /// </summary>
+    /// <remarks>
+    /// The reward panes name the attackers: Executioner Construct 58289 on the way to the first stop and Mysterious Assailant 57049 on the way to the third, the last walk to the research area is unopposed. The second stop is a console the player uses. Wave sizes guessed.
+    /// </remarks>
+    [ScriptFilterOwnerId(9182)]
+    public class AdventuresInArchaeology9182QuestScript : QuestWaveEventScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } =
+        [
+            (16622, [[58289], [58289, 58289]]),
+            (18275, [[57049], [57049, 57049]]),
+            (18277, [[]])
+        ];
+
+        protected override uint GetEscortCreatureId(uint objectiveId) => 54686u;
+
+        public AdventuresInArchaeology9182QuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
 }
