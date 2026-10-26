@@ -88,6 +88,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private uint lifeOverseerGuid;
         private uint hugoLockedGuid;
         private readonly Dictionary<PublicEventCreature, uint> forceFields = [];
+        private readonly Dictionary<PublicEventCreature, uint> doors = [];
         private readonly List<uint> biomaticsBeams = [];
         private readonly List<uint> blackBoxes = [];
         private readonly List<IWorldEntity> ambushers = [];
@@ -178,6 +179,14 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                 case PublicEventCreature.PellDoorForceField:
                     forceFields[(PublicEventCreature)worldEntity.CreatureId] = worldEntity.Guid;
                     break;
+                case PublicEventCreature.XenobiteDoorSurface:
+                case PublicEventCreature.XenobiteDoorWing:
+                case PublicEventCreature.GronyxDoorSurface:
+                case PublicEventCreature.GronyxDoorWing:
+                case PublicEventCreature.PellDoorSurface:
+                case PublicEventCreature.PellDoorWing:
+                    doors[(PublicEventCreature)worldEntity.CreatureId] = worldEntity.Guid;
+                    break;
                 case PublicEventCreature.SecurityBeam:
                     // the facility defense control panels only turn off the beams inside the Biomatics Chamber
                     if (worldEntity.Position.X > 10100f)
@@ -260,10 +269,26 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             entity = null;
         }
 
+        /// <summary>
+        /// Open a wing's way in from the surface: its force field goes down and the outer airlock door opens.
+        /// </summary>
         private void RemoveForceField(PublicEventCreature forceField)
         {
             if (forceFields.Remove(forceField, out uint guid))
                 mapInstance.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
+
+            OpenDoor(forceField switch
+            {
+                PublicEventCreature.XenobiteDoorForceField => PublicEventCreature.XenobiteDoorSurface,
+                PublicEventCreature.GronyxDoorForceField   => PublicEventCreature.GronyxDoorSurface,
+                _                                          => PublicEventCreature.PellDoorSurface
+            });
+        }
+
+        private void OpenDoor(PublicEventCreature door)
+        {
+            if (doors.TryGetValue(door, out uint guid))
+                mapInstance.GetEntity<IDoorEntity>(guid)?.OpenDoor();
         }
 
         /// <summary>
@@ -477,6 +502,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         {
             RemoveEntity(ref projection);
             CycleAirlock(new Vector3(9687f, -767.6f, -6094f), 0u);
+            Delay(6d, () => OpenDoor(PublicEventCreature.XenobiteDoorWing));
 
             publicEvent.ActivateObjective(PublicEventObjective.SearchIncubationForJo);
             publicEvent.ActivateObjective(PublicEventObjective.DefeatPrototypeAlpha);
@@ -506,6 +532,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         {
             RemoveEntity(ref projection);
             CycleAirlock(new Vector3(10119f, -776.5f, -6119f), 639390); // Airlock cycle complete. Welcome to the Biomatics Chamber.
+            Delay(6d, () => OpenDoor(PublicEventCreature.GronyxDoorWing));
 
             publicEvent.ActivateObjective(PublicEventObjective.SearchBiomaticsForSyrus);
             publicEvent.ActivateObjective(PublicEventObjective.DefeatProjectMatron);
@@ -538,6 +565,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         {
             RemoveEntity(ref projection);
             CycleAirlock(new Vector3(9829f, -780.7f, -6316f), 639387); // Airlock cycle complete. Welcome to Life-Overseer's Creche.
+            Delay(6d, () => OpenDoor(PublicEventCreature.PellDoorWing));
 
             publicEvent.ActivateObjective(PublicEventObjective.SearchCrecheForHugo, mapInstance.PlayerCount);
             AddTrigger(7891, GetLocation(48680), 12f, PublicEventCreature.RingInvestigateCreche);
@@ -745,8 +773,12 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                 && publicEvent.GetTeams().All(t => IsSucceeded(t, PublicEventObjective.SmashXenobiteEggs, PublicEventObjective.CollectCargoCrates,
                     PublicEventObjective.DeactivateDefenses) && t.GetObjectives().FirstOrDefault(o => o.Entry.Id == (uint)PublicEventObjective.GoldMedalTimer)?.Status != PublicEventStatus.Failed);
 
+            int medal = GetMedal(gold);
+
             foreach (IPlayer player in mapInstance.GetPlayers())
             {
+                RewardMedalWeapon(player, medal);
+
                 // Expedition: They Came from Fragment Zero! (10126) and the prime dailies (9909 Exile, 9912 Dominion)
                 player.QuestManager.ObjectiveUpdate(19344u, 1u);
                 if (IsVeteran)
@@ -770,6 +802,60 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                 mapInstance.MapLock.IsCompleted = true;
 
             publicEvent.Finish(PublicEventTeam.PublicTeam);
+        }
+
+        /// <summary>
+        /// Return the medal earned: 1 bronze for finishing, 2 silver with some of the optional objectives (eggs, cargo, defenses), 3 gold with all of them.
+        /// </summary>
+        /// <remarks>
+        /// The medal rules aren't in the client data. Guides: gold on normal needs the three optional objectives, on prime also no deaths and the timer.
+        /// </remarks>
+        private int GetMedal(bool primeGold)
+        {
+            if (IsVeteran)
+                return primeGold ? 3 : 1;
+
+            IPublicEventTeam team = publicEvent.GetTeams().FirstOrDefault();
+            if (team == null)
+                return 1;
+
+            int optional = new[] { PublicEventObjective.SmashXenobiteEggs, PublicEventObjective.CollectCargoCrates, PublicEventObjective.DeactivateDefenses }
+                .Count(o => IsSucceeded(team, o));
+            return optional == 3 ? 3 : optional > 0 ? 2 : 1;
+        }
+
+        /// <summary>
+        /// The prototype weapons for the player's class: plain (bronze), Exceptional (silver), Remarkable (gold, epic).
+        /// </summary>
+        /// <remarks>
+        /// Their names are in Fragment Zero's text block, guides say a gold medal on normal earns an epic weapon for your class.
+        /// Prime runs (level 50) don't get the level 10 weapons.
+        /// </remarks>
+        private void RewardMedalWeapon(IPlayer player, int medal)
+        {
+            if (IsVeteran)
+                return;
+
+            (uint Bronze, uint Silver, uint Gold)? weapons = player.Class switch
+            {
+                Class.Warrior      => (51572u, 51590u, 88425u), // Hooligan's Prototype Sword
+                Class.Engineer     => (51672u, 51690u, 88443u), // Firebrand's Prototype Repeater
+                Class.Medic        => (51772u, 51790u, 88461u), // Vandal's Prototype Shock Zappers
+                Class.Stalker      => (51872u, 51890u, 88479u), // Knave's Prototype Knuckledusters
+                Class.Spellslinger => (51972u, 51990u, 88497u), // Bandit's Prototype Blasters
+                Class.Esper        => (52072u, 52090u, 88515u), // Herald's Prototype Moonstar
+                _                  => null
+            };
+            if (weapons == null)
+                return;
+
+            uint itemId = medal switch
+            {
+                3 => weapons.Value.Gold,
+                2 => weapons.Value.Silver,
+                _ => weapons.Value.Bronze
+            };
+            player.Inventory.ItemCreate(Game.Static.Entity.InventoryLocation.Inventory, itemId, 1u);
         }
 
         private static void GrantAchievement(IPlayer player, ushort achievementId)
