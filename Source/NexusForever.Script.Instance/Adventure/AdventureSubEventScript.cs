@@ -13,7 +13,11 @@ namespace NexusForever.Script.Instance.Adventure
         78, 83, 84, 90, 91, 204,
         672, 674, 675, 676, 695,                                                         // Levian Bay
         109, 111, 112, 113, 114, 151, 281, 282, 283, 284, 285, 286, 288, 289, 290, 291,  // Crimelords of Whitevale
-        292, 293, 294, 295, 296, 298, 299, 300, 301, 302, 310, 315, 317, 367, 368, 369)]
+        292, 293, 294, 295, 296, 298, 299, 300, 301, 302, 310, 315, 317, 367, 368, 369,
+        28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 45, 46, 47, 48, 50, 51, 54, 55, 56, 77,  // The Malgrave Trail
+        79, 82, 101, 102, 103, 104, 219, 220, 234, 239, 513, 514, 515,
+        578, 607, 608, 609, 610, 611, 612, 613, 614, 615, 616, 617, 618, 619, 620,       // Battlebots (Farside)
+        622, 624, 625, 626, 640)]
     public class AdventureSubEventScript : IPublicEventScript, IOwnedScript<IPublicEvent>
     {
         private IPublicEvent publicEvent;
