@@ -8,10 +8,10 @@ namespace NexusForever.Script.Main.Challenge
     /// Objects used by challenges that are counted by a challenge script, using one starts the challenge and counts as its first.
     /// </summary>
     /// <remarks>
-    /// Green Thumb, Defusing the Situation, Lowland Lavender Eggs, What's on Tap?, Scrap Yard, Veggie Delight, Shifting Priorities, Soul Sanctification, Roan Skulls and Every Hellrose Has Its Thorn
+    /// Green Thumb, Defusing the Situation, Lowland Lavender Eggs, What's on Tap?, Scrap Yard, Veggie Delight, Shifting Priorities, Soul Sanctification, Roan Skulls, Every Hellrose Has Its Thorn and Hot Feet
     /// aren't flagged to start by hand only and have nothing in the game data that starts them.
     /// </remarks>
-    [ScriptFilterCreatureId(21185, 21187, 23151, 33152, 31482, 18441, 25444, 25445, 25448, 29893, 47132, 36293, 36571)]
+    [ScriptFilterCreatureId(21185, 21187, 23151, 33152, 31482, 18441, 25444, 25445, 25448, 29893, 47132, 36293, 36571, 45263, 45271)]
     public class ActivateChallengeStarterEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>, IOwnedScript<INonPlayerEntity>
     {
         private static readonly Dictionary<uint, (uint ChallengeId, bool Counts)> challengeByCreature = new()
@@ -28,7 +28,9 @@ namespace NexusForever.Script.Main.Challenge
             [29893] = (437, true),  // Shifting Priorities, Eldan Relay
             [47132] = (977, false), // Soul Sanctification, Sacred Carving for CH977
             [36293] = (576, true),  // Roan Skulls, Roan Skull
-            [36571] = (585, true)   // Every Hellrose Has Its Thorn, Malgrave Hellrose
+            [36571] = (585, true),  // Every Hellrose Has Its Thorn, Malgrave Hellrose
+            [45263] = (952, true),  // Hot Feet (Exile), Fire Mote
+            [45271] = (954, true)   // Hot Feet (Dominion), Fire Mote
         };
 
         private IWorldEntity owner;
