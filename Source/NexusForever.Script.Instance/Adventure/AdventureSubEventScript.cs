@@ -18,7 +18,7 @@ namespace NexusForever.Script.Instance.Adventure
         79, 82, 101, 102, 103, 104, 219, 220, 234, 239, 513, 514, 515,
         578, 607, 608, 609, 610, 611, 612, 613, 614, 615, 616, 617, 618, 619, 620,       // Battlebots (Farside)
         622, 624, 625, 626, 640,
-        170, 171)]                                                                       // War of the Wilds
+        170, 171, 175, 176)]                                                                       // War of the Wilds
     public class AdventureSubEventScript : IPublicEventScript, IOwnedScript<IPublicEvent>
     {
         private IPublicEvent publicEvent;
