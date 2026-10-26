@@ -35,7 +35,7 @@ namespace NexusForever.Game.Entity
         private const float DefaultSpawnDistance  = 25f;
         private const float DefaultDefendDistance = 4f;
         private const float LeaveAreaDistance     = 60f;
-        private const float ProximityStartDistance = 10f;
+        private const float ProximityStartDistance = 15f;
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
