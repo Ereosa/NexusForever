@@ -87,6 +87,10 @@ namespace NexusForever.Game.Static.Cinematic
         MalgraveDepartureExile          = 204,
         MalgraveDepartureDominion       = 205,
         NorthernWildsArrival            = 210,
+        IlliumArrival                   = 143,
+        ThaydArrival                    = 147,
+        GrimvaultCrashExile             = 159,
+        GrimvaultCrashDominion          = 161,
 
         // New Player Experience
         NpeIntroDominion                = 289,

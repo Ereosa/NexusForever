@@ -1,5 +1,7 @@
 using System.Numerics;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Cinematic;
+using NexusForever.Game.Static.Reputation;
 
 namespace NexusForever.Game.Cinematic.Scene
 {
@@ -30,6 +32,30 @@ namespace NexusForever.Game.Cinematic.Scene
             Ship(CinematicSceneId.GrimvaultArrivalExile,        ShipArrivalLength, 70081, 70082, 909.730f, -891.224f, 20.205f);
             Ship(CinematicSceneId.GrimvaultArrivalDominion,     ShipArrivalLength, 70083, 70084, 2719.134f, -963.060f, 367.068f);
             Ship(CinematicSceneId.NorthernWildsArrival,         ShipArrivalLength, 70127, 70128, 4548.010f, -700.209f, -5204.670f);
+
+            // capital arrivals: GC147/GC148 (Thayd) and GC143/GC144 (Illium) only have plain ship models, no camera or animation.
+            // Reconstructed with the generic arrival models of a transport landing on the spaceport pads, guessed.
+            Ship(CinematicSceneId.ThaydArrival,                 ShipArrivalLength, 69934, 69935, 4049.792f, -803.212f, -2310.497f);
+            Ship(CinematicSceneId.IlliumArrival,                ShipArrivalLength, 69932, 69933, -3477.411f, -861.846f, -509.268f);
+
+            // GC159/GC161: the first transport to Grimvault is torn apart by exanite fragments and crash lands (Edge of Twilight),
+            // Exiles at the Alpha Company crash site, Dominion at Radiant Alpha Down. Origins are the crash site WorldLocation2 entries
+            // of the 2015 block (49509 matches the exported camera splines 22724-22733), the Dominion one is guessed.
+            Add(CinematicSceneId.GrimvaultCrashExile)
+                .WithDuration(57200)
+                .AtOrigin(689.062f, -938.845f, 846.066f)
+                .WithCamera(71509)
+                .CutTo(7667, 8).CutTo(12667, 9).CutTo(16667, 10).CutTo(20034, 11).CutTo(27034, 12).CutTo(32167, 13).CutTo(36200, 14)
+                .CutTo(41267, 15).CutTo(45267, 16)
+                .WithActors(71510, 71511, 71512, 71513, 71514, 71515, 73012);
+
+            Add(CinematicSceneId.GrimvaultCrashDominion)
+                .WithDuration(57200)
+                .AtOrigin(2711.887f, -884.324f, 1014.727f)
+                .WithCamera(71772)
+                .CutTo(7667, 8).CutTo(12667, 9).CutTo(16667, 10).CutTo(20034, 11).CutTo(27034, 12).CutTo(32167, 13).CutTo(36200, 14)
+                .CutTo(41267, 15).CutTo(48600, 16)
+                .WithActors(71773, 71774, 71775, 71776, 71777, 71778);
 
             // departures
             Ship(CinematicSceneId.IlliumDepartureTransport,     DominionTransportDeparture,  69890, 69889, -3477.411f, -861.846f, -509.268f);
@@ -97,8 +123,43 @@ namespace NexusForever.Game.Cinematic.Scene
             new(1061, new Vector3(909.730f, -891.224f, 20.205f), MathF.PI, CinematicSceneId.GrimvaultArrivalExile, CinematicSceneId.GrimvaultArrivalDominion),
             new(1061, new Vector3(2719.134f, -963.060f, 367.068f), MathF.PI, CinematicSceneId.GrimvaultArrivalExile, CinematicSceneId.GrimvaultArrivalDominion),
             // Northern Wilds, Camp Icefury
-            new(426, new Vector3(4548.010f, -700.209f, -5204.670f), MathF.PI, CinematicSceneId.NorthernWildsArrival, null)
+            new(426, new Vector3(4548.010f, -700.209f, -5204.670f), MathF.PI, CinematicSceneId.NorthernWildsArrival, null),
+            // Thayd, Spaceport Horizon pads (generic arrival, guessed)
+            new(51, new Vector3(4049.792f, -803.212f, -2310.497f), MathF.PI, CinematicSceneId.ThaydArrival, null),
+            new(51, new Vector3(4076.661f, -803.212f, -2311.580f), MathF.PI, CinematicSceneId.ThaydArrival, null),
+            new(51, new Vector3(4025.615f, -803.212f, -2311.466f), MathF.PI, CinematicSceneId.ThaydArrival, null),
+            // Illium, Spaceport Alpha pads (generic arrival, guessed)
+            new(22, new Vector3(-3477.411f, -861.846f, -509.268f), 1.69128f, null, CinematicSceneId.IlliumArrival),
+            new(22, new Vector3(-3643.643f, -854.477f, -816.895f), 5.63375f, null, CinematicSceneId.IlliumArrival),
+            new(22, new Vector3(-3647.233f, -854.549f, -590.885f), 7.20454f, null, CinematicSceneId.IlliumArrival)
         ];
+
+        private const uint GrimvaultWorldId = 1061;
+        private const ushort EdgeOfTwilightExile    = 8051;
+        private const ushort EdgeOfTwilightDominion = 7661;
+
+        /// <summary>
+        /// Return a story arrival that replaces the transport arrival, and where it leaves the player: the crash into Grimvault on the
+        /// first trip there (Edge of Twilight not started yet).
+        /// </summary>
+        public static (SceneCinematic Cinematic, Vector3 Position)? GetStoryArrival(uint worldId, Vector3 position, IPlayer player)
+        {
+            if (worldId != GrimvaultWorldId)
+                return null;
+
+            // only for the Grimvault landing sites, Malgrave shares the world
+            bool grimvault = Vector2.Distance(new Vector2(position.X, position.Z), new Vector2(909.730f, 20.205f)) <= SiteRange
+                || Vector2.Distance(new Vector2(position.X, position.Z), new Vector2(2719.134f, 367.068f)) <= SiteRange;
+            if (!grimvault)
+                return null;
+
+            bool dominion = player.Faction1 == Faction.Dominion;
+            if (player.QuestManager.GetQuestState(dominion ? EdgeOfTwilightDominion : EdgeOfTwilightExile) != null)
+                return null;
+
+            CinematicScene scene = CinematicSceneCatalog.Get(dominion ? CinematicSceneId.GrimvaultCrashDominion : CinematicSceneId.GrimvaultCrashExile);
+            return scene != null ? (new SceneCinematic(scene), scene.Origin) : null;
+        }
 
         private static readonly Site[] departures =
         [
