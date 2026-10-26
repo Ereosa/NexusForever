@@ -24,8 +24,13 @@ namespace NexusForever.Script.Instance.Adventure.Farside
     /// Built from the sub-events: The End Is Near (578), then three days, each an assault on one entrance by one kind of Megadroid unit
     /// (617 to 619, one attack type picked), a crisis inside the dome (breaches, plague, infiltrators, cyber attack, drills: 622 to 640) and a
     /// counter-assault on one avatar's base by the smugglers' vessel (607 to 616), then the Ancient AI (620).
-    /// Guessed: three days, the unit make-up of each attack type, which world location group is which avatar's base, the survivors' places,
-    /// the training, building and resource systems of the original (Untrained Survivors, Scrap, Fuel) left out.
+    /// The colony is run with the original's three resources (objectives 2620 to 2622): Untrained Survivors, Scrap and Fuel. Talking to a
+    /// trainer turns a survivor and some scrap into a unit (the "Player Controlled Units" and "Non-Combat Units" creatures): the soldier
+    /// trainer's infantry guards an entrance, the settler trainer's builders raise barricades and traps at the entrances, the scientist
+    /// trainer's doctors cure the plague, the explorer trainer's scouts bring back scrap and fuel every day, the smuggler pilots fly the
+    /// counter-assaults (which also burn fuel). Every day new survivors find their way to the dome.
+    /// Guessed (the adventure never went live, nothing of it was ever recorded): three days, the unit make-up of each attack type, which
+    /// world location group is which avatar's base, the survivors' and trainers' places, every cost and yield of the colony.
     /// </remarks>
     [ScriptFilterOwnerId(579)]
     public class FarsideEventScript : AdventureEventScript
@@ -68,6 +73,24 @@ namespace NexusForever.Script.Instance.Adventure.Farside
         protected override uint IntroEvent => Intro;
         protected override uint[][] Storylines => [];
         protected override uint[] FinalObjectives => [2837];
+
+        // the colony's resources and units
+        private const uint UntrainedSurvivors = 2620;
+        private const uint Scrap = 2621;
+        private const uint Fuel = 2622;
+
+        private enum Trainer { Soldier, Settler, Scientist, Explorer, Smuggler }
+
+        private static readonly Dictionary<uint, Trainer> Trainers = new()
+        {
+            { 62551, Trainer.Soldier }, { 62555, Trainer.Soldier }, { 62550, Trainer.Settler }, { 62554, Trainer.Settler },
+            { 62552, Trainer.Scientist }, { 62556, Trainer.Scientist }, { 62553, Trainer.Explorer }, { 62557, Trainer.Explorer },
+            { 62622, Trainer.Smuggler }, { 62634, Trainer.Smuggler }
+        };
+
+        private readonly Dictionary<string, int> resources = new() { { "survivors", 6 }, { "scrap", 60 }, { "fuel", 20 } };
+        private readonly Dictionary<Trainer, int> units = [];
+        private bool dominion;
 
         private readonly Queue<uint> plan = new();
         private string attackType = "Infantry";
@@ -140,6 +163,9 @@ namespace NexusForever.Script.Instance.Adventure.Farside
                     break;
                 case 624:
                     SpawnAttack(AttackTypes["Biological"], DomeCentre);
+                    // the colony's doctors cure the plague
+                    if (units.GetValueOrDefault(Trainer.Scientist) > 0)
+                        Delay(20d, () => UpdateSubObjective(2834));
                     break;
                 case AncientAI:
                     // the Ancient AI (Main AI, the final boss target group) speaks, then turns on the players
@@ -184,6 +210,80 @@ namespace NexusForever.Script.Instance.Adventure.Farside
 
             Activate(2837);
             Activate(2900);
+
+            // the colony: its trainers in the dome and its starting stock
+            dominion = Players.FirstOrDefault()?.Faction1 == Faction.Dominion;
+            (uint creature, uint location)[] trainers = dominion
+                ? [(62555, 46617), (62554, 46930), (62556, 46931), (62557, 46933), (62634, 46937)]
+                : [(62551, 46617), (62550, 46930), (62552, 46931), (62553, 46933), (62622, 46937)];
+            foreach ((uint creature, uint location) in trainers)
+                SpawnCreature(creature, GetLocation(location) + new Vector3(2f, 0f, 2f), 0f);
+
+            Activate(UntrainedSurvivors, 999u);
+            Activate(Scrap, 999u);
+            Activate(Fuel, 999u);
+            Update(UntrainedSurvivors, resources["survivors"]);
+            Update(Scrap, resources["scrap"]);
+            Update(Fuel, resources["fuel"]);
+        }
+
+        private bool Spend(string resource, int amount)
+        {
+            if (resources[resource] < amount)
+                return false;
+
+            resources[resource] -= amount;
+            Update(resource switch { "survivors" => UntrainedSurvivors, "scrap" => Scrap, _ => Fuel }, -amount);
+            return true;
+        }
+
+        private void Gain(string resource, int amount)
+        {
+            resources[resource] += amount;
+            Update(resource switch { "survivors" => UntrainedSurvivors, "scrap" => Scrap, _ => Fuel }, amount);
+        }
+
+        /// <summary>
+        /// A player asked a trainer to train a survivor: costs a survivor and scrap, the unit goes to work right away.
+        /// </summary>
+        public void Train(IWorldEntity trainer, IPlayer player)
+        {
+            if (!Trainers.TryGetValue(trainer.CreatureId, out Trainer kind))
+                return;
+
+            int scrapCost = kind switch { Trainer.Soldier => 10, Trainer.Settler => 15, Trainer.Smuggler => 20, _ => 5 };
+            if (resources["survivors"] < 1 || resources["scrap"] < scrapCost)
+            {
+                player.SendSystemMessage($"Not enough survivors or scrap (a survivor and {scrapCost} scrap needed).");
+                return;
+            }
+
+            Spend("survivors", 1);
+            Spend("scrap", scrapCost);
+            units[kind] = units.GetValueOrDefault(kind) + 1;
+
+            Vector3 entrance = GetLocation(EntranceLocations[Random.Shared.Next(EntranceLocations.Length)]);
+            switch (kind)
+            {
+                case Trainer.Soldier:
+                    SpawnCreature(dominion ? 62509u : 62477u, entrance, 0f);
+                    break;
+                case Trainer.Settler:
+                    SpawnCreature(63230, entrance, 0f); // Barricade
+                    SpawnCreature(Random.Shared.Next(2) == 0 ? 63227u : 63229u, entrance + new Vector3(4f, 0f, 4f), 0f); // Stun or Explosive Trap
+                    break;
+                case Trainer.Scientist:
+                    SpawnCreature(dominion ? 62638u : 62626u, DomeCentre + new Vector3(3f, 0f, 3f), 0f); // Doctor
+                    break;
+                case Trainer.Explorer:
+                    SpawnCreature(dominion ? 62639u : 62627u, DomeCentre + new Vector3(-3f, 0f, 3f), 0f); // Scout
+                    break;
+                case Trainer.Smuggler:
+                    SpawnCreature(dominion ? 63298u : 63297u, DomeCentre + new Vector3(3f, 0f, -3f), 0f); // Smuggler Pilot
+                    break;
+            }
+
+            player.SendSystemMessage($"{kind} trained. Survivors {resources["survivors"]}, scrap {resources["scrap"]}, fuel {resources["fuel"]}.");
         }
 
         private void SpawnAttack(uint[] units, Vector3 origin)
@@ -235,11 +335,16 @@ namespace NexusForever.Script.Instance.Adventure.Farside
                     return;
                 }
 
-                // a new day: an assault on an entrance, a crisis in the dome, a counter-assault on a base
+                // a new day: survivors reach the dome, the scouts bring back scrap and fuel, then an assault on an entrance, a crisis
+                // in the dome and, with a smuggler pilot and fuel, a counter-assault on a base
                 day++;
+                Gain("survivors", 3);
+                Gain("scrap", 15 + 10 * units.GetValueOrDefault(Trainer.Explorer));
+                Gain("fuel", 5 + 5 * units.GetValueOrDefault(Trainer.Explorer));
                 plan.Enqueue(Entrances[Random.Shared.Next(Entrances.Length)]);
                 plan.Enqueue(Crises[Random.Shared.Next(Crises.Length)]);
-                plan.Enqueue(Bases.Where(b => b != finishedId).ElementAt(Random.Shared.Next(Bases.Length - 1)));
+                if (units.GetValueOrDefault(Trainer.Smuggler) > 0 && Spend("fuel", 10))
+                    plan.Enqueue(Bases.Where(b => b != finishedId).ElementAt(Random.Shared.Next(Bases.Length - 1)));
             }
 
             StartSubEvent(plan.Dequeue());
