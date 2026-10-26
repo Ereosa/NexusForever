@@ -50,6 +50,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);
+                session.Player.QuestManager.ObjectiveUpdateUseCreature(entity.CreatureId);
 
                 foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
                 {

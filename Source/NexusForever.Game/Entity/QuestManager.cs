@@ -804,6 +804,26 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Update target-less "Use/Open/Select the" objectives naming the creature the player interacted with.
+        /// </summary>
+        public void ObjectiveUpdateUseCreature(uint creatureId)
+        {
+            if (creatureId == 0u)
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.ToList())
+            {
+                if (quest.State != QuestState.Accepted)
+                    continue;
+
+                foreach (IQuestObjective objective in quest
+                    .Where(o => !o.IsComplete() && o.ObjectiveInfo.GetUseCreatureId() == creatureId)
+                    .ToList())
+                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+            }
+        }
+
+        /// <summary>
         /// Mention quests from communicator messages whose conditions the owner now meets (zone, level, world, quest states).
         /// </summary>
         /// <remarks>

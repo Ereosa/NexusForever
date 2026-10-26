@@ -100,6 +100,33 @@ namespace NexusForever.Game.Quest
             return listenCreatureId.Value;
         }
 
+        private uint? useCreatureId;
+        private static readonly string[] useVerbs = { "Use the", "Open the", "Select the", "Use a", "Open a" };
+
+        /// <summary>
+        /// Return the creature a target-less "Use/Open/Select the" objective names, 0 if it isn't one.
+        /// </summary>
+        /// <remarks>
+        /// Tutorial objectives such as Touring Tremor Ridge ("Use the Taxi Kiosk", "Open the Mailbox", "Select the Rented Mount Vendor")
+        /// have no target, retail scripts completed them when the player interacted with the creature the text names.
+        /// </remarks>
+        public uint GetUseCreatureId()
+        {
+            if (useCreatureId == null)
+            {
+                useCreatureId = 0u;
+                string text = GetShortText();
+                if (IsTargetless() && useVerbs.Any(v => text.StartsWith(v, StringComparison.OrdinalIgnoreCase)))
+                {
+                    Match match = Regex.Match(text, @"\$\w*\(creature=(\d+)\)");
+                    if (match.Success)
+                        useCreatureId = uint.Parse(match.Groups[1].Value);
+                }
+            }
+
+            return useCreatureId.Value;
+        }
+
         private uint? followCreatureId;
 
         /// <summary>
