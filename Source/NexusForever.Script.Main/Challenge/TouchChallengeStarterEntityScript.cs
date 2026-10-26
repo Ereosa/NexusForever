@@ -10,7 +10,7 @@ namespace NexusForever.Script.Main.Challenge
     /// <remarks>
     /// These challenges have nothing else to start them besides the challenge log and none of them is flagged to start by hand only.
     /// </remarks>
-    [ScriptFilterCreatureId(28977, 30974, 9374, 20791, 20870, 20871, 20875, 18481)]
+    [ScriptFilterCreatureId(28977, 30974, 9374, 20791, 20870, 20871, 20875, 18481, 39679)]
     public class TouchChallengeStarterEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>, IOwnedScript<INonPlayerEntity>
     {
         private const float TouchRange = 3f;
@@ -24,7 +24,8 @@ namespace NexusForever.Script.Main.Challenge
             [20870] = 172,
             [20871] = 172,
             [20875] = 172,
-            [18481] = 191  // Uplifting Updrafts
+            [18481] = 191, // Uplifting Updrafts
+            [39679] = 658  // Demolition Expert, Strain Mine
         };
 
         private IWorldEntity owner;
