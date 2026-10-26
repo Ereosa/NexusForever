@@ -72,6 +72,13 @@ namespace NexusForever.Game.Taxi
             SceneCinematic departure = TransportCinematics.GetDeparture(player.Map.Entry.Id, terminal.Position, dominion);
             SceneCinematic arrival   = TransportCinematics.GetArrival(worldId, position, dominion);
 
+            // a story arrival (the Grimvault crash) replaces the landing and leaves the player at the crash site
+            if (TransportCinematics.GetStoryArrival(worldId, position, player) is (SceneCinematic Cinematic, Vector3 Position) story)
+            {
+                arrival  = story.Cinematic;
+                position = story.Position;
+            }
+
             void Travel()
             {
                 if (!player.CanTeleport())
