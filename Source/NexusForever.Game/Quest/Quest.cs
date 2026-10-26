@@ -621,6 +621,8 @@ namespace NexusForever.Game.Quest
         /// <remarks>
         /// Some quests show a counted step backed by a hidden checklist of the same text (Firefighting: "Extinguish forest fires in Emberwood"
         /// as a count of 18 and as a checklist of the fires), retail scripts kept the shown one in step with the other.
+        /// Hidden steps without text and of the same count are the script's own record of the shown step (The Big Bang: "Invisible Script
+        /// checklist for Forge destroyed state").
         /// </remarks>
         private void MirrorSiblingObjectives(IQuestObjective source)
         {
@@ -632,16 +634,25 @@ namespace NexusForever.Game.Quest
             foreach (IQuestObjective sibling in objectives)
             {
                 if (sibling == source || sibling.IsComplete()
-                    || sibling.ObjectiveInfo.Entry.LocalizedTextIdShort != textId
                     || sibling.ObjectiveInfo.Entry.Data != 0u
-                    || sibling.ObjectiveInfo.Entry.TargetGroupIdRewardPane != 0u
-                    || sibling.ObjectiveInfo.Type != QuestObjectiveType.ActivateEntity)
+                    || sibling.ObjectiveInfo.Entry.TargetGroupIdRewardPane != 0u)
+                    continue;
+
+                bool sameText    = sibling.ObjectiveInfo.Entry.LocalizedTextIdShort == textId && sibling.ObjectiveInfo.Type == QuestObjectiveType.ActivateEntity;
+                bool hiddenTwin  = sibling.ObjectiveInfo.IsHidden()
+                    && sibling.ObjectiveInfo.Entry.LocalizedTextIdShort == 0u
+                    && sibling.ObjectiveInfo.Entry.Count == source.ObjectiveInfo.Entry.Count
+                    && sibling.ObjectiveInfo.Type is QuestObjectiveType.ActivateEntity or QuestObjectiveType.Unknown10;
+                if (!sameText && !hiddenTwin)
                     continue;
 
                 if (!CanUpdateObjective(sibling))
                     continue;
 
-                sibling.ObjectiveUpdate(1u);
+                // checklist objectives (Unknown10) count set bits, the next free one
+                bool checklist = sibling.ObjectiveInfo.Type is QuestObjectiveType.Unknown10 or QuestObjectiveType.ActivateTargetGroup
+                    or QuestObjectiveType.ActivateTargetGroupChecklist or QuestObjectiveType.TalkToTargetGroup;
+                sibling.ObjectiveUpdate(checklist ? 1u << System.Numerics.BitOperations.TrailingZeroCount(~sibling.Progress) : 1u);
                 SendQuestObjectiveUpdate(sibling);
             }
         }
