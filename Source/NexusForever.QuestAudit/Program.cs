@@ -67,6 +67,7 @@ namespace NexusForever.QuestAudit
             else if (creature && t.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase)) how = "Learn more about";
             else if (Regex.IsMatch(t, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase)) how = "Public event";
             else if (Regex.IsMatch(t, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase)) how = "Wait";
+            else if (t.Trim().Length == 0 || Regex.IsMatch(t.Trim(), @"(Despawned$|^Other Objectives completed|^Vis prerequisites|^Virtual Item Remove|^Detonation Delay$)", RegexOptions.IgnoreCase)) how = "Script step";
             else if (Regex.IsMatch(t, @"^(Gain|Earn)\b.*\bReputation\b", RegexOptions.IgnoreCase) && factionNames.Any(n => t.Contains(n, StringComparison.OrdinalIgnoreCase))) how = "Reputation";
             else if (Regex.IsMatch(t, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? .+$", RegexOptions.IgnoreCase)) how = "Hunt near";
             else if (Regex.Match(t.Trim(), @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content && ContentKnown(content.Groups["name"].Value)) how = "Complete content";

@@ -312,6 +312,10 @@ namespace NexusForever.Game.Quest
                 textTrigger = (QuestTextTrigger.Reputation, faction, null);
             else if (Regex.Match(text, @"^(Hunt|Slay|Kill) an? (animal|beast|creature)\b.*?\bnear an? (?<name>.+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } hunt)
                 textTrigger = (QuestTextTrigger.HuntNear, 0u, hunt.Groups["name"].Value);
+            // internal script steps (no text, or developer notes such as "Dorian Despawned", "Other Objectives completed; wait 2 seconds"),
+            // retail scripts completed them right after the step before
+            else if (text.Length == 0 || Regex.IsMatch(text, @"(Despawned$|^Other Objectives completed|^Vis prerequisites|^Virtual Item Remove|^Detonation Delay$)", RegexOptions.IgnoreCase))
+                textTrigger = (QuestTextTrigger.Wait, 3u, null);
             // retail scripts played these out (an NPC drinking, a test running), they are waited out
             else if (Regex.IsMatch(text, @"^(Wait (for|as|until)|Observe|Watch|Remain in|Listen to the)\b", RegexOptions.IgnoreCase))
                 textTrigger = (QuestTextTrigger.Wait, text.StartsWith("Remain", StringComparison.OrdinalIgnoreCase) ? 20u : 10u, null);
