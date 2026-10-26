@@ -553,7 +553,10 @@ namespace NexusForever.Game.Quest
                 objective.ObjectiveUpdate(progress);
 
                 if (objective.Progress != oldProgress)
+                {
                     SendQuestObjectiveUpdate(objective);
+                    MirrorSiblingObjectives(objective);
+                }
 
                 scriptCollection?.Invoke<IQuestScript>(s => s.OnObjectiveUpdate(objective));
             }
@@ -594,7 +597,10 @@ namespace NexusForever.Game.Quest
             objective.ObjectiveUpdate(progress);
 
             if (objective.Progress != oldProgress)
+            {
                 SendQuestObjectiveUpdate(objective);
+                MirrorSiblingObjectives(objective);
+            }
 
             scriptCollection?.Invoke<IQuestScript>(s => s.OnObjectiveUpdate(objective));
 
@@ -607,6 +613,37 @@ namespace NexusForever.Game.Quest
 
             if (objectives.All(o => o.IsComplete()))
                 State = QuestState.Achieved;
+        }
+
+        /// <summary>
+        /// Advance objectives without a target of their own that show the same text as the supplied objective.
+        /// </summary>
+        /// <remarks>
+        /// Some quests show a counted step backed by a hidden checklist of the same text (Firefighting: "Extinguish forest fires in Emberwood"
+        /// as a count of 18 and as a checklist of the fires), retail scripts kept the shown one in step with the other.
+        /// </remarks>
+        private void MirrorSiblingObjectives(IQuestObjective source)
+        {
+            // only an objective with a target of its own drives its target-less twin (steps of one text, eg: five veggie targets, stay apart)
+            uint textId = source.ObjectiveInfo.Entry.LocalizedTextIdShort;
+            if (textId == 0u || (source.ObjectiveInfo.Entry.Data == 0u && source.ObjectiveInfo.Entry.TargetGroupIdRewardPane == 0u))
+                return;
+
+            foreach (IQuestObjective sibling in objectives)
+            {
+                if (sibling == source || sibling.IsComplete()
+                    || sibling.ObjectiveInfo.Entry.LocalizedTextIdShort != textId
+                    || sibling.ObjectiveInfo.Entry.Data != 0u
+                    || sibling.ObjectiveInfo.Entry.TargetGroupIdRewardPane != 0u
+                    || sibling.ObjectiveInfo.Type != QuestObjectiveType.ActivateEntity)
+                    continue;
+
+                if (!CanUpdateObjective(sibling))
+                    continue;
+
+                sibling.ObjectiveUpdate(1u);
+                SendQuestObjectiveUpdate(sibling);
+            }
         }
 
         private bool CanUpdateObjective(IQuestObjective objective)
