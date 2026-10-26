@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
@@ -955,6 +955,16 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         /// <summary>
         /// Invoked each world tick with the delta since the previous tick occurred.
         /// </summary>
+        /// <summary>
+        /// Within range of a world location on the ground plane, world locations often sit above the floor (camera or marker height).
+        /// </summary>
+        private static bool NearHorizontally(IPlayer player, Vector3 location, float range)
+        {
+            float dx = player.Position.X - location.X;
+            float dz = player.Position.Z - location.Z;
+            return dx * dx + dz * dz < range * range && MathF.Abs(player.Position.Y - location.Y) < 40f;
+        }
+
         public void Update(double lastTick)
         {
             if (publicEvent == null || publicEvent.HasFinished)
@@ -994,8 +1004,10 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             switch ((PublicEventPhase)publicEvent.Phase)
             {
                 case PublicEventPhase.SearchForMissingCrew:
-                    // the players find the friendly skeech near the crash site
-                    if (players.Any(p => p.Position.GetDistance(GetLocation(48709)) < 15f))
+                    // the players find the friendly skeech near the crash site (the world location sits well above the ground, so
+                    // horizontal distance, or simply reaching the skeech)
+                    if (players.Any(p => NearHorizontally(p, GetLocation(48709), 15f)
+                        || friendlySkeech is { InWorld: true } && p.Position.GetDistance(friendlySkeech.Position) < 10f))
                         publicEvent.UpdateObjective(PublicEventObjective.SearchForMissingCrew, 1);
                     break;
                 case PublicEventPhase.SkeechAmbush:
@@ -1010,11 +1022,11 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     CheckAmbush(players, 1, IncubationAmbush);
                     break;
                 case PublicEventPhase.IncubationComplex:
-                    if (players.Any(p => p.Position.GetDistance(GetLocation(48715)) < 25.5f))
+                    if (players.Any(p => NearHorizontally(p, GetLocation(48715), 25.5f)))
                         publicEvent.UpdateObjective(PublicEventObjective.SearchIncubationForJo, 1);
                     break;
                 case PublicEventPhase.BiomaticsChamber:
-                    if (players.Any(p => p.Position.GetDistance(GetLocation(48732)) < 15f))
+                    if (players.Any(p => NearHorizontally(p, GetLocation(48732), 15f)))
                         publicEvent.UpdateObjective(PublicEventObjective.SearchBiomaticsForSyrus, 1);
                     break;
                 case PublicEventPhase.FollowProjectionsCreche:
