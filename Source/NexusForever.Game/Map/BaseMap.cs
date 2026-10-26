@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Numerics;
 using System.Text;
@@ -146,6 +146,11 @@ namespace NexusForever.Game.Map
                         }
                         case IGridActionRelocate actionRelocate:
                         {
+                            // the entity left this map (teleport, logout) after the relocate was queued, relocating it
+                            // would put it back in the grid as a ghost that breaks vision updates and the next login
+                            if (actionRelocate.Entity.Map != this)
+                                break;
+
                             RelocateEntity(actionRelocate.Entity, actionRelocate.Vector);
                             actionRelocate.Callback?.Invoke(actionRelocate.Vector);
                             break;
