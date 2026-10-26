@@ -161,6 +161,11 @@ namespace NexusForever.Database.Character
                     .HasColumnType("tinyint(3) unsigned")
                     .HasDefaultValue(0);
 
+                entity.Property(e => e.BindPoint)
+                    .HasColumnName("bindPoint")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
                 entity.Property(e => e.LastOnline)
                     .HasColumnName("lastOnline")
                     .HasColumnType("datetime");

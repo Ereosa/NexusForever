@@ -43,6 +43,11 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private const uint GenericActivateSpell4Id = 116;
 
+        /// <summary>
+        /// "Bind to Transmat Terminal", Transmat Terminals (Creature2 with a BindPointId) have no activate spell of their own.
+        /// </summary>
+        private const uint BindToTransmatTerminalSpell4Id = 8566;
+
         public abstract EntityType Type { get; }
         public EntityCreateFlag CreateFlags { get; set; }
 
@@ -607,6 +612,9 @@ namespace NexusForever.Game.Entity
             if (spell4Id == 0 && CreatureInfo.Entry.ActivateSpellCastTime > 0)
                 spell4Id = GenericActivateSpell4Id;
 
+            if (spell4Id == 0 && CreatureInfo.Entry.BindPointId != 0u)
+                spell4Id = BindToTransmatTerminalSpell4Id;
+
             if (spell4Id == 0)
                 throw new InvalidOperationException($"Spell4Id should not be 0. Unhandled Creature ActivateCast {CreatureInfo.Entry.Id}");
 
@@ -647,6 +655,9 @@ namespace NexusForever.Game.Entity
                 // collectables (supply crates, plants, etc.) hand over the quest's virtual item when used
                 foreach (uint virtualItemId in AssetManager.Instance.GetVirtualCollectItemsForCreatureId(CreatureInfo.Entry.Id))
                     activator.QuestManager.ObjectiveUpdate(QuestObjectiveType.VirtualCollect, virtualItemId, 1u);
+
+                if (CreatureInfo.Entry.BindPointId != 0u)
+                    activator.SetBindPoint((ushort)CreatureInfo.Entry.BindPointId);
 
                 activator.PathMissionManager.OnEntityActivated(this);
                 activator.PathSettlerManager.OnEntityActivated(this);

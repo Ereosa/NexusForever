@@ -1178,6 +1178,12 @@ namespace NexusForever.Database.Character.Migrations
                         .HasColumnType("datetime")
                         .HasColumnName("tradeskillRelearnCooldown");
 
+                    b.Property<ushort>("BindPoint")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("bindPoint");
+
                     b.Property<byte>("BonusAbilityPoints")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint(3) unsigned")

@@ -6,6 +6,7 @@ using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Effect;
 using NexusForever.Game.Abstract.Spell.Effect.Data;
 using NexusForever.Game.Abstract.Spell.Target;
+using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Spell.Effect;
 using NexusForever.GameTable;
@@ -43,6 +44,13 @@ namespace NexusForever.Game.Spell.Effect.Handler
             if (target is not IPlayer player)
                 return SpellEffectExecutionResult.Ok;
 
+            // bind point recalls ("Recall - Transmat", Transmat Transponder, ...) carry no location, the destination is the player's bind point
+            if (data.WorldLocationId == 0u)
+            {
+                RecallToBindPoint(player);
+                return SpellEffectExecutionResult.Ok;
+            }
+
             WorldLocation2Entry locationEntry = gameTableManager.WorldLocation2.GetEntry(data.WorldLocationId);
             if (locationEntry == null)
                 return SpellEffectExecutionResult.Ok;
@@ -72,6 +80,18 @@ namespace NexusForever.Game.Spell.Effect.Handler
             }
 
             return SpellEffectExecutionResult.Ok;
+        }
+
+        private static void RecallToBindPoint(IPlayer player)
+        {
+            if (player.BindPoint == 0)
+            {
+                player.SendSystemMessage("You have not bound to a Transmat Terminal.");
+                return;
+            }
+
+            if (!BindPointLocations.TryRecall(player))
+                player.SendSystemMessage($"Your bind point ({player.BindPoint}) has no Transmat Terminal on this server.");
         }
     }
 }

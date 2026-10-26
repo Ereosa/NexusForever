@@ -187,6 +187,15 @@ namespace NexusForever.Game.Entity
                 if (GetSpell(sprintBaseId) == null)
                     AddSpell(sprintBaseId, 2);
 
+            // "Recall - Transmat" (game formula 777) is known once the character binds to a Transmat Terminal,
+            // the client's Recall button casts it from the spellbook and prerequisite 30314 "You don't have a bind point set" checks for it
+            if (player.BindPoint != 0)
+            {
+                Spell4Entry recallEntry = GameTableManager.Instance.Spell4.GetEntry(GameTableManager.Instance.GameFormula.GetEntry(777)?.Dataint0 ?? 0u);
+                if (recallEntry != null && GetSpell(recallEntry.Spell4BaseIdBaseSpell) == null)
+                    AddSpell(recallEntry.Spell4BaseIdBaseSpell);
+            }
+
             ClassEntry classEntry = GameTableManager.Instance.Class.GetEntry((byte)player.Class);
             foreach (uint classSpell in classEntry.Spell4IdInnateAbilityActive
                 .Concat(classEntry.Spell4IdInnateAbilityPassive)

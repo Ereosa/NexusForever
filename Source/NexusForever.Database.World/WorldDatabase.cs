@@ -69,6 +69,16 @@ namespace NexusForever.Database.World
                 .ToImmutableList();
         }
 
+        public ImmutableList<EntityModel> GetEntitiesByCreature(IEnumerable<uint> creatureIds)
+        {
+            List<uint> ids = creatureIds.ToList();
+
+            using var context = new WorldContext(config);
+            return context.Entity.Where(e => ids.Contains(e.Creature) && e.EntityEvent == null)
+                .AsNoTracking()
+                .ToImmutableList();
+        }
+
         public ImmutableList<EntityModel> GetEntitiesWithSpline()
         {
             using var context = new WorldContext(config);
