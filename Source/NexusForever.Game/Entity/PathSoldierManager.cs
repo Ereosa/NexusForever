@@ -71,6 +71,7 @@ namespace NexusForever.Game.Entity
         private const double PendingSpawnTimeout = 5d;
 
         public bool InHoldout => holdout != null;
+        public uint CurrentHoldoutEventId => holdout?.Entry.Id ?? 0u;
 
         private readonly IPlayer player;
         private Holdout holdout;
