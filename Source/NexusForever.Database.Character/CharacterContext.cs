@@ -2106,6 +2106,16 @@ namespace NexusForever.Database.Character
                     .HasColumnType("int(10) unsigned")
                     .HasDefaultValue(0);
 
+                entity.Property(e => e.CircuitData)
+                    .HasColumnName("circuitData")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CircuitMultipliers)
+                    .HasColumnName("circuitMultipliers")
+                    .HasColumnType("varbinary(20)")
+                    .HasDefaultValue(null);
+
                 entity.Property(e => e.Durability)
                     .HasColumnName("durability")
                     .HasColumnType("float")
@@ -2130,6 +2140,11 @@ namespace NexusForever.Database.Character
                     .HasColumnName("ownerId")
                     .HasColumnType("bigint(20) unsigned")
                     .HasDefaultValue(null);
+
+                entity.Property(e => e.PowerCoreItemId)
+                    .HasColumnName("powerCoreItemId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
 
                 entity.Property(e => e.StackCount)
                     .HasColumnName("stackCount")

@@ -24,6 +24,21 @@ namespace NexusForever.Game.Abstract.Entity
         ImmutableDictionary<Property, float> Properties { get; }
 
         /// <summary>
+        /// Calculate item properties for an item instance with a different power level or circuit crafted properties.
+        /// </summary>
+        ImmutableDictionary<Property, float> CalculateProperties(uint powerLevel, ulong circuitData, IReadOnlyList<float> circuitMultipliers);
+
+        /// <summary>
+        /// Calculate item power for the supplied power level.
+        /// </summary>
+        float CalculateItemPower(uint powerLevel);
+
+        /// <summary>
+        /// Calculate the vendor price for the item at the supplied power level, ignoring any explicit price.
+        /// </summary>
+        float CalculateVendorAmount(uint powerLevel);
+
+        /// <summary>
         /// Return the display id for <see cref="IItemInfo"/>.
         /// </summary>
         ushort GetDisplayId();

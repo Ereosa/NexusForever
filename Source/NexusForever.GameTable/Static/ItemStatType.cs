@@ -5,6 +5,9 @@
         None            = 0,
         Standard        = 1,
         RandomStatGroup = 2,
-        Unknown4        = 4
+        /// <summary>
+        /// Property is chosen while circuit crafting, the data is the <see cref="Static.ItemCraftingGroupFlag"/> mask allowed for the socket.
+        /// </summary>
+        Crafted         = 4
     }
 }

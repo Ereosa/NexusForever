@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Entity;
@@ -7,8 +7,10 @@ using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
+using NexusForever.Game.Static;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.GameTable.Static;
 using NexusForever.Network.World.Message.Model.Crafting;
 using NexusForever.Network.World.Message.Static;
 using NLog;
@@ -49,6 +51,10 @@ namespace NexusForever.Game.Crafting
         private enum SchematicFlags
         {
             Discoverable = 0x02,
+            /// <summary>
+            /// Circuit crafts that don't need a power core and can't fail until heavily overcharged.
+            /// </summary>
+            Universal    = 0x04,
             AutoCraft    = 0x08
         }
 
@@ -69,6 +75,22 @@ namespace NexusForever.Game.Crafting
             public List<uint> Additives { get; } = [];
             public uint PowerCoreItemId { get; set; }
             public bool Completing { get; set; }
+
+            /// <summary>
+            /// Properties of each item stat slot, sockets start with a random property of their element.
+            /// </summary>
+            public Property?[] SlotProperties { get; } = new Property?[CircuitCrafting.SlotCount];
+            /// <summary>
+            /// Element of each circuit crafting socket.
+            /// </summary>
+            public ItemCraftingGroupFlag[] SocketGroups { get; } = new ItemCraftingGroupFlag[CircuitCrafting.SlotCount];
+            public ulong CircuitData { get; set; }
+            public float[] SlotMultipliers { get; set; } = [];
+            public float FailChance { get; set; }
+            /// <summary>
+            /// Power core and crafting cost were paid by an attempt that was interrupted.
+            /// </summary>
+            public bool CircuitPaid { get; set; }
         }
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
@@ -130,7 +152,46 @@ namespace NexusForever.Game.Crafting
                 return;
             }
 
+            if (type == CraftType.Circuit)
+                RollSockets(currentCraft);
+
             SendCurrentCraft();
+        }
+
+        /// <summary>
+        /// Each socket of a circuit craft gets a random element allowed for its slot and starts with a random property of that element.
+        /// </summary>
+        private static void RollSockets(CurrentCraft craft)
+        {
+            IItemInfo info = ItemManager.Instance.GetItemInfo(craft.Schematic.Item2IdOutput);
+            if (info?.StatEntry == null)
+                return;
+
+            for (int i = 0; i < CircuitCrafting.SlotCount && i < info.StatEntry.ItemStatTypeEnum.Length; i++)
+            {
+                if (info.StatEntry.ItemStatTypeEnum[i] != ItemStatType.Crafted)
+                    continue;
+
+                var mask = (ItemCraftingGroupFlag)(info.StatEntry.ItemStatData[i] & (uint)ItemCraftingGroupFlag.All);
+                ItemCraftingGroupFlag[] groups = Enum.GetValues<ItemCraftingGroupFlag>()
+                    .Where(g => g is not ItemCraftingGroupFlag.None and not ItemCraftingGroupFlag.All && (mask & g) != 0)
+                    .Where(g => CircuitCrafting.GetCraftableProperties(info, g).Any(p => CircuitCrafting.CanSocketProperty(g, p)))
+                    .ToArray();
+                if (groups.Length == 0)
+                    continue;
+
+                ItemCraftingGroupFlag group = groups[Random.Shared.Next(groups.Length)];
+                Property[] properties = CircuitCrafting.GetCraftableProperties(info, group)
+                    .Where(p => CircuitCrafting.CanSocketProperty(group, p) && !craft.SlotProperties.Contains(p))
+                    .ToArray();
+                if (properties.Length == 0)
+                    continue;
+
+                craft.SocketGroups[i]   = group;
+                craft.SlotProperties[i] = properties[Random.Shared.Next(properties.Length)];
+            }
+
+            craft.CircuitData = CircuitCrafting.BuildCircuitData(craft.SlotProperties, 0);
         }
 
         public void AddAdditive(uint stationUnitId, uint additiveItemId)
@@ -199,20 +260,185 @@ namespace NexusForever.Game.Crafting
 
             CheckStation(complexCraft.CraftingStationUnitId, currentCraft.Schematic);
 
-            // power cores are consumed by the craft
+            TradeskillSchematic2Entry schematic = currentCraft.Schematic;
+            IItemInfo info = ItemManager.Instance.GetItemInfo(schematic.Item2IdOutput);
+            if (info == null)
+                throw new InvalidOperationException($"Schematic {schematic.Id} doesn't have a valid output item!");
+
+            if (player.Inventory.IsInventoryFull(InventoryLocation.Inventory))
+            {
+                player.SendGenericError(GenericError.ItemInventoryFull);
+                return;
+            }
+
+            bool universal = IsUniversal(schematic);
+            CircuitCrafting.Settings settings = CircuitCrafting.GetSettings(universal, player.Account.AccountTier == AccountTier.Signature);
+
+            // non universal schematics need a power core, the crafted item takes its power level from the power core
+            IItemInfo powerCore = null;
             if (complexCraft.PowerCoreItem2Id != 0u)
             {
-                if (!HasItem(complexCraft.PowerCoreItem2Id, 1u))
+                powerCore = ItemManager.Instance.GetItemInfo(complexCraft.PowerCoreItem2Id);
+                if (powerCore?.CategoryEntry?.Id != PowerCoreItemCategory || (!currentCraft.CircuitPaid && !HasItem(complexCraft.PowerCoreItem2Id, 1u)))
                 {
                     player.SendGenericError(GenericError.CraftInvalidPowerCore);
                     return;
                 }
-
-                RemoveItem(complexCraft.PowerCoreItem2Id, 1u);
-                currentCraft.PowerCoreItemId = complexCraft.PowerCoreItem2Id;
+            }
+            else if (!universal)
+            {
+                player.SendGenericError(GenericError.CraftInvalidPowerCore);
+                return;
             }
 
+            GenericError? error = BuildCircuit(complexCraft, info, settings, out Property?[] slots, out float[] multipliers);
+            if (error.HasValue)
+            {
+                player.SendGenericError(error.Value);
+                return;
+            }
+
+            if (complexCraft.ApSpSplitDelta > CircuitCrafting.GetApSpSplitMaxDelta(settings))
+            {
+                player.SendGenericError(GenericError.CraftBadParams);
+                return;
+            }
+
+            uint powerLevel = powerCore?.Entry.PowerLevel ?? info.Entry.PowerLevel;
+            float failChance = GetFailChance(info, settings, slots, multipliers, powerLevel, powerCore, universal);
+
+            // universal schematics can't be crafted with any chance to fail
+            bool canFail = ((SchematicFlags)schematic.Flags & SchematicFlags.Universal) != 0;
+            if (canFail ? failChance > 0f : failChance > CircuitCrafting.GetFailCap(settings))
+            {
+                player.SendGenericError(GenericError.CraftFailChanceTooHigh);
+                return;
+            }
+
+            // circuit crafts cost a share of the crafted item value, universal schematics are free
+            ulong cost = universal ? 0ul : CircuitCrafting.GetCraftingCost(info.CalculateVendorAmount(powerLevel));
+            if (!currentCraft.CircuitPaid)
+            {
+                if (cost > 0ul && !player.CurrencyManager.CanAfford(CurrencyType.Credits, cost))
+                {
+                    player.SendGenericError(GenericError.VendorNotEnoughCash);
+                    return;
+                }
+
+                if (cost > 0ul)
+                    player.CurrencyManager.CurrencySubtractAmount(CurrencyType.Credits, cost);
+
+                // power cores are consumed by the craft
+                if (powerCore != null)
+                    RemoveItem(powerCore.Id, 1u);
+
+                currentCraft.PowerCoreItemId = powerCore?.Id ?? 0u;
+                currentCraft.CircuitPaid     = true;
+            }
+            else if ((powerCore?.Id ?? 0u) != currentCraft.PowerCoreItemId)
+            {
+                // a retried craft keeps the power core already used
+                player.SendGenericError(GenericError.CraftInvalidPowerCore);
+                return;
+            }
+
+            byte apSpSplit = CircuitCrafting.GetApSpSplitByte(settings, complexCraft.ApSpSplitDelta);
+            currentCraft.CircuitData     = CircuitCrafting.BuildCircuitData(slots, apSpSplit);
+            currentCraft.SlotMultipliers = multipliers;
+            currentCraft.FailChance      = failChance;
+
             CastCraftingSpell();
+        }
+
+        /// <summary>
+        /// Item category of power cores.
+        /// </summary>
+        private const uint PowerCoreItemCategory = 143u;
+
+        private static bool IsUniversal(TradeskillSchematic2Entry schematic)
+        {
+            return ((SchematicFlags)schematic.Flags & SchematicFlags.Universal) != 0 && schematic.Tier == 0u;
+        }
+
+        /// <summary>
+        /// Validate the properties and charges chosen for each socket of the current circuit craft.
+        /// </summary>
+        private GenericError? BuildCircuit(ClientCraftingComplexCraft complexCraft, IItemInfo info, CircuitCrafting.Settings settings, out Property?[] slots, out float[] multipliers)
+        {
+            slots       = (Property?[])currentCraft.SlotProperties.Clone();
+            multipliers = new float[Math.Min(complexCraft.ChargeCounts.Length, CircuitCrafting.SlotCount)];
+
+            ItemStatEntry statEntry = info.StatEntry;
+            for (int i = 0; i < CircuitCrafting.SlotCount; i++)
+            {
+                bool crafted = statEntry != null && i < statEntry.ItemStatTypeEnum.Length && statEntry.ItemStatTypeEnum[i] == ItemStatType.Crafted;
+                int charges  = i < complexCraft.ChargeCounts.Length ? complexCraft.ChargeCounts[i] : 0;
+
+                if (!crafted)
+                {
+                    // only sockets can be charged or have a property chosen
+                    if (charges != 0 || complexCraft.CraftStats.GetSlot(i) != 0)
+                        return GenericError.CraftMicrochipInvalidSocket;
+                }
+                else
+                {
+                    if (!CircuitCrafting.IsValidCharge(settings, charges))
+                        return GenericError.CraftBadParams;
+
+                    byte chosen = complexCraft.CraftStats.GetSlot(i);
+                    if (chosen != 0)
+                    {
+                        var property = (Property)(chosen - 1);
+                        if (!CircuitCrafting.IsCraftableProperty(property, info) || !CircuitCrafting.CanSocketProperty(currentCraft.SocketGroups[i], property))
+                            return GenericError.CraftMicrochipInvalidSocket;
+
+                        slots[i] = property;
+                    }
+
+                    if (!slots[i].HasValue)
+                        return GenericError.CraftIncompleteCircuit;
+                }
+
+                if (i < multipliers.Length)
+                    multipliers[i] = CircuitCrafting.GetChargeMultiplier(settings, charges);
+            }
+
+            // each property can only be chosen once
+            if (slots.Where(p => p.HasValue).GroupBy(p => p.Value).Any(g => g.Count() > 1))
+                return GenericError.CraftDuplicateChip;
+
+            return null;
+        }
+
+        /// <summary>
+        /// Return the chance for the circuit craft to fail, charging sockets above their budget and properties that don't match their socket increase the chance.
+        /// </summary>
+        private float GetFailChance(IItemInfo info, CircuitCrafting.Settings settings, Property?[] slots, float[] multipliers, uint powerLevel, IItemInfo powerCore, bool universal)
+        {
+            if (info.BudgetEntry == null || info.StatEntry == null)
+                return 0f;
+
+            float itemPower = info.CalculateItemPower(powerLevel);
+            float penalty   = CircuitCrafting.GetMismatchPenalty(settings);
+
+            float craftedBudget = 0f;
+            for (int i = 0; i < CircuitCrafting.SlotCount && i < info.StatEntry.ItemStatTypeEnum.Length; i++)
+            {
+                ItemStatType type = info.StatEntry.ItemStatTypeEnum[i];
+                if (type is not ItemStatType.Standard and not ItemStatType.Crafted)
+                    continue;
+
+                if (type == ItemStatType.Crafted && !slots[i].HasValue)
+                    continue;
+
+                float budget = info.BudgetEntry.Budgets[i] * itemPower * (i < multipliers.Length ? multipliers[i] : 1f);
+                craftedBudget += budget;
+
+                if (type == ItemStatType.Crafted && !CircuitCrafting.IsMatchingGroup(currentCraft.SocketGroups[i], slots[i].Value))
+                    craftedBudget += penalty * budget;
+            }
+
+            return CircuitCrafting.GetFailChance(settings, itemPower, craftedBudget, powerCore, universal);
         }
 
         public void AbandonCraft()
@@ -274,8 +500,7 @@ namespace NexusForever.Game.Crafting
                     break;
                 }
                 default:
-                    // TODO: circuit crafts should apply the chosen microchip stats to the crafted item
-                    FinishCraft(craft, craft.Schematic, craft.Schematic.Item2IdOutput, craft.Schematic.OutputCount, CraftingDiscovery.Cold, CraftingDirection.None);
+                    FinishCircuitCraft(craft);
                     break;
             }
 
@@ -327,6 +552,42 @@ namespace NexusForever.Game.Crafting
                 crafted = hit;
 
             FinishCraft(craft, crafted, crafted.Item2IdOutput, crafted.OutputCount, discovery, direction);
+        }
+
+        private void FinishCircuitCraft(CurrentCraft craft)
+        {
+            TradeskillSchematic2Entry schematic = craft.Schematic;
+
+            // overcharged circuits can fail, producing the failed craft item instead
+            if (craft.FailChance > 0f && Random.Shared.NextSingle() < craft.FailChance)
+            {
+                if (schematic.Item2IdOutputFail != 0u)
+                    player.Inventory.ItemCreate(InventoryLocation.Inventory, schematic.Item2IdOutputFail, 1u, ItemUpdateReason.Crafting);
+
+                player.Session.EnqueueMessageEncrypted(new ServerCraftingFinish
+                {
+                    Pass                          = false,
+                    TradeskillSchematic2IdCrafted = schematic.Id,
+                    Item2IdCrafted                = schematic.Item2IdOutputFail
+                });
+
+                log.Trace($"Player {player.CharacterId} failed circuit craft of schematic {schematic.Id} with a {craft.FailChance:P0} chance to fail.");
+                return;
+            }
+
+            IItemInfo info = ItemManager.Instance.GetItemInfo(schematic.Item2IdOutput);
+            if (info == null || player.Inventory.IsInventoryFull(InventoryLocation.Inventory))
+            {
+                player.SendGenericError(GenericError.ItemInventoryFull);
+                return;
+            }
+
+            var item = new Item(player.CharacterId, info);
+            item.SetCircuit(craft.CircuitData, craft.SlotMultipliers, craft.PowerCoreItemId);
+            player.Inventory.AddItem(item, InventoryLocation.Inventory, ItemUpdateReason.Crafting);
+
+            // the crafted item is created here so only the rewards are handled when finishing the craft
+            FinishCraft(craft, schematic, schematic.Item2IdOutput, 0u, CraftingDiscovery.Cold, CraftingDirection.None);
         }
 
         private static bool IsDiscoverable(TradeskillSchematic2Entry schematic)
@@ -402,6 +663,8 @@ namespace NexusForever.Game.Crafting
         {
             if (itemId != 0u && count > 0u)
                 player.Inventory.ItemCreate(InventoryLocation.Inventory, itemId, count, ItemUpdateReason.Crafting);
+            else if (itemId != 0u)
+                count = 1u;
 
             var tradeskillId = (TradeskillType)craft.Schematic.TradeSkillId;
             uint xp = (GetTier(tradeskillId, craft.Schematic.Tier)?.CraftXp ?? 0u) * craft.Count;
@@ -585,8 +848,11 @@ namespace NexusForever.Game.Crafting
             if (currentCraft != null)
             {
                 message.TradeskillSchematic2Id    = currentCraft.Schematic.Id;
+                message.CraftStats.Data           = currentCraft.CircuitData;
+                message.SocketGroups              = currentCraft.Type == CraftType.Circuit ? CircuitCrafting.BuildSocketGroups(currentCraft.SocketGroups) : 0u;
                 message.SchematicCount            = currentCraft.Count;
                 message.AdditiveCount             = (uint)currentCraft.Additives.Count;
+                message.Item2IdModifierCount      = (uint)currentCraft.Additives.Count;
                 message.Item2Id                   = currentCraft.PowerCoreItemId;
                 message.DiscoveryCoordinates      = currentCraft.Position;
                 message.DiscoveryVectorMultiplier = Vector2.One;
