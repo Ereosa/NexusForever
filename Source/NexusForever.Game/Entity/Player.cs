@@ -6,6 +6,7 @@ using NexusForever.Database;
 using NexusForever.Database.Auth;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
+using NexusForever.Database.World;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
@@ -785,6 +786,8 @@ namespace NexusForever.Game.Entity
             if (PreviousMap == null)
                 OnLogin();
 
+            RestoreInstanceReturn();
+
             messagePublisher.PublishAsync(new PlayerWorldUpdatedMessage
             {
                 Identity    = Identity.ToInternalIdentity(),
@@ -842,6 +845,74 @@ namespace NexusForever.Game.Entity
                     TeleportTo((ushort)destination.WorldId, destination.Position0, destination.Position1, destination.Position2);
                     return;
                 }
+            }
+        }
+
+        /// <summary>
+        /// A player logging in (or arriving some other way) inside a quest instance has no remembered way back,
+        /// the way back is the marker of the enter zone objective that leads into this world (the portal outside).
+        /// </summary>
+        /// <remarks>
+        /// The player is sent back once the quest is no longer in progress: achieved, abandoned or never taken.
+        /// </remarks>
+        private void RestoreInstanceReturn()
+        {
+            if (instanceReturn != null || Map == null)
+                return;
+
+            foreach (Quest2Entry questEntry in GameTableManager.Instance.Quest2.Entries.Where(q => q != null))
+            {
+                foreach (uint objectiveId in questEntry.Objectives.Where(o => o != 0u))
+                {
+                    QuestObjectiveEntry objective = GameTableManager.Instance.QuestObjective.GetEntry(objectiveId);
+                    if (objective == null || (QuestObjectiveType)objective.Type != QuestObjectiveType.EnterZone)
+                        continue;
+
+                    WorldLocation2Entry destination = GetZoneEntryLocation(objective.Data);
+                    if (destination == null || destination.WorldId != Map.Entry.Id)
+                        continue;
+
+                    WorldLocation2Entry portal = GameTableManager.Instance.WorldLocation2.GetEntry(objective.WorldLocationsIdIndicator00);
+                    if (portal == null || portal.WorldId == Map.Entry.Id)
+                        continue;
+
+                    // only quest instances, entered through an instance portal at the objective's marker (not zones reached by a portal spell or taxi)
+                    var portalPosition = new Vector3(portal.Position0, portal.Position1, portal.Position2);
+                    if (!GetInstancePortalPositions((ushort)portal.WorldId).Any(p => Vector3.Distance(p, portalPosition) <= 15f))
+                        continue;
+
+                    // prefer the quest the player has
+                    if (QuestManager.GetQuestState((ushort)questEntry.Id) == null && instanceReturnCandidate != null)
+                        continue;
+
+                    instanceReturnCandidate = ((ushort)portal.WorldId, new Vector3(portal.Position0, portal.Position1, portal.Position2), (ushort)questEntry.Id);
+                    if (QuestManager.GetQuestState((ushort)questEntry.Id) != null)
+                        break;
+                }
+            }
+
+            instanceReturn = instanceReturnCandidate;
+            instanceReturnCandidate = null;
+        }
+
+        private (ushort WorldId, Vector3 Position, ushort QuestId)? instanceReturnCandidate;
+
+        private static readonly Dictionary<ushort, List<Vector3>> instancePortalPositions = [];
+
+        private static List<Vector3> GetInstancePortalPositions(ushort worldId)
+        {
+            lock (instancePortalPositions)
+            {
+                if (!instancePortalPositions.TryGetValue(worldId, out List<Vector3> positions))
+                {
+                    positions = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetEntities(worldId)
+                        .Where(e => e.Type == EntityType.InstancePortal)
+                        .Select(e => new Vector3(e.X, e.Y, e.Z))
+                        .ToList();
+                    instancePortalPositions.Add(worldId, positions);
+                }
+
+                return positions;
             }
         }
 
