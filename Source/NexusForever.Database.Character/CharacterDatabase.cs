@@ -140,6 +140,7 @@ namespace NexusForever.Database.Character
                     .ThenInclude(c => c.Attachment)
                         .ThenInclude(c => c.Item)
                 .Include(c => c.ZonemapHexgroup)
+                .Include(c => c.TaxiNode)
                 .Include(c => c.Quest)
                     .ThenInclude(c => c.QuestObjective)
                 .Include(c => c.Entitlement)

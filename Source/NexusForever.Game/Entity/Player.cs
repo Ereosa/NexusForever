@@ -12,6 +12,7 @@ using NexusForever.Game.Abstract.Achievement;
 using NexusForever.Game.Abstract.Challenges;
 using NexusForever.Game.Abstract.Crafting;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Taxi;
 using NexusForever.Game.Account.Entitlement;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Entity.Movement;
@@ -54,6 +55,7 @@ using NexusForever.Game.Static.RBAC;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Setting;
 using NexusForever.Game.Static.Spell;
+using NexusForever.Game.Taxi;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Internal;
@@ -269,6 +271,7 @@ namespace NexusForever.Game.Entity
         public ITradeskillManager TradeskillManager { get; private set; }
         public ICraftingManager CraftingManager { get; private set; }
         public IChallengeManager ChallengeManager { get; private set; }
+        public ITaxiManager TaxiManager { get; private set; }
         public IRewardTrackManager RewardTrackManager { get; private set; }
         public IXpManager XpManager { get; private set; }
         public IReputationManager ReputationManager { get; private set; }
@@ -413,6 +416,7 @@ namespace NexusForever.Game.Entity
             TradeskillManager       = new TradeskillManager(this, model);
             CraftingManager         = new CraftingManager(this);
             ChallengeManager        = new ChallengeManager(this, model);
+            TaxiManager             = new TaxiManager(this, model, entityFactory, creatureInfoManager);
             RewardTrackManager      = new RewardTrackManager(this, model);
             XpManager               = new XpManager(this, model);
             ReputationManager       = new ReputationManager(this, model);
@@ -660,6 +664,7 @@ namespace NexusForever.Game.Entity
             SupplySatchelManager.Save(context);
             TradeskillManager.Save(context);
             ChallengeManager.Save(context);
+            TaxiManager.Save(context);
             RewardTrackManager.Save(context);
             XpManager.Save(context);
             ReputationManager.Save(context);
@@ -1055,6 +1060,7 @@ namespace NexusForever.Game.Entity
             Account.RewardPropertyManager.SendInitialPackets();
             RewardTrackManager.SendInitialPackets();
             ChallengeManager.SendInitialPackets();
+            TaxiManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
 
             Session.EnqueueMessageEncrypted(new ServerPhaseVisibilityWorldLocation

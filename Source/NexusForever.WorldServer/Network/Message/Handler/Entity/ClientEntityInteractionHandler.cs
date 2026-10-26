@@ -76,6 +76,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 case InteractionType.Vendor: // Handle Vendor
                     HandleVendor(session, entity);
                     break;
+                case InteractionType.Shuttle: // "InvokeShuttlePrompt"
+                case InteractionType.FlightPathSettler:
+                case InteractionType.FlightPathNew:
+                case InteractionType.FlightPath: // "InvokeTaxiWindow", the client opens the taxi window itself
+                    session.Player.TaxiManager.OnTaxiVendorInteract(entity);
+                    break;
                 case InteractionType.Mail: // "MailboxActivate"
                     var mailboxEntity = session.Player.Map.GetEntity<IMailboxEntity>(entityInteraction.UnitId);
                     break;
@@ -84,10 +90,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 case InteractionType.ConvertRep: // "ResourceConversionOpen"
                 case InteractionType.Trainer: // "ToggleAbilitiesWindow"
                 case InteractionType.TradeskillTrainer: // "InvokeTradeskillTrainerWindow"
-                case InteractionType.Shuttle: // "InvokeShuttlePrompt"
-                case InteractionType.FlightPathSettler:
-                case InteractionType.FlightPathNew:
-                case InteractionType.FlightPath: // "InvokeTaxiWindow"
                 case InteractionType.Mannequin: // "MannequinWindowOpen"
                 case InteractionType.Bank: // "ShowBank"
                 case InteractionType.SharedRealmBank: // "ShowRealmBank"

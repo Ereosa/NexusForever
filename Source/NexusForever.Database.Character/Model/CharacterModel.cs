@@ -72,6 +72,7 @@ namespace NexusForever.Database.Character.Model
         public ICollection<CharacterTradeskillMaterialModel> TradeskillMaterials { get; set; } = new HashSet<CharacterTradeskillMaterialModel>();
         public ICollection<CharacterTradeskillSchematicModel> TradeskillSchematic { get; set; } = new HashSet<CharacterTradeskillSchematicModel>();
         public ICollection<CharacterZonemapHexgroupModel> ZonemapHexgroup { get; set; } = new HashSet<CharacterZonemapHexgroupModel>();
+        public ICollection<CharacterTaxiNodeModel> TaxiNode { get; set; } = new HashSet<CharacterTaxiNodeModel>();
         public ICollection<ItemModel> Item { get; set; } = new HashSet<ItemModel>();
     }
 }

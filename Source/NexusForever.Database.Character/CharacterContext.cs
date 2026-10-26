@@ -40,6 +40,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
         public DbSet<CharacterTradeskillSchematicModel> CharacterTradeskillSchematic { get; set; }
         public DbSet<CharacterZonemapHexgroupModel> CharacterZonemapHexgroup { get; set; }
+        public DbSet<CharacterTaxiNodeModel> CharacterTaxiNode { get; set; }
         public DbSet<ChatChannelModel> ChatChannel { get; set; }
         public DbSet<ChatChannelMemberModel> ChatChannelMember { get; set; }
         public DbSet<GuildModel> Guild { get; set; }
@@ -1782,6 +1783,29 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.TradeskillMaterials)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_tradeskill_material_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterTaxiNodeModel>(entity =>
+            {
+                entity.ToTable("character_taxi_node");
+
+                entity.HasKey(e => new { e.Id, e.TaxiNodeId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.TaxiNodeId)
+                    .HasColumnName("taxiNodeId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.TaxiNode)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_taxi_node_id__character_id");
             });
 
             modelBuilder.Entity<CharacterZonemapHexgroupModel>(entity =>

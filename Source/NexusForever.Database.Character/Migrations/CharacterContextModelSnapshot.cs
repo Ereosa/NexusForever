@@ -1732,6 +1732,26 @@ namespace NexusForever.Database.Character.Migrations
                     b.ToTable("character_tradeskill_materials", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterTaxiNodeModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<ushort>("TaxiNodeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("taxiNodeId");
+
+                    b.HasKey("Id", "TaxiNodeId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("character_taxi_node", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterZonemapHexgroupModel", b =>
                 {
                     b.Property<ulong>("Id")
@@ -3092,6 +3112,18 @@ namespace NexusForever.Database.Character.Migrations
                     b.Navigation("Character");
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterTaxiNodeModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("TaxiNode")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_taxi_node_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterZonemapHexgroupModel", b =>
                 {
                     b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
@@ -3285,6 +3317,8 @@ namespace NexusForever.Database.Character.Migrations
                     b.Navigation("TradeskillMaterials");
 
                     b.Navigation("TradeskillSchematic");
+
+                    b.Navigation("TaxiNode");
 
                     b.Navigation("ZonemapHexgroup");
                 });

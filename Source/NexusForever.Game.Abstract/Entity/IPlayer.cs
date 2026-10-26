@@ -12,6 +12,7 @@ using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Reputation;
 using NexusForever.Game.Abstract.Reward;
+using NexusForever.Game.Abstract.Taxi;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Option;
 using NexusForever.Game.Static.PVP;
@@ -98,6 +99,7 @@ namespace NexusForever.Game.Abstract.Entity
         ISupplySatchelManager SupplySatchelManager { get; }
         ITradeskillManager TradeskillManager { get; }
         IChallengeManager ChallengeManager { get; }
+        ITaxiManager TaxiManager { get; }
         IRewardTrackManager RewardTrackManager { get; }
         ICraftingManager CraftingManager { get; }
         IXpManager XpManager { get; }
