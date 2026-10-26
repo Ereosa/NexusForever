@@ -226,6 +226,18 @@ namespace NexusForever.Script.Instance.Expedition
             return new Vector3(x, y.HasValue && MathF.Abs(y.Value - fallbackY) < 15f ? y.Value : fallbackY, z);
         }
 
+        /// <summary>
+        /// Nodes of a client Spline2 path (creature paths and platforms of the world), in order.
+        /// </summary>
+        protected List<Vector3> GetSplineNodes(uint splineId)
+        {
+            return gameTableManager.Spline2Node.Entries
+                .Where(n => n != null && n.SplineId == splineId)
+                .OrderBy(n => n.Ordinal)
+                .Select(n => new Vector3(n.Position0, n.Position1, n.Position2))
+                .ToList();
+        }
+
         protected Vector3 GetLocation(uint worldLocationId)
         {
             WorldLocation2Entry entry = gameTableManager.WorldLocation2.GetEntry(worldLocationId);
