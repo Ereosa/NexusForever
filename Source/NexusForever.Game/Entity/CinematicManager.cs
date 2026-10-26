@@ -24,7 +24,7 @@ namespace NexusForever.Game.Entity
         private double currentTimer;
         private readonly Queue<(ICinematicBase Cinematic, Action Callback)> queuedCinematics = new();
         private readonly List<Action> finishedActions = [];
-        private readonly List<ICinematicBase> afterEnteringWorld = [];
+        private readonly List<(ICinematicBase Cinematic, Action Callback)> afterEnteringWorld = [];
 
         /// <summary>
         /// Returns if a cinematic is currently playing for the <see cref="IPlayer"/>.
@@ -63,6 +63,14 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         public void QueueCinematic(ICinematicBase cinematic, Action onFinish = null)
         {
+            // a cinematic sent while the client is still on the loading screen (map scripts queue arrivals when the player is added
+            // to the new map) crashes the client, it waits until the player has entered the world
+            if (owner.IsLoading)
+            {
+                afterEnteringWorld.Add((cinematic, onFinish));
+                return;
+            }
+
             queuedCinematics.Enqueue((cinematic, onFinish));
             if (currentCinematic == null && queuedCinematics.Count >= 1u)
                 PlayQueuedCinematic();
@@ -84,7 +92,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void QueueAfterEnteringWorld(ICinematicBase cinematic)
         {
-            afterEnteringWorld.Add(cinematic);
+            afterEnteringWorld.Add((cinematic, null));
         }
 
         /// <summary>
@@ -95,10 +103,10 @@ namespace NexusForever.Game.Entity
             if (afterEnteringWorld.Count == 0)
                 return;
 
-            List<ICinematicBase> cinematics = [.. afterEnteringWorld];
+            List<(ICinematicBase Cinematic, Action Callback)> cinematics = [.. afterEnteringWorld];
             afterEnteringWorld.Clear();
-            foreach (ICinematicBase cinematic in cinematics)
-                QueueCinematic(cinematic);
+            foreach ((ICinematicBase cinematic, Action callback) in cinematics)
+                QueueCinematic(cinematic, callback);
         }
 
         /// <summary>
