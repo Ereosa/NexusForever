@@ -66,8 +66,10 @@ namespace NexusForever.Game.Combat
             damageDescription.RawScaledDamage = damage;
 
             damage = CalculateBaseDamageVariance(damage);
+            uint varianceDamage = damage;
 
             damage = GetDamageAfterArmorMitigation(victim, info.Entry.DamageType, damage);
+            uint armorDamage = damage;
 
             // TODO: Add in other attacking modifiers like Armor Pierce, Strikethrough, Multi-Hit, etc.
 
@@ -96,6 +98,13 @@ namespace NexusForever.Game.Combat
             // TODO: Add in other defensive modifiers
 
             damageDescription.AdjustedDamage = damage;
+
+            if (damageDescription.RawDamage > 0 && damage == 0 && damageDescription.ShieldAbsorbAmount == 0)
+                log.LogWarning($"Damage from spell {executionContext.Spell.Parameters.SpellInfo.Entry.Id} to unit {victim.Guid} (creature {victim.CreatureId}) was reduced to 0: "
+                    + $"result {damageDescription.CombatResult} type {info.Entry.DamageType} after variance {varianceDamage} after armor {armorDamage} armor {victim.GetPropertyValue(Property.Armor)} "
+                    + $"offsets {victim.GetPropertyValue(Property.DamageMitigationPctOffset)}/{victim.GetPropertyValue(Property.DamageMitigationPctOffsetPhysical)}/{victim.GetPropertyValue(Property.DamageMitigationPctOffsetTech)}/{victim.GetPropertyValue(Property.DamageMitigationPctOffsetMagic)} "
+                    + $"glance {victim.GetPropertyValue(Property.RatingGlanceChance)}/{victim.GetPropertyValue(Property.BaseGlanceChance)}/{victim.GetPropertyValue(Property.RatingGlanceAmount)}/{victim.GetPropertyValue(Property.BaseGlanceAmount)} "
+                    + $"shield {victim.Shield}/{victim.GetPropertyValue(Property.ShieldMitigationMax)} level {victim.Level} attacker level {executionContext.Spell.Caster.Level}");
 
             log.LogTrace($"Damage from spell {executionContext.Spell.Parameters.SpellInfo.Entry.Id} to unit {victim.Guid} (creature {victim.CreatureId}, level {victim.Level}): raw {damageDescription.RawDamage}, shielded {damageDescription.ShieldAbsorbAmount}, adjusted {damage}, health {victim.Health}/{victim.MaxHealth}.");
 
@@ -499,8 +508,8 @@ namespace NexusForever.Game.Combat
                     baseValue = entity.GetPropertyValue(Property.BaseCritChance);
                     break;
                 case Property.RatingCritSeverityIncrease:
-                    // TODO: Confirm Property below
-                    // baseValue = entity.GetPropertyValue(Property.CriticalHitSeverityMultiplier);
+                    // base severity is 150%, without it a critical hit multiplied damage by the rating bonus alone and dealt next to nothing
+                    baseValue = entity.GetPropertyValue(Property.CriticalHitSeverityMultiplier);
                     break;
                 case Property.RatingDamageReflectAmount:
                 case Property.BaseDamageReflectAmount:
