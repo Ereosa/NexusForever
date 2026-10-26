@@ -475,6 +475,7 @@ namespace NexusForever.Game.Entity
             CostumeManager.Update(lastTick);
             QuestManager.Update(lastTick);
             UpdateInstanceReturn(lastTick);
+            UpdateQuestMicroInstances(lastTick);
             PathScientistManager.Update(lastTick);
             PathSoldierManager.Update(lastTick);
             PathExplorerManager.Update(lastTick);
@@ -1061,6 +1062,127 @@ namespace NexusForever.Game.Entity
                 zoneEntryLocations[zoneId] = location;
                 return location;
             }
+        }
+
+        /// <summary>
+        /// Seconds a quest micro instance waits before taking the player in, a scene of the step before (eg: the Skull's Eye taking off) plays first.
+        /// </summary>
+        private const double QuestMicroInstanceDelay = 8d;
+
+        /// <summary>
+        /// Distance to the marker of the step before a quest micro instance (or of the enter zone objective leading into it) that takes the player in.
+        /// </summary>
+        private const float QuestMicroInstanceRange = 40f;
+
+        private double questMicroInstanceCheck;
+        private (ushort QuestId, uint WorldId, double Remaining)? questMicroInstancePending;
+
+        /// <summary>
+        /// Take the player into the small instance map a quest step happens on (the Skull's Eye in Finish Him!, Boss Xagg's Dust Stalker)
+        /// once the step before it is done at its marker.
+        /// </summary>
+        /// <remarks>
+        /// Retail moved the player with server scripts (a ship taking off, an access panel), the client data only has the steps' markers on
+        /// the instance map. The player arrives at the instance map's first world location and returns where they left once the quest is
+        /// achieved (<see cref="UpdateInstanceReturn"/>).
+        /// </remarks>
+        private void UpdateQuestMicroInstances(double lastTick)
+        {
+            if (Map == null || IsLoading || instanceReturn != null)
+                return;
+
+            if (questMicroInstancePending is { } pending)
+            {
+                double remaining = pending.Remaining - lastTick;
+                if (remaining > 0d)
+                {
+                    questMicroInstancePending = (pending.QuestId, pending.WorldId, remaining);
+                    return;
+                }
+
+                questMicroInstancePending = null;
+                if (QuestManager.GetQuestState(pending.QuestId) != QuestState.Accepted || !CanTeleport())
+                    return;
+
+                WorldLocation2Entry start = GetMicroInstanceStart(pending.WorldId);
+                if (start == null)
+                    return;
+
+                instanceReturn      = ((ushort)Map.Entry.Id, Position, pending.QuestId);
+                instanceReturnTimer = -1d;
+                TeleportTo((ushort)start.WorldId, start.Position0, start.Position1, start.Position2);
+                return;
+            }
+
+            questMicroInstanceCheck -= lastTick;
+            if (questMicroInstanceCheck > 0d)
+                return;
+            questMicroInstanceCheck = 1d;
+
+            foreach (IQuest quest in QuestManager.GetActiveQuests().Where(q => q.State == QuestState.Accepted))
+            {
+                IQuestObjective current = quest
+                    .Where(o => !o.IsComplete() && !o.ObjectiveInfo.IsOptional())
+                    .OrderBy(o => o.Index)
+                    .FirstOrDefault();
+                if (current == null)
+                    continue;
+
+                List<WorldLocation2Entry> markers = current.ObjectiveInfo.GetAreaLocations().ToList();
+                if (markers.Count == 0 || markers.Any(l => l.WorldId == Map.Entry.Id))
+                    continue;
+
+                uint worldId = markers[0].WorldId;
+                if (markers.Any(l => l.WorldId != worldId) || !IsQuestMicroInstance(worldId))
+                    continue;
+
+                // the step before was done here, at its marker
+                IQuestObjective previous = quest
+                    .Where(o => o.Index < current.Index && !o.ObjectiveInfo.IsOptional())
+                    .OrderByDescending(o => o.Index)
+                    .FirstOrDefault();
+                if (previous == null || !previous.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == Map.Entry.Id
+                    && Vector3.Distance(Position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(QuestMicroInstanceRange, l.Radius)))
+                    continue;
+
+                questMicroInstancePending = (quest.Id, worldId, QuestMicroInstanceDelay);
+                return;
+            }
+
+            // an enter zone step into a micro instance, at its marker (eg: Enter the Dust Stalker at its access panel)
+            foreach (IQuest quest in QuestManager.GetActiveQuests().Where(q => q.State == QuestState.Accepted))
+            {
+                foreach (IQuestObjective objective in quest.Where(o => o.ObjectiveInfo.Type == QuestObjectiveType.EnterZone && !o.IsComplete()))
+                {
+                    WorldLocation2Entry destination = GetZoneEntryLocation(objective.ObjectiveInfo.Entry.Data);
+                    if (destination == null || destination.WorldId == Map.Entry.Id || !IsQuestMicroInstance(destination.WorldId))
+                        continue;
+
+                    if (!objective.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == Map.Entry.Id
+                        && Vector3.Distance(Position, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(10f, l.Radius)))
+                        continue;
+
+                    questMicroInstancePending = (quest.Id, destination.WorldId, 1d);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Small instance maps of quest steps: mini dungeon and quest micro maps, never continents, housing or battlegrounds.
+        /// </summary>
+        private static bool IsQuestMicroInstance(uint worldId)
+        {
+            WorldEntry world = GameTableManager.Instance.World.GetEntry(worldId);
+            return world != null && (uint)world.Type is 1u or 10u;
+        }
+
+        private static WorldLocation2Entry GetMicroInstanceStart(uint worldId)
+        {
+            return GameTableManager.Instance.WorldLocation2.Entries
+                .Where(l => l != null && l.WorldId == worldId)
+                .OrderBy(l => l.Id)
+                .FirstOrDefault();
         }
 
         /// <summary>
