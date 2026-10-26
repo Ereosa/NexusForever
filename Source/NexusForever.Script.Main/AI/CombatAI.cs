@@ -113,6 +113,16 @@ namespace NexusForever.Script.Main.AI
         }
 
         /// <summary>
+        /// Replace the auto attacks the creature alternates between (default: unarmed punch and jab).
+        /// </summary>
+        public void SetAutoAttacks(params uint[] spell4Ids)
+        {
+            autoAttacks = [.. spell4Ids];
+            autoAttackIndex = 0;
+            chaseDistance = 5f;
+        }
+
+        /// <summary>
         /// Give up the fight when pulled too far from home, the threat list clearing sends the creature back and heals it.
         /// </summary>
         private bool CheckLeash()

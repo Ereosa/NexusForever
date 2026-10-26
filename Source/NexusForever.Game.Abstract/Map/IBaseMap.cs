@@ -38,6 +38,11 @@ namespace NexusForever.Game.Abstract.Map
         void ScheduleRespawn(ICreatureInfo creatureInfo, EntityModel model, TimeSpan delay);
 
         /// <summary>
+        /// Disable respawns on the map, dead creatures and used objects stay gone (eg: expeditions and dungeons).
+        /// </summary>
+        bool RespawnsDisabled { get; set; }
+
+        /// <summary>
         /// Enqueue <see cref="IPlayer"/> to be added to <see cref="IBaseMap"/>.
         /// </summary>
         /// <remarks>

@@ -1,3 +1,4 @@
+using NexusForever.Game.Static.Setting;
 using NexusForever.GameTable.Model;
 
 namespace NexusForever.Game.Abstract.Entity
@@ -10,8 +11,8 @@ namespace NexusForever.Game.Abstract.Entity
         WorldEntry GetDestinationWorld();
 
         /// <summary>
-        /// Send the player into the portal's instance at its entrance.
+        /// Send the player into the portal's instance at its entrance with the supplied difficulty and prime level.
         /// </summary>
-        bool Enter(IPlayer player);
+        bool Enter(IPlayer player, WorldDifficulty difficulty, byte primeLevel);
     }
 }

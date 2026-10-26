@@ -64,7 +64,11 @@ namespace NexusForever.Game.PublicEvent
 
             foreach (EntityModel model in models)
             {
-                ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(model.Creature);
+                uint creatureId = publicEvent.CreatureOverride?.Invoke(model.Creature) ?? model.Creature;
+                if (creatureId == 0u)
+                    continue;
+
+                ICreatureInfo creatureInfo = creatureInfoManager.GetCreatureInfo(creatureId);
                 if (creatureInfo == null)
                     continue;
 

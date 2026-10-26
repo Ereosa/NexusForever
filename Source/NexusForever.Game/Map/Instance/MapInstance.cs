@@ -47,6 +47,9 @@ namespace NexusForever.Game.Map.Instance
             {
                 log.Trace($"Unloading map:{Entry.Id}, instance:{InstanceId}, state: {value}");
                 unloadStatus = value;
+
+                if (value == MapUnloadStatus.Complete)
+                    MapLock.IsInstanceLoaded = false;
             }
         }
         private MapUnloadStatus? unloadStatus;
@@ -86,6 +89,7 @@ namespace NexusForever.Game.Map.Instance
         public void Initialise(WorldEntry entry, IMapLock mapLock)
         {
             MapLock = mapLock;
+            MapLock.IsInstanceLoaded = true;
 
             base.Initialise(entry);
 
