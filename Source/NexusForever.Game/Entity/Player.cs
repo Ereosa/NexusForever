@@ -1708,6 +1708,8 @@ namespace NexusForever.Game.Entity
 
             // communicator messages for the zone entered, skipped while loading
             QuestManager.CheckCommunicatorMessages();
+
+            CinematicManager.OnEnteredWorld();
         }
 
         /// <summary>

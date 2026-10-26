@@ -1,7 +1,8 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Database;
 using NexusForever.Database.World;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Cinematic.Scene;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
@@ -66,10 +67,36 @@ namespace NexusForever.Game.Taxi
 
             log.Trace($"{player.Name} takes transport terminal {creature.Id} to {destination}, world {worldId} at {position}.");
 
-            if (worldId == player.Map.Entry.Id)
-                player.TeleportToLocal(position);
+            // the ship takes off from the terminal's landing site, and lands again on the site at the destination
+            bool dominion = player.Faction1 == Faction.Dominion;
+            SceneCinematic departure = TransportCinematics.GetDeparture(player.Map.Entry.Id, terminal.Position, dominion);
+            SceneCinematic arrival   = TransportCinematics.GetArrival(worldId, position, dominion);
+
+            void Travel()
+            {
+                if (!player.CanTeleport())
+                    return;
+
+                if (worldId == player.Map.Entry.Id)
+                {
+                    player.TeleportToLocal(position, callback: _ =>
+                    {
+                        if (arrival != null)
+                            player.CinematicManager.QueueCinematic(arrival);
+                    });
+                }
+                else
+                {
+                    if (arrival != null)
+                        player.CinematicManager.QueueAfterEnteringWorld(arrival);
+                    player.TeleportTo((ushort)worldId, position.X, position.Y, position.Z);
+                }
+            }
+
+            if (departure != null)
+                player.CinematicManager.QueueCinematic(departure, Travel);
             else
-                player.TeleportTo((ushort)worldId, position.X, position.Y, position.Z);
+                Travel();
             return true;
         }
 
