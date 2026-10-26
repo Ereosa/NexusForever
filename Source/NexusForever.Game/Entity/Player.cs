@@ -1378,6 +1378,9 @@ namespace NexusForever.Game.Entity
 
             pendingTeleport = null;
             IsLoading = false;
+
+            // communicator messages for the zone entered, skipped while loading
+            QuestManager.CheckCommunicatorMessages();
         }
 
         /// <summary>

@@ -808,7 +808,8 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         public void CheckCommunicatorMessages()
         {
-            if (player.Map == null)
+            // quest state changes before the client has its quest init (still loading the map) confuse it, this runs again on entering the world
+            if (player.Map == null || player.IsLoading)
                 return;
 
             foreach (ICommunicatorMessage message in GlobalQuestManager.Instance.GetQuestCommunicatorMessages())
