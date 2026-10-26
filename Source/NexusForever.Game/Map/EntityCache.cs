@@ -12,11 +12,36 @@ namespace NexusForever.Game.Map
 
         private readonly Dictionary<(uint GridX, uint GridZ), HashSet<EntityModel>> entities = new();
 
+        // checklist indexes are assigned on first use, caches can be built before the AssetManager is initialised (precached maps)
+        private ImmutableList<EntityModel> models;
+
         public EntityCache(ImmutableList<EntityModel> models)
         {
             EntityCount = (uint)models.Count;
+            this.models = models;
             foreach (EntityModel model in models)
                 AddEntity(model);
+        }
+
+        /// <remarks>
+        /// Checklist objective progress is a bit per entity (QuestChecklistIdx), the client shows every entity whose bit is set as done
+        /// (eg: lit torches for Lighting the Way). Captures sometimes have every entity of a checklist target on index 0,
+        /// so one use marked them all done, those get distinct indexes.
+        /// </remarks>
+        private static void AssignChecklistIndexes(IEnumerable<EntityModel> models)
+        {
+            foreach (IGrouping<uint, EntityModel> group in models.GroupBy(m => m.Creature))
+            {
+                if (group.Count() < 2 || group.Select(m => m.QuestChecklistIdx).Distinct().Count() > 1)
+                    continue;
+
+                if (!AssetManager.Instance.IsChecklistTarget(group.Key))
+                    continue;
+
+                byte index = 0;
+                foreach (EntityModel model in group.OrderBy(m => m.Id))
+                    model.QuestChecklistIdx = (byte)(index++ % 32);
+            }
         }
 
         /// <summary>
@@ -38,6 +63,18 @@ namespace NexusForever.Game.Map
         /// </summary>
         public IEnumerable<EntityModel> GetEntities(uint gridX, uint gridZ)
         {
+            if (models != null)
+            {
+                lock (entities)
+                {
+                    if (models != null)
+                    {
+                        AssignChecklistIndexes(models);
+                        models = null;
+                    }
+                }
+            }
+
             return entities.TryGetValue((gridX, gridZ), out HashSet<EntityModel> cellEntities) ? cellEntities : Enumerable.Empty<EntityModel>();
         }
     }
