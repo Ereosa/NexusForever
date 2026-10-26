@@ -125,8 +125,13 @@ namespace NexusForever.Game.Cinematic.Scene
                 AddCamera(camera);
             }
 
+            // like the captured spline cinematics, every shot starts with a camera transition
             foreach (SceneSplineShot shot in Scene.SplineShots)
-                AddCamera(new Camera(shot.SplineId, shot.SplineMode, shot.Delay, shot.Speed, useRotation: true));
+            {
+                var camera = new Camera(shot.SplineId, shot.SplineMode, shot.Delay, shot.Speed, useRotation: true);
+                camera.AddTransition(shot.Delay, 0);
+                AddCamera(camera);
+            }
         }
 
         protected override void Play()
