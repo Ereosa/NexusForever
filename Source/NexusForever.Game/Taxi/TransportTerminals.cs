@@ -48,7 +48,8 @@ namespace NexusForever.Game.Taxi
                 return false;
 
             string destination = GetDestinationName(creature);
-            if (destination == null)
+            string returnFrom  = destination == null ? GetReturnName(creature) : null;
+            if (destination == null && returnFrom == null)
                 return false;
 
             // spells with their own teleport already moved the player
@@ -56,14 +57,31 @@ namespace NexusForever.Game.Taxi
                 return false;
 
             List<string> origin = GetZoneNames(terminal.Zone?.Id ?? 0u);
-            if (origin.Any(n => string.Equals(n, destination, StringComparison.OrdinalIgnoreCase)))
+            if (destination != null && origin.Any(n => string.Equals(n, destination, StringComparison.OrdinalIgnoreCase)))
                 return false;
 
-            if (!TryResolve(destination, origin, player, out uint worldId, out Vector3 position))
+            uint worldId;
+            Vector3 position;
+            if (returnFrom != null)
+            {
+                // "Transport from X" (the Star-Comm Basin contacts) goes back to the faction capital's "Transport to X" console
+                if (!TryResolveReturn(returnFrom, player, out worldId, out position))
+                {
+                    log.Warn($"Transport terminal {creature.Id} from {returnFrom} has no way back.");
+                    return false;
+                }
+
+                destination = GetCapitalName(player);
+            }
+            else if (!TryResolve(destination, origin, player, out worldId, out position))
             {
                 log.Warn($"Transport terminal {creature.Id} to {destination} has no destination.");
                 return false;
             }
+
+            // "Transport to" consoles also stand at quest instance entrances, those have their own handling
+            if (IsTransportTo(creature) && GameTableManager.Instance.World.GetEntry(worldId)?.Type != 0)
+                return false;
 
             log.Trace($"{player.Name} takes transport terminal {creature.Id} to {destination}, world {worldId} at {position}.");
 
@@ -117,9 +135,60 @@ namespace NexusForever.Game.Taxi
             if (name != null)
                 return name;
 
+            string spellName = GetSpellName(creature);
+            return Strip(spellName) ?? (IsTransportTo(creature) ? spellName["Transport to ".Length..].Trim() : null);
+        }
+
+        private static string GetSpellName(Creature2Entry creature)
+        {
             Spell4Entry spell = GameTableManager.Instance.Spell4.GetEntry(creature.Spell4IdActivate[0]);
             Spell4BaseEntry spellBase = spell != null ? GameTableManager.Instance.Spell4Base.GetEntry(spell.Spell4BaseIdBaseSpell) : null;
-            return spellBase != null ? Strip(text.GetEntry(spellBase.LocalizedTextIdName)) : null;
+            return spellBase != null ? GameTableManager.Instance.GetTextTable(Language.English)?.GetEntry(spellBase.LocalizedTextIdName) : null;
+        }
+
+        /// <summary>
+        /// Returns if the terminal's spell is a "Transport to X" yes/no (Star-Comm Basin consoles), not the "Depart" or "Teleport"
+        /// spells of the tutorial ship controls or the "Activating" spells of quest instance transports.
+        /// </summary>
+        private static bool IsTransportTo(Creature2Entry creature)
+        {
+            return GetSpellName(creature)?.StartsWith("Transport to ", StringComparison.OrdinalIgnoreCase) ?? false;
+        }
+
+        /// <summary>
+        /// Return X of a "Transport from X" terminal spell.
+        /// </summary>
+        private static string GetReturnName(Creature2Entry creature)
+        {
+            string spellName = GetSpellName(creature);
+            return spellName != null && spellName.StartsWith("Transport from ", StringComparison.OrdinalIgnoreCase)
+                ? spellName["Transport from ".Length..].Trim()
+                : null;
+        }
+
+        private static string GetCapitalName(IPlayer player)
+        {
+            return player.Faction1 == Faction.Dominion ? "Illium" : "Thayd";
+        }
+
+        private static bool TryResolveReturn(string from, IPlayer player, out uint worldId, out Vector3 position)
+        {
+            string capital = GetCapitalName(player);
+            var console = terminals.Value
+                .Where(t => string.Equals(t.Destination, from, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(t => GetZoneNames(t.ZoneId).Any(n => string.Equals(n, capital, StringComparison.OrdinalIgnoreCase)))
+                .Select(t => ((uint WorldId, Vector3 Position)?)(t.WorldId, t.Position))
+                .FirstOrDefault();
+            if (console == null)
+            {
+                worldId  = 0u;
+                position = Vector3.Zero;
+                return false;
+            }
+
+            worldId  = console.Value.WorldId;
+            position = console.Value.Position + new Vector3(ArrivalOffset, 0f, 0f);
+            return true;
         }
 
         private static string Strip(string name)
@@ -211,7 +280,8 @@ namespace NexusForever.Game.Taxi
                 .OrderByDescending(z => landingNames.Any(n => (text.GetEntry(z.LocalizedTextIdName) ?? "").Contains(n, StringComparison.OrdinalIgnoreCase)))
                 .FirstOrDefault();
 
-            return best != null ? locations[best.Id].OrderBy(l => l.Id).First() : null;
+            // exact spots (radius 5 or less) before area markers
+            return best != null ? locations[best.Id].OrderBy(l => l.Radius > 5f).ThenBy(l => l.Id).First() : null;
         }
 
         private static bool IsFactionNode(TaxiNodeEntry entry, IPlayer player)
@@ -267,7 +337,7 @@ namespace NexusForever.Game.Taxi
                     if (creature == null || creature.Spell4IdActivate[0] == 0u)
                         continue;
 
-                    string destination = Strip(text?.GetEntry(creature.LocalizedTextIdName));
+                    string destination = GetDestinationName(creature);
                     if (destination == null)
                         continue;
 
