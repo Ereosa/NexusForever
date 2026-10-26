@@ -939,6 +939,12 @@ namespace NexusForever.Game.Entity
             if (instanceReturn != null || Map == null)
                 return;
 
+            // open world continents (Alizar, Olyssia, Isigrol, ...) are never quest instances, some enter zone objectives of
+            // quests the player never took (eg: Journey to Malgrave) point at zones on a continent and sent players logging in
+            // there to another continent
+            if (IsOpenWorld((ushort)Map.Entry.Id))
+                return;
+
             foreach (Quest2Entry questEntry in GameTableManager.Instance.Quest2.Entries.Where(q => q != null))
             {
                 foreach (uint objectiveId in questEntry.Objectives.Where(o => o != 0u))
@@ -975,6 +981,21 @@ namespace NexusForever.Game.Entity
         }
 
         private (ushort WorldId, Vector3 Position, ushort QuestId)? instanceReturnCandidate;
+
+        private static readonly Lazy<HashSet<uint>> openWorlds = new(() => GameTableManager.Instance.TaxiNode.Entries
+            .Where(n => n != null && n.TaxiNodeTypeEnum is 0u or 2u)
+            .Select(n => GameTableManager.Instance.WorldLocation2.GetEntry(n.WorldLocation2Id))
+            .Where(l => l != null)
+            .Select(l => l.WorldId)
+            .ToHashSet());
+
+        /// <summary>
+        /// Returns if the world is an open world continent, worlds with taxi kiosks or rapid transport destinations.
+        /// </summary>
+        private static bool IsOpenWorld(ushort worldId)
+        {
+            return GameTableManager.Instance.World.GetEntry(worldId)?.Type == 0 && openWorlds.Value.Contains(worldId);
+        }
 
         private static readonly Dictionary<ushort, List<Vector3>> instancePortalPositions = [];
 
