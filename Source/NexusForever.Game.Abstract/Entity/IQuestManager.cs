@@ -142,6 +142,11 @@ namespace NexusForever.Game.Abstract.Entity
         void ObjectiveUpdate(uint id, uint progress);
 
         /// <summary>
+        /// Update target-less "Use/Open/Select the" objectives naming the creature the player interacted with.
+        /// </summary>
+        void ObjectiveUpdateUseCreature(uint creatureId);
+
+        /// <summary>
         /// Mention quests from communicator messages whose conditions the owner now meets (zone, level, world, quest states).
         /// </summary>
         void CheckCommunicatorMessages();
