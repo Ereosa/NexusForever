@@ -186,7 +186,11 @@ namespace NexusForever.Script.Instance.Expedition
                 return null;
 
             IWorldEntity entity = entityFactory.CreateWorldEntity(creatureInfo.Entry.CreationTypeEnum);
-            entity.Initialise(creatureInfo);
+            // vehicles need their vehicle entry (the creature's UnitVehicleId) or their entity model can't be built
+            if (entity is IVehicleEntity vehicle)
+                vehicle.Initialise(creatureInfo, 0u, 0u);
+            else
+                entity.Initialise(creatureInfo);
             entity.Rotation = new Vector3(yaw, 0f, 0f);
             entity.AddToMap(mapInstance, position, add);
             return entity;
