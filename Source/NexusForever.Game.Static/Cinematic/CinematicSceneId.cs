@@ -1,4 +1,4 @@
-namespace NexusForever.Game.Static.Cinematic
+﻿namespace NexusForever.Game.Static.Cinematic
 {
     /// <summary>
     /// Cinematic scenes, numbered after the "GCxxx" game cinematic numbers the client uses in creature, sound and model names.
@@ -103,6 +103,20 @@ namespace NexusForever.Game.Static.Cinematic
         NpeQuestingExile                = 296,
         NpeHousingExile                 = 297,
         NpeDepartureBayExile            = 298,
-        NpeAnnihilator                  = 299
+        NpeAnnihilator                  = 299,
+
+        // Expeditions
+        OutpostM13Arrival               = 176,
+        OutpostM13Departure             = 179,
+        InfestationArrival              = 180,
+        InfestationDeparture            = 182,
+        RageLogicArrival                = 183,
+        RageLogicBossIntro              = 184,
+        RageLogicDeparture              = 185,
+        SpaceMadnessArrival             = 186,
+        SpaceMadnessDeparture           = 189,
+        GauntletFightIntro              = 193,
+        GauntletShowIntro               = 1101, // actors named GC176 like the M-13 arrival
+        GauntletDeparture               = 1102  // actors named GC176 like the M-13 arrival
     }
 }

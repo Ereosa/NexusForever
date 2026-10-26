@@ -1,4 +1,4 @@
-using NexusForever.Game.Static.Cinematic;
+﻿using NexusForever.Game.Static.Cinematic;
 using NexusForever.Game.Static.Entity;
 
 namespace NexusForever.Game.Cinematic.Scene
@@ -21,6 +21,7 @@ namespace NexusForever.Game.Cinematic.Scene
             AddAlizar();
             AddOlyssia();
             AddShips();
+            AddExpeditions();
         }
 
         /// <summary>

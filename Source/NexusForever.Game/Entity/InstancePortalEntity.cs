@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Map;
@@ -148,7 +148,18 @@ namespace NexusForever.Game.Entity
                 .Where(m => m != null && text.GetEntry(m.LocalizedTextIdName) == name)
                 .OrderBy(m => m.Id)
                 .FirstOrDefault();
-            return map != null ? GameTableManager.Instance.World.GetEntry(map.WorldId) : null;
+            if (map != null)
+                return GameTableManager.Instance.World.GetEntry(map.WorldId);
+
+            // portals named after something else (eg: Transport to Steady Traveler for Outpost M-13) name their world in the
+            // creature description (W1319), as do their activate spells
+            string description = CreatureInfo?.Entry?.Description ?? string.Empty;
+            System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(description, @"(?<![A-Za-z0-9])[Ww]([0-9]{3,4})(?![0-9])");
+            if (match.Success && uint.TryParse(match.Groups[1].Value, out uint worldId)
+                && GameTableManager.Instance.MatchingGameMap.Entries.Any(m => m != null && m.WorldId == worldId))
+                return GameTableManager.Instance.World.GetEntry(worldId);
+
+            return null;
         }
 
         /// <summary>
