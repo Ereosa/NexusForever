@@ -68,6 +68,7 @@ namespace NexusForever.Database.Character.Model
         public ICollection<CharacterSpellModel> Spell { get; set; } = new HashSet<CharacterSpellModel>();
         public ICollection<CharacterStatModel> Stat { get; set; } = new HashSet<CharacterStatModel>();
         public ICollection<CharacterTitleModel> CharacterTitle { get; set; } = new HashSet<CharacterTitleModel>();
+        public ICollection<CharacterPrimeLevelModel> PrimeLevel { get; set; } = new HashSet<CharacterPrimeLevelModel>();
         public ICollection<CharacterTradeskillModel> Tradeskill { get; set; } = new HashSet<CharacterTradeskillModel>();
         public ICollection<CharacterTradeskillMaterialModel> TradeskillMaterials { get; set; } = new HashSet<CharacterTradeskillMaterialModel>();
         public ICollection<CharacterTradeskillSchematicModel> TradeskillSchematic { get; set; } = new HashSet<CharacterTradeskillSchematicModel>();

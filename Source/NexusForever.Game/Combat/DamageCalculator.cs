@@ -62,6 +62,7 @@ namespace NexusForever.Game.Combat
             }
 
             uint damage = CalculateBaseDamage(executionContext.Spell.Caster, victim, info.Entry);
+            damage = ApplyMenace(executionContext.Spell.Caster, victim, damage);
             damageDescription.RawDamage       = damage;
             damageDescription.RawScaledDamage = damage;
 
@@ -111,6 +112,35 @@ namespace NexusForever.Game.Combat
             info.AddDamage(damageDescription);
 
             // TODO: Queue Proc Events*/
+        }
+
+        /// <summary>
+        /// Prime level creatures carry Menace (VeteranTier, 550 per prime level), players counter it with Heroism (Primal Matrix).
+        /// </summary>
+        /// <remarks>
+        /// The retail formula isn't in the client data: each prime level of menace the player's heroism doesn't cover makes the creature
+        /// deal 10% more damage to them and take 10% less damage from them.
+        /// </remarks>
+        private static uint ApplyMenace(IUnitEntity attacker, IUnitEntity victim, uint damage)
+        {
+            const float MenacePerLevel = 550f;
+            const float ScalePerLevel  = 0.1f;
+
+            float attackerMenace = attacker.GetPropertyValue(Property.Menace);
+            if (attackerMenace > 0f && victim is IPlayer)
+            {
+                float levels = Math.Max(0f, attackerMenace - victim.GetPropertyValue(Property.Heroism)) / MenacePerLevel;
+                return (uint)(damage * (1f + levels * ScalePerLevel));
+            }
+
+            float victimMenace = victim.GetPropertyValue(Property.Menace);
+            if (victimMenace > 0f && attacker is IPlayer)
+            {
+                float levels = Math.Max(0f, victimMenace - attacker.GetPropertyValue(Property.Heroism)) / MenacePerLevel;
+                return (uint)(damage / (1f + levels * ScalePerLevel));
+            }
+
+            return damage;
         }
 
         /// <summary>

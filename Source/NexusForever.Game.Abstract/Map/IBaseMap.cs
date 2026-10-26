@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
@@ -41,6 +41,11 @@ namespace NexusForever.Game.Abstract.Map
         /// Remove the entity with the supplied guid from the map after a delay, used for temporary entities (eg: built settler structures).
         /// </summary>
         void ScheduleDespawn(uint guid, TimeSpan delay);
+
+        /// <summary>
+        /// Disable respawns on the map, dead creatures and used objects stay gone (eg: expeditions and dungeons).
+        /// </summary>
+        bool RespawnsDisabled { get; set; }
 
         /// <summary>
         /// Enqueue <see cref="IPlayer"/> to be added to <see cref="IBaseMap"/>.

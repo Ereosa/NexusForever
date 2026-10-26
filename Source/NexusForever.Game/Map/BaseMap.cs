@@ -491,6 +491,11 @@ namespace NexusForever.Game.Map
             }
         }
 
+        /// <summary>
+        /// Disable respawns on the map, dead creatures and used objects stay gone (eg: expeditions and dungeons).
+        /// </summary>
+        public bool RespawnsDisabled { get; set; }
+
         private void SpawnEntity(ICreatureInfo creatureInfo, EntityModel model)
         {
             IWorldEntity entity = entityFactory.CreateWorldEntity(model.Type);
@@ -506,6 +511,9 @@ namespace NexusForever.Game.Map
         /// </remarks>
         public void ScheduleRespawn(ICreatureInfo creatureInfo, EntityModel model, TimeSpan delay)
         {
+            if (RespawnsDisabled)
+                return;
+
             if (!respawningModels.Add(model))
                 return;
 

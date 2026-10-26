@@ -722,6 +722,7 @@ namespace NexusForever.GameTable
         [GameData]
         public GameTable<UnitVehicleEntry> UnitVehicle { get; private set; }
 
+        [GameData]
         public GameTable<VeteranTierEntry> VeteranTier { get; private set; }
 
         [GameData]

@@ -36,6 +36,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterSpellModel> CharacterSpell { get; set; }
         public DbSet<CharacterStatModel> CharacterStat { get; set; }
         public DbSet<CharacterTitleModel> CharacterTitle { get; set; }
+        public DbSet<CharacterPrimeLevelModel> CharacterPrimeLevel { get; set; }
         public DbSet<CharacterTradeskillModel> CharacterTradeskill { get; set; }
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
         public DbSet<CharacterTradeskillSchematicModel> CharacterTradeskillSchematic { get; set; }
@@ -1651,6 +1652,34 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.Stat)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_stats_stat_id_character_id");
+            });
+
+            modelBuilder.Entity<CharacterPrimeLevelModel>(entity =>
+            {
+                entity.ToTable("character_prime_level");
+
+                entity.HasKey(e => new { e.Id, e.WorldId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.WorldId)
+                    .HasColumnName("worldId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PrimeLevel)
+                    .HasColumnName("primeLevel")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.PrimeLevel)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_prime_level_id__character_id");
             });
 
             modelBuilder.Entity<CharacterTitleModel>(entity =>

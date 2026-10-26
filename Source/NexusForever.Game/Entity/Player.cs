@@ -266,6 +266,12 @@ namespace NexusForever.Game.Entity
         public IDatacubeManager DatacubeManager { get; private set; }
         public IMailManager MailManager { get; private set; }
         public IZoneMapManager ZoneMapManager { get; private set; }
+        public IPrimeLevelManager PrimeLevelManager { get; private set; }
+
+        /// <summary>
+        /// Where the player entered an instance through an instance portal, the instance's exit portal returns them there.
+        /// </summary>
+        public IMapPosition InstancePortalReturn { get; set; }
         public IQuestManager QuestManager { get; private set; }
         public ICharacterAchievementManager AchievementManager { get; private set; }
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
@@ -406,6 +412,7 @@ namespace NexusForever.Game.Entity
             DatacubeManager         = new DatacubeManager(this, model);
             MailManager             = new MailManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
+            PrimeLevelManager       = new PrimeLevelManager(this, model);
             PathMissionManager      = new PathMissionManager(this, model);
             PathScientistManager    = new PathScientistManager(this);
             PathSoldierManager      = new PathSoldierManager(this);
@@ -659,6 +666,7 @@ namespace NexusForever.Game.Entity
             DatacubeManager.Save(context);
             MailManager.Save(context);
             ZoneMapManager.Save(context);
+            PrimeLevelManager.Save(context);
             PathMissionManager.Save(context);
             QuestManager.Save(context);
             AchievementManager.Save(context);

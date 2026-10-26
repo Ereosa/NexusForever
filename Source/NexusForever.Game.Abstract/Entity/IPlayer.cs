@@ -94,6 +94,12 @@ namespace NexusForever.Game.Abstract.Entity
         IDatacubeManager DatacubeManager { get; }
         IMailManager MailManager { get; }
         IZoneMapManager ZoneMapManager { get; }
+        IPrimeLevelManager PrimeLevelManager { get; }
+
+        /// <summary>
+        /// Where the player entered an instance through an instance portal, the instance's exit portal returns them there.
+        /// </summary>
+        IMapPosition InstancePortalReturn { get; set; }
         IQuestManager QuestManager { get; }
         ICharacterAchievementManager AchievementManager { get; }
         ISupplySatchelManager SupplySatchelManager { get; }
