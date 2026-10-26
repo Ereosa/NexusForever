@@ -27,4 +27,44 @@ namespace NexusForever.Script.Main.Quest
         {
         }
     }
+
+    /// <summary>
+    /// Establishing Base Perimeters (Northern Wastes): "Defend yourself against intruders" at the landing site once its defenses are up.
+    /// </summary>
+    /// <remarks>
+    /// The soldier events (343 Exile, 344 Dominion) have no client data and no creature is tagged with the quest. The Augmented
+    /// survivors that roam the Northern Wastes pocket cap (Augmented Scout 33998, Brawler 33999, Trooper 34070, Soldier 34064) stand in.
+    /// Waves guessed.
+    /// </remarks>
+    public abstract class EstablishingBasePerimetersQuestScript : QuestWaveEventScript
+    {
+        protected static uint[][] IntruderWaves => [[33998, 33999], [33998, 34070], [33999, 34070, 34064]];
+
+        protected EstablishingBasePerimetersQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    [ScriptFilterOwnerId(7085)]
+    public class EstablishingBasePerimetersExileQuestScript : EstablishingBasePerimetersQuestScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } = [(13058, IntruderWaves)];
+
+        public EstablishingBasePerimetersExileQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
+
+    [ScriptFilterOwnerId(7107)]
+    public class EstablishingBasePerimetersDominionQuestScript : EstablishingBasePerimetersQuestScript
+    {
+        protected override IReadOnlyList<(uint ObjectiveId, uint[][] Waves)> Events { get; } = [(13067, IntruderWaves)];
+
+        public EstablishingBasePerimetersDominionQuestScript(IGameTableManager gameTableManager, ICreatureInfoManager creatureInfoManager)
+            : base(gameTableManager, creatureInfoManager)
+        {
+        }
+    }
 }
