@@ -21,6 +21,9 @@ namespace NexusForever.Game.Loot.Generate
             sc.AddSingleton<ILootGenerationConditionManager, LootGenerationConditionManager>();
             sc.AddKeyedTransient<ILootGenerationCondition, ClassLootGenerationCondition>(LootConditionType.IsClass);
             sc.AddKeyedTransient<ILootGenerationCondition, PathLootGenerationCondition>(LootConditionType.IsPath);
+            sc.AddKeyedTransient<ILootGenerationCondition, LevelLootGenerationCondition>(LootConditionType.IsLevel);
+            sc.AddKeyedTransient<ILootGenerationCondition, LessThanLevelLootGenerationCondition>(LootConditionType.IsLessThanLevel);
+            sc.AddKeyedTransient<ILootGenerationCondition, MoreThanLevelLootGenerationCondition>(LootConditionType.IsMoreThanLevel);
         }
     }
 }
