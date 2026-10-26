@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NexusForever.Database.Character;
@@ -8,11 +9,13 @@ using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Abstract.Matching;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Quest;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
+using MatchType = NexusForever.Game.Static.Matching.MatchType;
 using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
@@ -452,6 +455,14 @@ namespace NexusForever.Game.Entity
                     quest.ObjectiveUpdate(QuestObjectiveType.CollectItem, objectiveInfo.Entry.Data, count);
             }
 
+            // items already equipped count towards equip objectives
+            foreach (IQuestObjectiveInfo objectiveInfo in info.Objectives)
+            {
+                (QuestTextTrigger Kind, uint Id, string Name) trigger = objectiveInfo.GetTextTrigger();
+                if (trigger.Kind == QuestTextTrigger.EquipItem && player.Inventory.GetItemCount(trigger.Id, InventoryLocation.Equipped) > 0u)
+                    quest.ObjectiveUpdate(objectiveInfo.Id, 1u);
+            }
+
             // already standing in the zone an enter zone objective asks for
             for (WorldZoneEntry zone = player.Zone; zone != null; zone = zone.ParentZoneId != 0u ? GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) : null)
                 quest.ObjectiveUpdate(QuestObjectiveType.EnterZone, zone.Id, 1u);
@@ -647,6 +658,7 @@ namespace NexusForever.Game.Entity
             activeQuests.Remove(questId);
             completedQuests.Add(questId, quest);
             ObjectiveUpdate(QuestObjectiveType.CompleteQuest, questId, 1u);
+            ObjectiveUpdateQuestName(quest.Info);
         }
 
         /// <summary>
@@ -672,6 +684,7 @@ namespace NexusForever.Game.Entity
             activeQuests.Remove(questId);
             completedQuests.Add(questId, quest);
             ObjectiveUpdate(QuestObjectiveType.CompleteQuest, questId, 1u);
+            ObjectiveUpdateQuestName(quest.Info);
         }
 
         /// <summary>
@@ -841,6 +854,145 @@ namespace NexusForever.Game.Entity
                     .ToList())
                     quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
             }
+
+            // "Learn more about $(creature=N)"
+            ObjectiveUpdateText(QuestTextTrigger.TalkTo, creatureId);
+        }
+
+        /// <summary>
+        /// Update target-less objectives whose text asks for the supplied <see cref="QuestTextTrigger"/> with the supplied id (eg: the item equipped or bought).
+        /// </summary>
+        public void ObjectiveUpdateText(QuestTextTrigger kind, uint id)
+        {
+            if (id != 0u)
+                ObjectiveUpdateText(kind, i => i == id, null);
+        }
+
+        /// <summary>
+        /// Update target-less objectives whose text asks for the supplied <see cref="QuestTextTrigger"/> and whose id and name match.
+        /// </summary>
+        private void ObjectiveUpdateText(QuestTextTrigger kind, Func<uint, bool> idMatches, Func<string, bool> nameMatches)
+        {
+            // quest state changes before the client has its quest init (still loading the map) confuse it
+            if (player.Map == null || player.IsLoading)
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.ToList())
+            {
+                if (quest.State != QuestState.Accepted)
+                    continue;
+
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete()).ToList())
+                {
+                    (QuestTextTrigger Kind, uint Id, string Name) trigger = objective.ObjectiveInfo.GetTextTrigger();
+                    if (trigger.Kind != kind)
+                        continue;
+                    if (idMatches != null && !idMatches(trigger.Id))
+                        continue;
+                    if (nameMatches != null && !nameMatches(trigger.Name))
+                        continue;
+
+                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Invoked when a public event the owner took part in finishes, <paramref name="won"/> if the owner was on the winning team.
+        /// </summary>
+        /// <remarks>
+        /// Updates objectives asking for a public event in a zone ("Complete a Levian Bay event", "Participate in a Public Event") and,
+        /// when it is the event of an adventure, dungeon or expedition, objectives naming that content ("Complete Veteran Bay of Betrayal").
+        /// </remarks>
+        public void OnPublicEventFinish(PublicEventEntry entry, IMatchingMap matchingMap, bool won)
+        {
+            // participate objectives (id 1) count either way, complete objectives need the event won
+            ObjectiveUpdateText(QuestTextTrigger.PublicEvent, i => won || i == 1u, n => PublicEventZoneMatches(n, entry));
+
+            if (won && matchingMap != null)
+                ObjectiveUpdateText(QuestTextTrigger.CompleteContent, null, n => ContentNameMatches(n, matchingMap));
+        }
+
+        private static bool PublicEventZoneMatches(string zoneName, PublicEventEntry entry)
+        {
+            // "Participate in a Public Event": any event
+            if (string.IsNullOrEmpty(zoneName))
+                return true;
+
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            for (WorldZoneEntry zone = GameTableManager.Instance.WorldZone.GetEntry(entry.WorldZoneId); zone != null;
+                zone = zone.ParentZoneId != 0u ? GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) : null)
+            {
+                if (string.Equals(textTable?.GetEntry(zone.LocalizedTextIdName), zoneName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Returns if the content an objective names ("Veteran Bay of Betrayal", "Malgrave Trail adventure", "a Prime Dungeon") is the supplied <see cref="IMatchingMap"/>.
+        /// </summary>
+        private static bool ContentNameMatches(string name, IMatchingMap matchingMap)
+        {
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            string mapName = textTable?.GetEntry(matchingMap.GameMapEntry.LocalizedTextIdName) ?? "";
+            MatchType type = matchingMap.GameTypeEntry?.MatchTypeEnum ?? MatchType.None;
+            bool veteran = mapName.StartsWith("Veteran:", StringComparison.OrdinalIgnoreCase);
+            bool prime   = type is MatchType.PrimeLevelDungeon or MatchType.PrimeLevelExpedition or MatchType.PrimeLevelAdventure
+                or MatchType.ScaledPrimeLevelAdventure or MatchType.ScaledPrimeLevelDungeon or MatchType.ScaledPrimeLevelExpedition;
+
+            // a kind of content, eg: "a Prime Dungeon", "a Veteran Adventure"
+            Match category = Regex.Match(name, @"^an? (?<words>.+)$", RegexOptions.IgnoreCase);
+            if (category.Success)
+            {
+                var words = category.Groups["words"].Value.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+                if (words.Remove("veteran") && !veteran)
+                    return false;
+                if (words.Remove("prime") && !prime)
+                    return false;
+                if (words.Count != 1)
+                    return false;
+
+                return words[0] switch
+                {
+                    "dungeon"    => type is MatchType.Dungeon or MatchType.PrimeLevelDungeon or MatchType.ScaledPrimeLevelDungeon,
+                    "expedition" => type is MatchType.Shiphand or MatchType.PrimeLevelExpedition or MatchType.ScaledPrimeLevelExpedition,
+                    "adventure"  => type is MatchType.Adventure or MatchType.PrimeLevelAdventure or MatchType.ScaledPrimeLevelAdventure,
+                    _            => false
+                };
+            }
+
+            if (Regex.IsMatch(name, @"^Veteran\s", RegexOptions.IgnoreCase) && !veteran)
+                return false;
+
+            static string Normalise(string text)
+            {
+                text = Regex.Replace(text.Trim(), @"^(Veteran|Prime|Holiday Expedition):?\s+", "", RegexOptions.IgnoreCase);
+                text = Regex.Replace(text, @"^The\s+", "", RegexOptions.IgnoreCase);
+                text = Regex.Replace(text, @"\s+(adventure|dungeon|expedition|shiphand)$", "", RegexOptions.IgnoreCase);
+                return text.Trim();
+            }
+
+            return string.Equals(Normalise(name), Normalise(mapName), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Update objectives naming the quests they ask to complete ("Complete the Hidden Files, Paired Programming, and Data Recovery quests").
+        /// </summary>
+        private void ObjectiveUpdateQuestName(IQuestInfo info)
+        {
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            string title = textTable?.GetEntry(info.Entry.LocalizedTextIdTitle);
+            if (string.IsNullOrEmpty(title))
+                return;
+
+            ObjectiveUpdateText(QuestTextTrigger.CompleteContent, null, n =>
+            {
+                Match quests = Regex.Match(n, @"^(?<titles>.+?)\s+quests?$", RegexOptions.IgnoreCase);
+                return quests.Success && Regex.Split(quests.Groups["titles"].Value, @",\s*(?:and\s+)?|\s+and\s+")
+                    .Any(t => string.Equals(t.Trim(), title, StringComparison.OrdinalIgnoreCase));
+            });
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Map;
@@ -512,8 +513,15 @@ namespace NexusForever.Game.PublicEvent
                     toRemove.Add(publicEventTeamMember.CharacterId);
 
                     // quests that ask for the event to be completed (eg: defend the memorial service)
-                    if (publicEventTeam.Team == winnerTeam)
-                        PlayerManager.Instance.GetPlayer(publicEventTeamMember.CharacterId)?.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, Id, 1u);
+                    IPlayer member = PlayerManager.Instance.GetPlayer(publicEventTeamMember.CharacterId);
+                    if (member != null)
+                    {
+                        if (publicEventTeam.Team == winnerTeam)
+                            member.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, Id, 1u);
+
+                        // objectives naming the event's zone or, for the event of an adventure, dungeon or expedition, the content
+                        member.QuestManager.OnPublicEventFinish(template.Entry, (Map as IContentMapInstance)?.Match?.MatchingMap, publicEventTeam.Team == winnerTeam);
+                    }
                 }
             }
 

@@ -215,5 +215,42 @@ namespace NexusForever.Game.Quest
             areaLocations = builder.ToImmutable();
             return areaLocations;
         }
+    
+        private (QuestTextTrigger Kind, uint Id, string Name)? textTrigger;
+
+        /// <summary>
+        /// Return what a target-less activate objective asks for when its text names it (equip or buy an item, learn about a creature,
+        /// complete a public event, adventure, dungeon, expedition or quest).
+        /// </summary>
+        /// <remarks>
+        /// Retail scripts completed these, the short text is the only data naming the thing to do (eg: "Equip the $(item=12631)").
+        /// </remarks>
+        public (QuestTextTrigger Kind, uint Id, string Name) GetTextTrigger()
+        {
+            if (textTrigger != null)
+                return textTrigger.Value;
+
+            textTrigger = (QuestTextTrigger.None, 0u, null);
+            if (!IsTargetless())
+                return textTrigger.Value;
+
+            string text = GetShortText().Trim();
+            Match item = Regex.Match(text, @"\$\w*\(item=(\d+)\)");
+            Match creature = Regex.Match(text, @"\$\w*\(creature=(\d+)\)");
+
+            if (item.Success && text.StartsWith("Equip", StringComparison.OrdinalIgnoreCase))
+                textTrigger = (QuestTextTrigger.EquipItem, uint.Parse(item.Groups[1].Value), null);
+            else if (item.Success && (text.StartsWith("Buy", StringComparison.OrdinalIgnoreCase) || text.StartsWith("Purchase", StringComparison.OrdinalIgnoreCase)))
+                textTrigger = (QuestTextTrigger.BuyItem, uint.Parse(item.Groups[1].Value), null);
+            else if (creature.Success && text.StartsWith("Learn more about", StringComparison.OrdinalIgnoreCase))
+                textTrigger = (QuestTextTrigger.TalkTo, uint.Parse(creature.Groups[1].Value), null);
+            else if (Regex.Match(text, @"^(Complete|Participate in) an? (?<zone>.*?)\s*(Public )?Event", RegexOptions.IgnoreCase) is { Success: true } publicEvent)
+                // id 1: taking part is enough, otherwise the event must be won
+                textTrigger = (QuestTextTrigger.PublicEvent, publicEvent.Groups[1].Value.StartsWith("Participate", StringComparison.OrdinalIgnoreCase) ? 1u : 0u, publicEvent.Groups["zone"].Value.Trim());
+            else if (Regex.Match(text, @"^Complete (the )?(?<name>[^$]+?)\s*$", RegexOptions.IgnoreCase) is { Success: true } content)
+                textTrigger = (QuestTextTrigger.CompleteContent, 0u, content.Groups["name"].Value);
+
+            return textTrigger.Value;
+        }
     }
 }

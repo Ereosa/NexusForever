@@ -6,6 +6,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static.AccountInventory;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Static;
@@ -106,6 +107,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Vendor
 
             vendorItemPurchaseCost.Charge(session.Player);
             session.Player.Inventory.ItemCreate(InventoryLocation.Inventory, info.Id, count, ItemUpdateReason.Vendor);
+            session.Player.QuestManager.ObjectiveUpdateText(QuestTextTrigger.BuyItem, info.Id);
         }
     }
 }
