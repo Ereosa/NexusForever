@@ -8,10 +8,10 @@ namespace NexusForever.Script.Main.Challenge
     /// Objects used by challenges that are counted by a challenge script, using one starts the challenge and counts as its first.
     /// </summary>
     /// <remarks>
-    /// Green Thumb (Ch185 vegetables), Defusing the Situation (Sunderstone Proximity Mines), Lowland Lavender Eggs, What's on Tap? and Scrap Yard
+    /// Green Thumb, Defusing the Situation, Lowland Lavender Eggs, What's on Tap?, Scrap Yard, Veggie Delight and Shifting Priorities
     /// aren't flagged to start by hand only and have nothing in the game data that starts them.
     /// </remarks>
-    [ScriptFilterCreatureId(21185, 21187, 23151, 33152, 31482, 18441)]
+    [ScriptFilterCreatureId(21185, 21187, 23151, 33152, 31482, 18441, 25444, 25445, 25448, 29893)]
     public class ActivateChallengeStarterEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>, IOwnedScript<INonPlayerEntity>
     {
         private static readonly Dictionary<uint, (uint ChallengeId, bool Counts)> challengeByCreature = new()
@@ -21,7 +21,11 @@ namespace NexusForever.Script.Main.Challenge
             [23151] = (236, true),  // Defusing the Situation, Sunderstone Proximity Mine
             [33152] = (505, true),  // Lowland Lavender Eggs, Lowland Lavender Eggy
             [31482] = (460, false), // What's on Tap?, Bartender's Bottle (the first drink is poured when it starts)
-            [18441] = (80, true)    // Scrap Yard, Eldan Scrap
+            [18441] = (80, true),   // Scrap Yard, Eldan Scrap
+            [25444] = (294, true),  // Veggie Delight, Sallec Radish
+            [25445] = (294, true),  // Veggie Delight, Sallec Carrot
+            [25448] = (294, true),  // Veggie Delight, Sallec Casca Carrot
+            [29893] = (437, true)   // Shifting Priorities, Eldan Relay
         };
 
         private IWorldEntity owner;

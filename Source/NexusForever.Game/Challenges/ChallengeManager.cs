@@ -85,6 +85,7 @@ namespace NexusForever.Game.Challenges
             public Dictionary<uint, List<ChallengeEntry>> ByItem { get; } = [];
             public Dictionary<uint, List<ChallengeEntry>> BySpell { get; } = [];
             public Dictionary<uint, List<uint>> StartersByCreature { get; } = [];
+            public Dictionary<uint, List<ChallengeEntry>> ByCreature { get; } = [];
         }
 
         private static readonly Lazy<ChallengeIndex> index = new(BuildIndex);
@@ -149,6 +150,16 @@ namespace NexusForever.Game.Challenges
 
                 if ((ChallengeType)entry.ChallengeTypeEnum == ChallengeType.Ability)
                     Add(challengeIndex.BySpell, entry.Target, entry);
+
+                // General and Collect challenges with nothing else to count name what to count in their text with a plural creature
+                // link ("Extinguish $m(creature=31600) around Meadow Point", "Gather $m(creature=53520)"), killing or using one counts
+                if ((ChallengeType)entry.ChallengeTypeEnum is ChallengeType.General or ChallengeType.Collect
+                    && entry.Target == 0u && entry.TargetGroupIdRewardPane == 0u)
+                {
+                    string progress = GameTableManager.Instance.TextEnglish?.GetEntry(entry.LocalizedTextIdProgress) ?? "";
+                    foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(progress, @"\$m\(creature=(\d+)\)"))
+                        Add(challengeIndex.ByCreature, uint.Parse(match.Groups[1].Value), entry);
+                }
             }
 
             // challenge starter objects are shown or usable while their challenge is locked (ChallengeLocked prerequisite),
@@ -883,6 +894,10 @@ namespace NexusForever.Game.Challenges
 
         private void OnTarget(IWorldEntity entity, params ChallengeType[] types)
         {
+            if (index.Value.ByCreature.TryGetValue(entity.CreatureId, out List<ChallengeEntry> named))
+                foreach (ChallengeEntry entry in named.Where(e => types.Contains((ChallengeType)e.ChallengeTypeEnum)))
+                    Progress(entry, 1u, 0u);
+
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(entity.CreatureId))
             {
                 if (!index.Value.ByTargetGroup.TryGetValue(targetGroupId, out List<ChallengeEntry> entries))
