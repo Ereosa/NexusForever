@@ -12,6 +12,11 @@ namespace NexusForever.Game.Abstract.PublicEvent
         uint Id { get; }
         bool IsFinalised { get; }
         bool HasFinished { get; }
+
+        /// <summary>
+        /// Returns if a script drives the event (phases, objective activation).
+        /// </summary>
+        bool IsScripted { get; }
         bool IsBusy { get; set; }
         uint Phase { get; }
 
