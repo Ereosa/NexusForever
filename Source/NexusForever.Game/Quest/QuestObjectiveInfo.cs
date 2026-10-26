@@ -64,6 +64,20 @@ namespace NexusForever.Game.Quest
         private uint? listenCreatureId;
 
         /// <summary>
+        /// Returns if the objective's target group is a type 9 group, whose entries are trigger volumes rather than creatures (A Fiery
+        /// Escape's "Rescue Trapped Aurin in the Western Embertree" lists 30923, the tree house, which as a creature id is Frazzle of
+        /// Ellevar; turnstile objectives use the same type). Trigger volumes are server data, the objective's marker stands in for them.
+        /// </summary>
+        private bool IsTriggerVolumeObjective()
+        {
+            if (Type is not (QuestObjectiveType.TalkToTargetGroup or QuestObjectiveType.ActivateTargetGroup or QuestObjectiveType.ActivateTargetGroupChecklist))
+                return false;
+
+            TargetGroupEntry group = GameTableManager.Instance.TargetGroup.GetEntry(Entry.Data);
+            return group != null && (TargetGroupType)group.Type == TargetGroupType.Unknown9 && GetAreaLocations().Any();
+        }
+
+        /// <summary>
         /// Returns if the objective is completed by reaching its area, enter area objectives and target-less objectives asking to go somewhere.
         /// </summary>
         public bool IsAreaObjective()
@@ -71,7 +85,7 @@ namespace NexusForever.Game.Quest
             if (Type == QuestObjectiveType.EnterArea)
                 return true;
 
-            isAreaObjective ??= IsTargetless()
+            isAreaObjective ??= IsTriggerVolumeObjective() || IsTargetless()
                 && areaVerbs.Any(v => GetShortText().StartsWith(v, StringComparison.OrdinalIgnoreCase))
                 && GetAreaLocations().Any();
             return isAreaObjective.Value;

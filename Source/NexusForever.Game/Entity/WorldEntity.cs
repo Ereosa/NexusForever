@@ -484,8 +484,31 @@ namespace NexusForever.Game.Entity
                 return;
 
             uint? worldAreaId = Map.File.GetWorldAreaId(vector);
-            if (worldAreaId.HasValue && Zone?.Id != worldAreaId)
+            // maps without area data (eg: the Combat Training Room, world 3406) take the zone of the nearest world location
+            if ((!worldAreaId.HasValue || worldAreaId == 0u) && this is IPlayer)
+                worldAreaId = GetNearestLocationZone(Map.Entry.Id, vector);
+            if (worldAreaId.HasValue && worldAreaId != 0u && Zone?.Id != worldAreaId)
                 SetZone(GameTableManager.Instance.WorldZone.GetEntry(worldAreaId.Value));
+        }
+
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<uint, List<WorldLocation2Entry>> worldLocationsByWorld = new();
+
+        /// <summary>
+        /// Return the zone of the nearest world location with a zone within 150 metres on the world, null if there is none.
+        /// </summary>
+        private static uint? GetNearestLocationZone(uint worldId, Vector3 position)
+        {
+            List<WorldLocation2Entry> locations = worldLocationsByWorld.GetOrAdd(worldId, id => GameTableManager.Instance.WorldLocation2.Entries
+                .Where(l => l != null && l.WorldId == id && l.WorldZoneId != 0u)
+                .ToList());
+
+            WorldLocation2Entry nearest = locations
+                .OrderBy(l => Vector3.DistanceSquared(position, new Vector3(l.Position0, l.Position1, l.Position2)))
+                .FirstOrDefault();
+            if (nearest == null || Vector3.Distance(position, new Vector3(nearest.Position0, nearest.Position1, nearest.Position2)) > 150f)
+                return null;
+
+            return nearest.WorldZoneId;
         }
 
         /// <summary>

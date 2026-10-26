@@ -1109,6 +1109,19 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Returns if an accepted quest has an incomplete objective whose spell is the supplied one.
+        /// </summary>
+        public bool HasObjectiveSpell(uint spell4Id)
+        {
+            return activeQuests.Values
+                .Where(q => q.State == QuestState.Accepted)
+                .Any(q => q.Any(o => !o.IsComplete()
+                    && (o.ObjectiveInfo.Type is QuestObjectiveType.SpellSuccess or QuestObjectiveType.SpellSuccess2
+                        or QuestObjectiveType.SpellSuccess3 or QuestObjectiveType.SpellSuccess4)
+                    && o.ObjectiveInfo.Entry.Data == spell4Id));
+        }
+
+        /// <summary>
         /// Invoked when the owner gains reputation, updates "Gain 1000 Algoroc Accord Reputation" objectives by the amount.
         /// </summary>
         public void OnReputationGain(uint factionId, float amount)
