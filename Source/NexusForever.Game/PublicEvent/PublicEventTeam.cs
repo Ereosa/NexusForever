@@ -151,7 +151,32 @@ namespace NexusForever.Game.PublicEvent
                 log.LogTrace($"Updated public event team {Team} objective {objective.Entry.Id} with count {count}.");
             }
 
+            ActivateNextObjectives();
             IsFinialised = RequiredObjectivesCompleted();
+        }
+
+        /// <remarks>
+        /// Without a script nothing activates the objectives after the initial ones, the main objectives then follow their display order:
+        /// once no main objective is active, the inactive ones with the lowest display order start.
+        /// </remarks>
+        private void ActivateNextObjectives()
+        {
+            if (PublicEvent.IsScripted)
+                return;
+
+            var main = objectives.Values
+                .Where(o => o.Entry.PublicEventObjectiveCategoryEnum == PublicEventObjectiveCategory.Main)
+                .ToList();
+            if (main.Any(o => o.Status == PublicEventStatus.Active))
+                return;
+
+            var next = main.Where(o => o.Status == PublicEventStatus.Inactive).ToList();
+            if (next.Count == 0)
+                return;
+
+            uint order = next.Min(o => o.Entry.DisplayOrder);
+            foreach (IPublicEventObjective objective in next.Where(o => o.Entry.DisplayOrder == order))
+                objective.ActivateObjective(0u);
         }
 
         private bool RequiredObjectivesCompleted()

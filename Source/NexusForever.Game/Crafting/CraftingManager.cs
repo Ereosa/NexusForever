@@ -672,6 +672,8 @@ namespace NexusForever.Game.Crafting
 
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, crafted.Id, craft.Count);
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown20, crafted.Id, craft.Count);
+            if (GetTier(tradeskillId, craft.Schematic.Tier) is TradeskillTierEntry craftedTier)
+                player.QuestManager.OnCraft(craftedTier.Id, craft.Count);
             if (itemId != 0u)
             {
                 player.AchievementManager.CheckAchievements(player, AchievementType.CraftItem, itemId, count: craft.Count);
