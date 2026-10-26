@@ -161,6 +161,7 @@ namespace NexusForever.Network.Message
         ServerAbilityPoints             = 0x0169,
         ClientNonSpellActionSetChanges  = 0x016A,
         ServerShowActionBar             = 0x016C,
+        ServerBindPointUpdate           = 0x016D,
         ClientSetStance                 = 0x016F,
         ClientSetIgnoreDuelRequests     = 0x0170,
         ServerPhaseVisibilityWorldLocation = 0x0171,

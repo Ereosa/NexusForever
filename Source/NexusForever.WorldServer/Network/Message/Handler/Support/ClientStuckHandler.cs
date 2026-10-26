@@ -3,6 +3,7 @@ using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map.Lock;
+using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Support;
 using NexusForever.Network.Message;
@@ -14,7 +15,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Support
     /// The "Help, I'm stuck" options: recall to a safe spot, recall home or die and resurrect.
     /// </summary>
     /// <remarks>
-    /// Retail recalled to the bind point, bind points aren't spawned on this server so the zone's arrival point is used instead.
+    /// Recall to a safe spot goes to the player's bind point, players that never bound to a Transmat Terminal go to the zone's arrival point.
     /// </remarks>
     public class ClientStuckHandler : IMessageHandler<IWorldSession, ClientStuck>
     {
@@ -50,6 +51,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Support
             {
                 case UnstickType.RecallTransmat:
                 {
+                    if (BindPointLocations.TryRecall(player))
+                        break;
+
                     ushort worldId = (ushort)player.Map.Entry.Id;
                     if (!arrivalPoints.TryGetValue(worldId, out Vector3 position))
                         position = player.MapEntryPosition;

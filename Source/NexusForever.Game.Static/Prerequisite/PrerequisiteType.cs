@@ -252,7 +252,7 @@
         Homeowner                   = 241, // Exist in PrerequisiteType.tbl but does not have a description, used for "Only a homeowner can claim this item"
         LiveEvent242                = 242, // Live event not complete
         Faction243                  = 243, // Faction requirement not met
-        Unknown244                  = 244, // Exist in PrerequisiteType.tbl but does not have a description
+        RecallSpell                 = 244, // object is the Spell4Base of a recall, eg: 30314 "You don't have a bind point set" checks 7575 Recall - Transmat
         DyeUnlocked                 = 245, // Exist in PrerequisiteType.tbl but does not have a description, used for "Dye already acquired!"
         Inventory                   = 246, // Inventory requirement not met, item in the inventory, equipped or bank
         // 247 is unused in PrerequisiteType.tbl

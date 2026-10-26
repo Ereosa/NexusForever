@@ -32,6 +32,11 @@ namespace NexusForever.Game.Prerequisite.Check
 
         public bool Meets(IPlayer player, PrerequisiteComparison comparison, uint value, uint objectId, IPrerequisiteParameters parameters)
         {
+            // recalls (37806 "You cannot recall while in Unhealthy Time") check the player isn't in a transport state,
+            // object 2 is the "Unhealthy Time" state which isn't tracked here so players are never in it
+            if (comparison == PrerequisiteComparison.NotEqual && parameters?.TaxiNode == null)
+                return true;
+
             if (!CanAffordRapidTransport(player, parameters))
             {
                 parameters.CastResult ??= CastResult.RapidTransportInvalid;

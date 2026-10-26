@@ -40,6 +40,11 @@ namespace NexusForever.Game.Abstract.Entity
         DateTime PathActivatedTime { get; }
         InputSets InputKeySet { get; set; }
 
+        /// <summary>
+        /// BindPoint.tbl id of the Transmat Terminal the player last bound to, 0 if they haven't.
+        /// </summary>
+        ushort BindPoint { get; }
+
         DateTime CreateTime { get; }
         double TimePlayedTotal { get; }
         double TimePlayedLevel { get; }
@@ -170,6 +175,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// Teleport <see cref="IPlayer"/> to supplied location.
         /// </summary>
         void TeleportTo(ushort worldId, float x, float y, float z, IMapLock mapLock = null, TeleportReason reason = TeleportReason.Relocate);
+
+        /// <summary>
+        /// Set the Transmat Terminal <see cref="IPlayer"/> recalls to.
+        /// </summary>
+        void SetBindPoint(ushort bindPointId);
 
         /// <summary>
         /// Position the player arrived at on the current map, used to recall players that are stuck.

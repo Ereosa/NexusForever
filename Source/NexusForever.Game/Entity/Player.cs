@@ -100,7 +100,8 @@ namespace NexusForever.Game.Entity
             Flags       = 0x0020,
             Innate      = 0x0080,
             Sex         = 0x0100,
-            Race        = 0x0200
+            Race        = 0x0200,
+            BindPoint   = 0x0400
         }
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
@@ -183,6 +184,11 @@ namespace NexusForever.Game.Entity
             }
         }
         private InputSets inputKeySet;
+
+        /// <summary>
+        /// <see cref="BindPointEntry"/> id of the Transmat Terminal the player last bound to, 0 if they haven't.
+        /// </summary>
+        public ushort BindPoint { get; private set; }
 
         public override uint Level
         {
@@ -370,6 +376,7 @@ namespace NexusForever.Game.Entity
             path              = (Path)model.ActivePath;
             PathActivatedTime = model.PathActivatedTimestamp;
             InputKeySet       = (InputSets)model.InputKeySet;
+            BindPoint         = model.BindPoint;
             Faction1          = (Faction)model.FactionId;
             Faction2          = (Faction)model.FactionId;
             flags             = (CharacterFlag)model.Flags;
@@ -629,6 +636,12 @@ namespace NexusForever.Game.Entity
                 {
                     model.InputKeySet = (sbyte)InputKeySet;
                     entity.Property(p => p.InputKeySet).IsModified = true;
+                }
+
+                if ((saveMask & PlayerSaveMask.BindPoint) != 0)
+                {
+                    model.BindPoint = BindPoint;
+                    entity.Property(p => p.BindPoint).IsModified = true;
                 }
 
                 if ((saveMask & PlayerSaveMask.Flags) != 0)
@@ -1217,6 +1230,7 @@ namespace NexusForever.Game.Entity
                     },
                     ActiveCostumeIndex    = CostumeManager.CostumeIndex ?? -1,
                     InputKeySet           = (uint)InputKeySet,
+                    BindPoint             = BindPoint,
                     CharacterEntitlements = EntitlementManager
                         .Select(e => new ServerPlayerCreate.CharacterEntitlement
                         {
@@ -1497,6 +1511,29 @@ namespace NexusForever.Game.Entity
             IsOnline = false;
 
             scriptCollection.Invoke<IPlayerScript>(s => s.OnLogout());
+        }
+
+        /// <summary>
+        /// Set the Transmat Terminal <see cref="IPlayer"/> recalls to.
+        /// </summary>
+        public void SetBindPoint(ushort bindPointId)
+        {
+            if (bindPointId == BindPoint)
+                return;
+
+            if (GameTableManager.Instance.BindPoint.GetEntry(bindPointId) == null)
+                throw new ArgumentException($"{bindPointId} is not a valid bind point id!");
+
+            BindPoint = bindPointId;
+            saveMask |= PlayerSaveMask.BindPoint;
+
+            Session.EnqueueMessageEncrypted(new ServerBindPointUpdate
+            {
+                BindPointId = bindPointId
+            });
+
+            // the first bind teaches "Recall - Transmat"
+            SpellManager.GrantSpells();
         }
 
         /// <summary>
