@@ -3,6 +3,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Static.Reputation;
+using NexusForever.Game.Static.Spell;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 using NexusForever.Shared;
@@ -42,6 +43,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         private readonly Stopwatch chargeTimer = new();
         private readonly UpdateTimer cooldown = new(ChargeCooldown, false);
         private readonly UpdateTimer opportunity = new(OpportunityDuration, false);
+        private bool opportunityPending;
 
         #region Dependency Injection
 
@@ -82,6 +84,10 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
 
             if (opportunity.IsTicking)
             {
+                // the interrupt leaves the turret crowd controlled for a few seconds and Moment of Opportunity can't be cast while it is
+                if (opportunityPending)
+                    opportunityPending = !CastOpportunity();
+
                 opportunity.Update(lastTick);
                 if (opportunity.HasElapsed)
                 {
@@ -99,7 +105,9 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
                 // a charge that ended early was interrupted
                 if (chargeTimer.Elapsed < ChargeTime - TimeSpan.FromSeconds(0.5d))
                 {
-                    Cast(SpellId.MomentOfOpportunity, owner.Guid);
+                    // the immunity drops straight away, the Moment of Opportunity visual follows once the interrupt wears off
+                    RemoveImmunity();
+                    opportunityPending = !CastOpportunity();
                     opportunity.Reset(true);
                 }
 
@@ -136,7 +144,22 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         public void OnDeath()
         {
             charge = null;
+            opportunityPending = false;
             opportunity.Reset(false);
+        }
+
+        private bool CastOpportunity()
+        {
+            Cast(SpellId.MomentOfOpportunity, owner.Guid);
+            return owner.HasSpell(s => s.Spell4Id == (uint)SpellId.MomentOfOpportunity && !s.IsFinished, out ISpell _);
+        }
+
+        private void RemoveImmunity()
+        {
+            foreach (ISpell spell in owner.GetSpellsByEffect(SpellEffectType.SpellEffectImmunity)
+                .Where(s => !s.IsFinished && s.Spell4Id == (uint)SpellId.TurretImmune)
+                .ToList())
+                spell.Finish();
         }
 
         private void Cast(SpellId spell, uint targetId)

@@ -4,6 +4,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Entity.Movement.Spline;
+using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -15,13 +16,14 @@ using NexusForever.Shared.Game;
 namespace NexusForever.Script.Main.Tutorial.Script.Part2
 {
     /// <summary>
-    /// Virtual Battle Beasts and Legionnaires (Exile simulation) and Virtual Defense Daguns (Dominion simulation) in The Face of the Enemy.
+    /// Virtual Battle Beasts and Legionnaires (Exile simulation), Virtual Defense Daguns and Elite Exiles (Dominion simulation) in The Face of the Enemy.
     /// </summary>
     /// <remarks>
     /// The creature is flagged NoAI in the game tables so the generic combat AI skips it.
     /// It wanders around its spawn point and fights back when attacked, returning home when combat ends.
+    /// The legionnaires and elites are summoned by the player once the turrets are down and go straight for them.
     /// </remarks>
-    [ScriptFilterCreatureId(73464, 73492, 73567, 73465)]
+    [ScriptFilterCreatureId(73464, 73492, 73567, 73465, 73473, 73566)]
     public class BattleBeastEntityScript : IUnitScript, IOwnedScript<ICreatureEntity>
     {
         private const float WanderRadius  = 6f;
@@ -33,6 +35,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         private ICreatureEntity owner;
         private int autoAttackIndex;
         private bool resetting;
+        private bool engagedSummoner;
 
         private readonly UpdateTimer wanderTimer = new(TimeSpan.FromSeconds(Random.Shared.Next(4, 10)));
         private readonly UpdateTimer attackTimer = new(TimeSpan.FromSeconds(1.5d));
@@ -69,10 +72,26 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             if (!owner.IsAlive || owner.IsCasting())
                 return;
 
+            if (!engagedSummoner)
+                EngageSummoner();
+
             if (owner.TargetGuid.HasValue)
                 UpdateCombat(lastTick);
             else
                 UpdateWander(lastTick);
+        }
+
+        private void EngageSummoner()
+        {
+            engagedSummoner = true;
+            if (owner.SummonerGuid == null)
+                return;
+
+            IUnitEntity summoner = owner.Map.GetEntity<IUnitEntity>(owner.SummonerGuid.Value);
+            if (summoner == null || !summoner.IsAlive || owner.GetDispositionTo(summoner.Faction1) != Disposition.Hostile)
+                return;
+
+            owner.ThreatManager.UpdateThreat(summoner, 1);
         }
 
         private void UpdateWander(double lastTick)
