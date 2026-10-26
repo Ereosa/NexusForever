@@ -218,7 +218,29 @@ namespace NexusForever.Script.Main.AI
         /// </summary>
         public void OnEnterRange(IGridEntity entity)
         {
+            if (entity is not IUnitEntity unit || !IsProximityAggroTarget(unit))
+                return;
+
             AggroEntity(entity);
+        }
+
+        /// <summary>
+        /// Creatures only pull players (and their pets) by walking near them, fights between creatures are staged with "Combat Flavor" units.
+        /// </summary>
+        /// <remarks>
+        /// Without this every hostile pair of creatures fought on sight, eg: Grove Guardians attacking butterflies.
+        /// </remarks>
+        private bool IsProximityAggroTarget(IUnitEntity unit)
+        {
+            if (unit is IPlayer or ICombatPetEntity)
+                return true;
+
+            return IsCombatFlavor(entity) || IsCombatFlavor(unit);
+        }
+
+        private static bool IsCombatFlavor(IUnitEntity unit)
+        {
+            return unit.CreatureInfo?.Entry?.Description?.Contains("Combat Flavor", StringComparison.OrdinalIgnoreCase) ?? false;
         }
 
         /// <summary>
