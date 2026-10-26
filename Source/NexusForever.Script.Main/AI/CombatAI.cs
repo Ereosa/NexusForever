@@ -338,6 +338,13 @@ namespace NexusForever.Script.Main.AI
         {
             entity.SetTarget((IWorldEntity)null);
 
+            // the threat list also empties when the creature dies, healing the corpse made it look alive to the client while it stayed dead
+            if (!entity.IsAlive)
+            {
+                combatHome = null;
+                return;
+            }
+
             entity.ModifyHealth(entity.MaxHealth, DamageType.Heal, null);
 
             // TODO: cancel all pending spells

@@ -572,6 +572,10 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         public virtual void ModifyHealth(uint amount, DamageType? type, IUnitEntity source)
         {
+            // corpses can't be healed back to full, creatures come back through a respawn and players through resurrection
+            if (deathState != null && this is not IPlayer)
+                return;
+
             long newHealth = Health;
             if (type is DamageType.Heal or null)
                 newHealth += amount;
