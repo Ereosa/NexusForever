@@ -43,6 +43,12 @@ namespace NexusForever.Script.Template
         protected virtual float LeaveDistance => 90f;
 
         /// <summary>
+        /// Start an event whose objective has no marker where the player stands once it is the current step
+        /// (the previous step put the player at the place, eg: signalling a drill crew at a node).
+        /// </summary>
+        protected virtual bool StartWithoutMarker => false;
+
+        /// <summary>
         /// Seconds between a wave being defeated and the next one arriving.
         /// </summary>
         protected virtual double WaveDelay => 6d;
@@ -115,12 +121,14 @@ namespace NexusForever.Script.Template
                 // the first event whose objective is the current step of the quest
                 current = Events.FirstOrDefault(e => owner.GetQuestObjective(e.ObjectiveId) is IQuestObjective o && !o.IsComplete()
                     && !owner.Any(p => p.Index < o.Index && !p.ObjectiveInfo.IsOptional() && !p.IsComplete()));
-                if (current.Waves == null || !locations.TryGetValue(current.ObjectiveId, out location))
+                if (current.Waves == null)
+                    return;
+                if (!locations.TryGetValue(current.ObjectiveId, out location) && !StartWithoutMarker)
                     return;
             }
 
             IQuestObjective objective = owner.GetQuestObjective(current.ObjectiveId);
-            if (objective == null || objective.IsComplete() || player.Map.Entry.Id != location.WorldId)
+            if (objective == null || objective.IsComplete() || (location != null && player.Map.Entry.Id != location.WorldId))
             {
                 Stop();
                 return;
@@ -128,12 +136,21 @@ namespace NexusForever.Script.Template
 
             if (!running)
             {
-                var marker = new Vector3(location.Position0, location.Position1, location.Position2);
-                if (!player.IsAlive || Vector3.Distance(player.Position, marker) > Math.Max(StartDistance, location.Radius))
+                if (!player.IsAlive)
                     return;
 
-                // a large marked area (a whole pool or camp) is defended where the player stands
-                centre    = location.Radius > StartDistance ? player.Position : marker;
+                if (location != null)
+                {
+                    var marker = new Vector3(location.Position0, location.Position1, location.Position2);
+                    if (Vector3.Distance(player.Position, marker) > Math.Max(StartDistance, location.Radius))
+                        return;
+
+                    // a large marked area (a whole pool or camp) is defended where the player stands
+                    centre = location.Radius > StartDistance ? player.Position : marker;
+                }
+                else
+                    centre = player.Position;
+
                 running   = true;
                 waveIndex = -1;
                 delay     = 2d;
