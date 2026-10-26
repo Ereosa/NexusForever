@@ -21,6 +21,7 @@ namespace NexusForever.Game.Static.Cinematic
         DeraduneMetalMawIntro           = 16,
         DeraduneFalkrinDiplomacy        = 239,
         DeraduneZonagaIntro             = 1003,
+        DeraduneBloodfeast              = 1005,
 
         // Algoroc
         AlgorocAugmentation             = 17,

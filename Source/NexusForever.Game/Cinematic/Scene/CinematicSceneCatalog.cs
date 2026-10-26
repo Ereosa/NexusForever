@@ -31,6 +31,26 @@ namespace NexusForever.Game.Cinematic.Scene
             return scenes.GetValueOrDefault(id);
         }
 
+        /// <summary>
+        /// Invisible creature (InvisibleMan model) for actors bound to a map prop that has no creature of its own.
+        /// </summary>
+        private const uint PropActorCreature = 70376;
+
+        /// <summary>
+        /// Actor bound to a map prop (active prop id, field 23 of the area PROp entry) playing the scene sequence on the prop's model.
+        /// </summary>
+        /// <remarks>
+        /// Cinematic props are placed in the map with the scene animation in their model, the actor stands in for them.
+        /// </remarks>
+        private static SceneActor PropActor(ulong activePropId, uint sequenceVisual)
+        {
+            return new SceneActor(PropActorCreature)
+            {
+                ActivePropId = activePropId,
+                Visuals      = [new SceneVisual(sequenceVisual, 0, 0)]
+            };
+        }
+
         private static CinematicScene Add(CinematicSceneId id)
         {
             var scene = new CinematicScene(id);

@@ -48,7 +48,9 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithSequenceVisual(SequenceVisualMisc20)
                 .WithCamera(40877)
                 .CutTo(6000, 8).CutTo(10867, 9).CutTo(20167, 10).CutTo(22834, 11).CutTo(28167, 12).CutTo(33134, 13).CutTo(35434, 14).CutTo(44367, 15)
-                .WithActors(37845, 37846, 37847, 37848)
+                .WithActors(37845, 37846, 37848)
+                // the Elder Cube is a map prop on the origin (active prop 2391884)
+                .WithActor(new SceneActor(37847) { ActivePropId = 2391884, Visuals = [new SceneVisual(SequenceVisualMisc20, 0, 0)] })
                 .WithPlayerVisual(24613)
                 .WithPlayerVisual(30495, 1000)
                 .WithPlayerVisual(30500, 10867)
@@ -67,6 +69,8 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithDuration(15000)
                 .AtOrigin(-2517.065f, -958.967f, -4931.453f)
                 .WithSequenceVisual(SequenceVisualMisc01)
+                // the transport is a map prop on the origin (active prop 1168901)
+                .WithActor(PropActor(1168901, SequenceVisualMisc01))
                 .WithCamera(60319)
                 .WithPlayerVisual(25127)
                 .WithPlayerVisual(30559, 1000)
@@ -78,7 +82,8 @@ namespace NexusForever.Game.Cinematic.Scene
                 .AtOrigin(-7753.993f, -945.562f, -391.492f)
                 .WithSequenceVisual(SequenceVisualMisc01)
                 .SplineShot(0, 9879).SplineShot(4667, 9880)
-                .WithActors(33458)
+                // the shield generator is a map prop 118 m from the origin, the world entity of creature 33458 is bound to it (active prop 1373867)
+                .WithActor(new SceneActor(33458) { ActivePropId = 1373867, Visuals = [new SceneVisual(SequenceVisualMisc01, 0, 0)] })
                 .WithPlayerVisual(22513);
 
             // GC008: Dominion attack ships strike Megatech Station, camera spline 9894
@@ -104,7 +109,10 @@ namespace NexusForever.Game.Cinematic.Scene
                 .AtOrigin(-7856.595f, -941.216f, -1357.637f)
                 .WithSequenceVisual(SequenceVisualMisc01)
                 .SplineShot(0, 10033).SplineShot(7033, 10034).SplineShot(11500, 10035).SplineShot(16633, 10036)
-                .WithActors(58358, 50986, 58357, 33913, 33901)
+                .WithActors(58358, 50986, 58357, 33913)
+                // the Annihilator and its cables are map props on the origin (active props 1570958 and 2509135)
+                .WithActor(new SceneActor(33901) { ActivePropId = 1570958, Visuals = [new SceneVisual(SequenceVisualMisc01, 0, 0)] })
+                .WithActor(PropActor(2509135, SequenceVisualMisc01))
                 .WithPlayerVisual(23140)
                 .WithPlayerVisual(30481, 16633)
                 .WithTextsSpread(16633, 24500, (578436, 44), (578437, 44), (578438, 40));
@@ -127,7 +135,8 @@ namespace NexusForever.Game.Cinematic.Scene
                 .AtOrigin(-8246.130f, -994.471f, -235.956f)
                 .WithSequenceVisual(SequenceVisualMisc01)
                 .SplineShot(0, 9859).SplineShot(7733, 9860).SplineShot(13833, 9861)
-                .WithActors(33420, 70325)
+                // the drill is a map prop on the origin (active prop 1622093), 33420 and 70325 both carry the same model
+                .WithActor(new SceneActor(70325) { ActivePropId = 1622093, Visuals = [new SceneVisual(SequenceVisualMisc01, 0, 0)] })
                 .WithPlayerVisual(22516)
                 .WithPlayerVisual(30484, 950)
                 .WithText(578443, 1000, 2500)
@@ -154,19 +163,26 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithActors(26313)
                 .WithPlayerVisual(14667);
 
-            // GC016: the Bloodfeast at the altar of Bloodfire Village, Metal Maw breaks out of its cage, camera spline 7492
-            // The cage model holds its own two sequences (250000-278333), the scene start was matched to the spline. Subtitle timings guessed.
-            Add(CinematicSceneId.DeraduneMetalMawIntro)
+            // The Bloodfeast at the altar of Bloodfire Village once Zonaga's head is placed, camera spline 7492 on the village origin.
+            // No actors (the ceremony models are not in the client), Bloodshaman Akilos' voice. Subtitle timings guessed.
+            Add(CinematicSceneId.DeraduneBloodfeast)
                 .WithDuration(26434)
                 .AtOrigin(-5595.510f, -977.592f, -706.921f)
-                .WithSequenceVisual(SequenceVisualMisc01)
                 .SplineShot(0, 7492)
-                .WithActors(26018)
                 .WithPlayerVisual(14578)
                 .WithPlayerVisual(15063, 500)
-                .WithPlayerVisual(14824, 13000)
-                .WithTextsSpread(500, 12500, (578452, 19), (578453, 34), (578454, 46), (578455, 30))
-                .WithTextsSpread(13000, 25000, (578456, 31), (578458, 31), (578459, 24));
+                .WithTextsSpread(500, 24000, (578452, 19), (578453, 34), (578454, 46), (578455, 30));
+
+            // GC016: Metal Maw breaks out of its cage in the Bloodfire Savannah. The cage is a map prop (active prop 1074462, a world entity of
+            // creature 26018 is bound to it) on the origin of camera splines 7209 and 7291, its two sequences match the two shots.
+            // No trigger: Metal Maw is a world boss public event, which isn't scripted.
+            Add(CinematicSceneId.DeraduneMetalMawIntro)
+                .WithDuration(28333)
+                .AtOrigin(-5056.296f, -971.353f, -905.538f)
+                .SplineShot(0, 7209).SplineShot(6300, 7291)
+                .WithActor(new SceneActor(26018) { ActivePropId = 1074462, Visuals = [new SceneVisual(SequenceVisualMisc01, 0, 0), new SceneVisual(11097, 6300, 0)] })
+                .WithPlayerVisual(14824)
+                .WithTextsSpread(6300, 27000, (578456, 31), (578458, 31), (578459, 24));
 
             // GC239: the Falkrin answer the ceremonial horn at Bloodtalon Perch and the negotiations go wrong
             // Origin guessed: WorldLocation2 51478 at Bloodtalon Perch, from the same build as the scene.
@@ -209,6 +225,8 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithActor(CallidorActor(43370))
                 .WithActor(CallidorActor(50782))
                 .WithActor(CallidorActor(69756))
+                // the augmentor is a map prop on the origin (active prop 2643522) with the same ten sequences on its own timeline
+                .WithActor(CallidorActor(PropActorCreature) with { ActivePropId = 2643522 })
                 .WithCamera(43370)
                 .CutTo(4366, 8).CutTo(10300, 9).CutTo(17000, 10).CutTo(24033, 11).CutTo(28033, 12).CutTo(30366, 13).CutTo(41500, 14)
                 .CutTo(49533, 15).CutTo(52866, 16)

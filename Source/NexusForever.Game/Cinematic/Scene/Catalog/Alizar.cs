@@ -76,9 +76,9 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithTextsSpread(1000, 11000, (578484, 66), (578485, 54), (578486, 56))
                 .WithText(578487, 11267, 16000);
 
-            // GC036/GC037: Elderoot is a map prop (unique id 1318079, Cine_EverstarGrove_ElderrootAwakened_EXPORT_elderoot.m3) placed on the
+            // GC036/GC037: Elderoot is a map prop (active prop 1616496, Cine_EverstarGrove_ElderrootAwakened_EXPORT_elderoot.m3) placed on the
             // origin of both scenes, its model holds the scene animation as active prop states. The scenes add an actor bound to the prop
-            // (the world Elderoot creature, ActivePropId) and play the state transition on it, untested whether the client animates the
+            // (an invisible creature, ActivePropId) and play the state transition on it, untested whether the client animates the
             // prop this way. Camera splines 12356-12373 start on the origin.
             Add(CinematicSceneId.EverstarGroveElderootAwakens)
                 .WithDuration(37200)
@@ -86,7 +86,7 @@ namespace NexusForever.Game.Cinematic.Scene
                 .SplineShot(0, 12358).SplineShot(6100, 12367).SplineShot(12300, 12368).SplineShot(15067, 12369).SplineShot(18067, 12370)
                 .SplineShot(19633, 12371).SplineShot(23400, 12372).SplineShot(30367, 12373)
                 // AP_State1_State2 (27600-64800 on the model timeline)
-                .WithActor(new SceneActor(36247) { ActivePropId = 1318079, Visuals = [new SceneVisual(445, 0, 0)] })
+                .WithActor(new SceneActor(PropActorCreature) { ActivePropId = 1616496, Visuals = [new SceneVisual(445, 0, 0)] })
                 .WithPlayerVisual(27299);
 
             // GC037: after Elderoot shares the Eldan's secrets the Chua blimp burns it, AP_State0_State1 (1600-21600) on the prop.
@@ -95,7 +95,7 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithDuration(20000)
                 .AtOrigin(-338.654f, -909.635f, -3263.055f)
                 .SplineShot(0, 12356).SplineShot(15667, 12357)
-                .WithActor(new SceneActor(36247) { ActivePropId = 1318079, Visuals = [new SceneVisual(33855, 0, 0)] })
+                .WithActor(new SceneActor(PropActorCreature) { ActivePropId = 1616496, Visuals = [new SceneVisual(33855, 0, 0)] })
                 .WithActor(new SceneActor(41217) { Visuals = [new SceneVisual(SequenceVisualMisc01, 0, 0), new SceneVisual(11097, 15667, 0)] })
                 .WithPlayerVisual(27194)
                 .WithPlayerVisual(30586, 500)
@@ -139,6 +139,8 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithSequenceVisual(34616)
                 .SplineShot(0, 14817)
                 .WithActors(48436, 54452)
+                // the cannon is a map prop on the origin (active prop 4496119)
+                .WithActor(PropActor(4496119, 34616))
                 .WithPlayerVisual(27195)
                 .WithPlayerVisual(30527, 1000)
                 .WithPlayerVisual(39577, 12000);
