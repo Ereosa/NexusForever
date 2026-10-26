@@ -581,10 +581,10 @@ namespace NexusForever.Game.Entity
                     // logging out mid-flight puts the player at the taxi's destination instead of in the air
                     Vector3 position = Position;
                     Vector3 rotation = Rotation;
-                    if (PlatformGuid != null && GetVisible<IGridEntity>(PlatformGuid.Value) is ITaxiEntity taxi)
+                    if (TaxiManager.FlightDestination is { } flight)
                     {
-                        position = taxi.Destination;
-                        rotation = taxi.DestinationRotation;
+                        position = flight.Position;
+                        rotation = flight.Rotation;
                     }
 
                     model.LocationX = position.X;

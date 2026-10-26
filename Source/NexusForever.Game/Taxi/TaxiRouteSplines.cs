@@ -1,4 +1,5 @@
 using System.Numerics;
+using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NLog;
@@ -30,6 +31,32 @@ namespace NexusForever.Game.Taxi
         public static ushort GetSpline(uint taxiRouteId)
         {
             return cache.Value.Routes.TryGetValue(taxiRouteId, out ushort splineId) ? splineId : (ushort)0;
+        }
+
+        /// <summary>
+        /// Return the points of the supplied spline in order, consecutive duplicate points removed.
+        /// </summary>
+        public static List<Vector3> GetPoints(ushort splineId)
+        {
+            var points = new List<Vector3>();
+            foreach (Spline2NodeEntry node in GameTableManager.Instance.Spline2Node.Entries
+                .Where(n => n.SplineId == splineId)
+                .OrderBy(n => n.Ordinal))
+            {
+                var position = new Vector3(node.Position0, node.Position1, node.Position2);
+                if (points.Count == 0 || Vector3.DistanceSquared(points[^1], position) > 0.01f)
+                    points.Add(position);
+            }
+
+            return points;
+        }
+
+        /// <summary>
+        /// Return the <see cref="SplineType"/> of the supplied spline.
+        /// </summary>
+        public static SplineType GetType(ushort splineId)
+        {
+            return GameTableManager.Instance.Spline2.GetEntry(splineId)?.SplineType ?? SplineType.CatmullRom;
         }
 
         /// <summary>

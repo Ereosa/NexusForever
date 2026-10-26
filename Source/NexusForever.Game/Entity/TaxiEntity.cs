@@ -87,15 +87,26 @@ namespace NexusForever.Game.Entity
 
         protected override void OnPassengerRemove(IPlayer player, VehicleSeatType seatType, byte seatPosition)
         {
-            // rider logged out or was removed mid-flight, the taxi is removed with its last passenger
-            if (player.Guid == OwnerGuid)
-                flying = false;
+            // rider logged out (already saved at the destination) or was removed mid-flight, the taxi is removed with its last passenger
+            if (player.Guid != OwnerGuid)
+                return;
+
+            flying = false;
+            player.TaxiManager.OnLanded();
         }
 
         private void LaunchNextSpline()
         {
+            // the tbl splines carry client events at their ends (98 and 99) and the client drops the connection handling them
+            // on a taxi ("Failure Handling Network message 3610"), so the same points are sent as a custom path instead
             if (splines.TryDequeue(out ushort splineId))
-                MovementManager.LaunchSpline(splineId, SplineMode.OneShot, FlightSpeed, false);
+            {
+                List<Vector3> points = Taxi.TaxiRouteSplines.GetPoints(splineId);
+                if (points.Count >= 2 && points[0] != points[^1])
+                    MovementManager.LaunchSpline(points, Taxi.TaxiRouteSplines.GetType(splineId), SplineMode.OneShot, FlightSpeed);
+                else
+                    LaunchNextSpline();
+            }
             else
                 Land();
         }
@@ -104,7 +115,7 @@ namespace NexusForever.Game.Entity
         {
             base.OnEntityCommandFinalise(command);
 
-            if (flying && !PendingRemoval && command is PositionSplineCommand { IsFinalised: true })
+            if (flying && !PendingRemoval && command is PositionPathCommand { IsFinalised: true })
                 LaunchNextSpline();
         }
 
@@ -118,6 +129,8 @@ namespace NexusForever.Game.Entity
                 RemoveFromMap();
                 return;
             }
+
+            player.TaxiManager.OnLanded();
 
             // the taxi is removed with its last passenger
             PassengerRemove(player);

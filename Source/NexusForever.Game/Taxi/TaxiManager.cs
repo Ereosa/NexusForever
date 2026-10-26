@@ -57,6 +57,11 @@ namespace NexusForever.Game.Taxi
         private readonly IEntityFactory entityFactory;
         private readonly ICreatureInfoManager creatureInfoManager;
 
+        /// <summary>
+        /// Landing position and rotation of the flight in progress, saved instead of the mid-air position if the player logs out.
+        /// </summary>
+        public (Vector3 Position, Vector3 Rotation)? FlightDestination { get; private set; }
+
         private readonly HashSet<ushort> nodes = new();
         private readonly HashSet<ushort> pendingSave = new();
 
@@ -275,6 +280,14 @@ namespace NexusForever.Game.Taxi
                 StartFlight(path[0].SourceLocation.WorldId, splines, finalPosition, finalRotation);
         }
 
+        /// <summary>
+        /// Invoked when the taxi of the flight in progress lands.
+        /// </summary>
+        public void OnLanded()
+        {
+            FlightDestination = null;
+        }
+
         private bool IsRidingTaxi()
         {
             return player.PlatformGuid != null && player.GetVisible<IGridEntity>(player.PlatformGuid.Value) is ITaxiEntity;
@@ -325,6 +338,8 @@ namespace NexusForever.Game.Taxi
             taxi.Initialise(player, creatureInfo, splines, destination, destinationRotation);
             taxi.EnqueuePassengerAdd(player, VehicleSeatType.Passenger, 0);
             taxi.AddToMap(player.Map, TaxiRouteSplines.GetStart(splines[0]));
+
+            FlightDestination = (destination, destinationRotation);
         }
     }
 }

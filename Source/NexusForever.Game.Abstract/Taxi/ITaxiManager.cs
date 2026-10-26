@@ -1,3 +1,4 @@
+using System.Numerics;
 using NexusForever.Database.Character;
 using NexusForever.Game.Abstract.Entity;
 
@@ -6,6 +7,16 @@ namespace NexusForever.Game.Abstract.Taxi
     public interface ITaxiManager : IDatabaseCharacter
     {
         void SendInitialPackets();
+
+        /// <summary>
+        /// Landing position and rotation of the flight in progress, saved instead of the mid-air position if the player logs out.
+        /// </summary>
+        (Vector3 Position, Vector3 Rotation)? FlightDestination { get; }
+
+        /// <summary>
+        /// Invoked when the taxi of the flight in progress lands.
+        /// </summary>
+        void OnLanded();
 
         /// <summary>
         /// Returns if the supplied taxi node is unlocked, either discovered or unlocked by flags or level.
