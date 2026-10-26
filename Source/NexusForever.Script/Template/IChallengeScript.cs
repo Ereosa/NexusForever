@@ -38,6 +38,13 @@ namespace NexusForever.Script.Template
         }
 
         /// <summary>
+        /// Invoked while the challenge runs when its T-spell lands on a target of the challenge, before the target is counted.
+        /// </summary>
+        void OnEntitySpellHit(uint spell4Id, IUnitEntity target)
+        {
+        }
+
+        /// <summary>
         /// Invoked when the challenge stops, <paramref name="completed"/> is set if it was completed.
         /// </summary>
         void OnStop(bool completed)

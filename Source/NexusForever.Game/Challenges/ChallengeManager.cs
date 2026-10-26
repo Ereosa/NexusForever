@@ -954,6 +954,7 @@ namespace NexusForever.Game.Challenges
                     && !AssetManager.Instance.GetTargetGroupsForCreatureId(target.CreatureId).Contains(entry.TargetGroupIdRewardPane))
                     continue;
 
+                challenge.InvokeScripts(s => s.OnEntitySpellHit(spell4Id, target));
                 Count(challenge, 1u, 0u);
             }
         }
