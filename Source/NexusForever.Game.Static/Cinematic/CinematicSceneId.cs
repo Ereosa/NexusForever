@@ -43,6 +43,9 @@ namespace NexusForever.Game.Static.Cinematic
         // Everstar Grove
         EverstarGroveMordeshArrival     = 34,
         EverstarGroveAurinArrival       = 35,
+        EverstarGroveElderootAwakens    = 36,
+        EverstarGroveElderootBurns      = 37,
+        EverstarGroveThroughThePortal   = 175,
 
         // Ellevar
         EllevarHighShamanRitual         = 66,
