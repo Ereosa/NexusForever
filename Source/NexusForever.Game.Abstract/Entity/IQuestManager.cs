@@ -164,6 +164,12 @@ namespace NexusForever.Game.Abstract.Entity
         void OnReputationGain(uint factionId, float amount);
 
         /// <summary>
+        /// Returns if an accepted quest has an incomplete objective whose spell is the supplied one (the client's quest tracker offers
+        /// it as a button, eg: Catch and Release's "Releasing Critters").
+        /// </summary>
+        bool HasObjectiveSpell(uint spell4Id);
+
+        /// <summary>
         /// Invoked when the owner kills a creature, updates "Hunt an animal near an Aurin Hunter" objectives when such a creature is nearby.
         /// </summary>
         void OnHuntKill(IUnitEntity victim);

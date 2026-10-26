@@ -7,7 +7,8 @@ using NexusForever.Shared;
 namespace NexusForever.WorldServer.Network.Message.Handler.Challenge
 {
     /// <summary>
-    /// Casts of an objective ability, the temporary abilities (T-spells) granted by Ability challenges.
+    /// Casts of an objective ability: the temporary abilities (T-spells) granted by Ability challenges, and the spells of quest objectives
+    /// the quest tracker offers as buttons (eg: Catch and Release's "Releasing Critters").
     /// </summary>
     public class ClientCastObjectiveAbilityHandler : IMessageHandler<IWorldSession, ClientCastObjectiveAbility>
     {
@@ -25,7 +26,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Challenge
 
         public void HandleMessage(IWorldSession session, ClientCastObjectiveAbility castObjectiveAbility)
         {
-            if (!session.Player.ChallengeManager.CanCastObjectiveAbility(castObjectiveAbility.Spell4Id))
+            if (!session.Player.ChallengeManager.CanCastObjectiveAbility(castObjectiveAbility.Spell4Id)
+                && !session.Player.QuestManager.HasObjectiveSpell(castObjectiveAbility.Spell4Id))
                 throw new InvalidPacketValueException();
 
             ISpellParameters parameters = spellParametersFactory.Resolve();
