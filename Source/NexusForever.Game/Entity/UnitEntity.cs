@@ -3,6 +3,7 @@ using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Entity.Stat;
+using NexusForever.Game.Abstract.Map.Search;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Info;
 using NexusForever.Game.Abstract.Spell.Proc;
@@ -613,10 +614,43 @@ namespace NexusForever.Game.Entity
             deathState = EntityDeathState.Dead;
         }
 
+        /// <summary>
+        /// Range around the last kill searched for survivors of an exterminate objective's target group.
+        /// </summary>
+        private const float ExterminateRange = 150f;
+
+        private class SearchCheckAliveTargetGroup : ISearchCheck<IUnitEntity>
+        {
+            private readonly uint targetGroupId;
+            private readonly uint excludeGuid;
+
+            public SearchCheckAliveTargetGroup(uint targetGroupId, uint excludeGuid)
+            {
+                this.targetGroupId = targetGroupId;
+                this.excludeGuid   = excludeGuid;
+            }
+
+            public bool CheckEntity(IUnitEntity entity)
+            {
+                return entity.Guid != excludeGuid
+                    && entity.IsAlive
+                    && AssetManager.Instance.GetTargetGroupsForCreatureId(entity.CreatureId).Contains(targetGroupId);
+            }
+        }
+
         protected virtual void GenerateRewards(IUnitEntity killer)
         {
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
+            {
                 Map.PublicEventManager.UpdateObjective(PublicEventObjectiveType.KillTargetGroup, targetGroupId, 1);
+                // cluster and event objective unit kills name their target group the same way (eg: "Destroy all Blackdeck Cannons!")
+                Map.PublicEventManager.UpdateObjective(PublicEventObjectiveType.KillClusterTargetGroup, targetGroupId, 1);
+                Map.PublicEventManager.UpdateObjective(PublicEventObjectiveType.KillEventObjectiveUnit, targetGroupId, 1);
+
+                // exterminate objectives ("Wipe out all Ragebots") succeed once none of the target group is left alive around the kill
+                if (!Map.Search(Position, ExterminateRange, new SearchCheckAliveTargetGroup(targetGroupId, Guid)).Any())
+                    Map.PublicEventManager.UpdateObjective(PublicEventObjectiveType.Exterminate, targetGroupId, 1);
+            }
 
             // kills by combat pets are credited to their owner
             if (killer is ICombatPetEntity pet)

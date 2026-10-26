@@ -4,6 +4,7 @@ using System.Text;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Quest;
 using NexusForever.Game.Static.Prerequisite;
+using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
@@ -110,6 +111,18 @@ namespace NexusForever.QuestAudit
             var pathRewards   = new GameTable<PathRewardEntry>(Path.Combine(tbl, "PathReward.tbl"));
             var spellEffects  = new GameTable<Spell4EffectsEntry>(Path.Combine(tbl, "Spell4Effects.tbl"));
             text = new TextTable(Path.Combine(tbl, "en-US.bin"));
+            publicEventObjectives = new GameTable<PublicEventObjectiveEntry>(Path.Combine(tbl, "PublicEventObjective.tbl")).Entries
+                .ToLookup(o => o.PublicEventId);
+            // [ScriptFilterOwnerId] of the public event scripts in the source next to the tool
+            string source = AppContext.BaseDirectory;
+            while (source != null && !File.Exists(Path.Combine(source, "NexusForever.slnx")))
+                source = Path.GetDirectoryName(source);
+            scriptedPublicEvents = source == null ? [] : Directory.EnumerateFiles(source, "*.cs", SearchOption.AllDirectories)
+                .Where(f => f.Contains("NexusForever.Script.") && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
+                .Select(File.ReadAllText)
+                .Where(c => c.Contains("IPublicEventScript"))
+                .SelectMany(c => Regex.Matches(c, @"\[ScriptFilterOwnerId\(([\d, ]+)\)\]").SelectMany(m => m.Groups[1].Value.Split(',').Select(v => uint.Parse(v.Trim()))))
+                .ToHashSet();
             contentNames = new GameTable<MatchingGameMapEntry>(Path.Combine(tbl, "MatchingGameMap.tbl")).Entries
                 .Select(m => NormaliseContent(text.GetEntry(m.LocalizedTextIdName) ?? ""))
                 .Where(n => n.Length > 0)
@@ -242,6 +255,9 @@ namespace NexusForever.QuestAudit
                     // work orders progress on crafts of the profession tier their quest's prerequisite asks for (QuestInfo.GetWorkOrderTradeskillTierId)
                     if ((QuestObjectiveType)objective.Type == QuestObjectiveType.Unknown31)
                         level = FindTradeskillTier(quest.PrerequisiteId, 0) != 0u ? QuestSupportLevel.Supported : QuestSupportLevel.Unsupported;
+                    // events without a script run when every main objective is one the server updates by itself
+                    if ((QuestObjectiveType)objective.Type == QuestObjectiveType.CompleteEvent)
+                        level = PublicEventRuns(objective.Data) ? QuestSupportLevel.Supported : QuestSupportLevel.Partial;
                     bool hidden = (objective.Flags & 0x08) != 0u;
                     bool optional = (objective.Flags & 0x20) != 0u;
 
@@ -448,6 +464,34 @@ namespace NexusForever.QuestAudit
         {
             return QuestObjectiveSupport.CommunicatorTriggers.TryGetValue(trigger, out QuestSupportLevel level)
                 && level != QuestSupportLevel.Unsupported;
+        }
+
+        private static ILookup<uint, PublicEventObjectiveEntry> publicEventObjectives;
+        private static HashSet<uint> scriptedPublicEvents;
+
+        /// <summary>
+        /// Public event objective types the server updates without a script (kills, activations and talks of a target group, timers).
+        /// </summary>
+        private static readonly HashSet<PublicEventObjectiveType> genericPublicEventObjectives =
+        [
+            PublicEventObjectiveType.KillTargetGroup, PublicEventObjectiveType.KillClusterTargetGroup, PublicEventObjectiveType.KillEventObjectiveUnit,
+            PublicEventObjectiveType.Exterminate, PublicEventObjectiveType.ActivateTargetGroup, PublicEventObjectiveType.ActivateTargetGroupChecklist,
+            PublicEventObjectiveType.TalkTo, PublicEventObjectiveType.TalkToChecklist, PublicEventObjectiveType.TimedWin
+        ];
+
+        /// <summary>
+        /// Returns if the public event has a script or only main objectives of <see cref="genericPublicEventObjectives"/> with a target.
+        /// </summary>
+        private static bool PublicEventRuns(uint publicEventId)
+        {
+            if (scriptedPublicEvents.Contains(publicEventId))
+                return true;
+
+            var main = publicEventObjectives[publicEventId]
+                .Where(o => o.PublicEventObjectiveCategoryEnum == PublicEventObjectiveCategory.Main)
+                .ToList();
+            return main.Count > 0 && main.All(o => genericPublicEventObjectives.Contains(o.PublicEventObjectiveTypeEnum)
+                && (o.ObjectId != 0u || o.PublicEventObjectiveTypeEnum == PublicEventObjectiveType.TimedWin));
         }
 
         private static uint FindTradeskillTier(uint prerequisiteId, int depth)
