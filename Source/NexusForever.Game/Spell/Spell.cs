@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Microsoft.Extensions.DependencyInjection;
+using System.Numerics;
 using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
@@ -607,6 +608,11 @@ namespace NexusForever.Game.Spell
             foreach (ISpellTargetImplicit implicitTarget in implicitTargets)
                 if (implicitTarget.Result == null)
                     executionContext.TargetCollection.AddTarget(SpellEffectTargetFlags.ImplicitTarget, implicitTarget.Entity);
+
+            // diagnostics for player attacks that go off without hitting anything
+            if (Caster is IPlayer && telegraphs.Count > 0 && implicitTargets.All(t => t.Result != null))
+                log.LogWarning($"Spell {Parameters.SpellInfo.Entry.Id} from player {Caster.Guid} at {Caster.Position} facing {Caster.Rotation.X} hit nothing, candidates: "
+                    + string.Join(", ", implicitTargets.Take(6).Select(t => $"{t.Entity.Guid} ({t.Entity.CreatureId}) {t.Result} at {t.Entity.Position} distance {Vector3.Distance(Caster.Position, t.Entity.Position):0.0}")));
         }
 
         private void ExecuteEffects(ISpellExecutionContext executionContext)
