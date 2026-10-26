@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using NexusForever.Game.Abstract.Quest;
+using NexusForever.Game.Static.Prerequisite;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -56,6 +57,42 @@ namespace NexusForever.Game.Quest
                 builder.Add(rewardEntry.Id, rewardEntry);
 
             Rewards = builder.ToImmutable();
+        }
+
+        private uint? workOrderTradeskillTierId;
+
+        /// <summary>
+        /// Return the TradeskillTier a work order (objective type 31) asks to craft for, from the quest's TradeSkillProfession prerequisite.
+        /// </summary>
+        /// <remarks>
+        /// The objective data points at a table missing from this client build (one row per work order), the quest's tradeskill tier is the
+        /// closest data: crafting any schematic of that tradeskill and tier fills the order (inferred).
+        /// </remarks>
+        public uint GetWorkOrderTradeskillTierId()
+        {
+            workOrderTradeskillTierId ??= FindTradeskillTier(Entry.PrerequisiteId, 0);
+            return workOrderTradeskillTierId.Value;
+        }
+
+        private static uint FindTradeskillTier(uint prerequisiteId, int depth)
+        {
+            PrerequisiteEntry prerequisite = GameTableManager.Instance.Prerequisite.GetEntry(prerequisiteId);
+            if (prerequisite == null || depth > 4)
+                return 0u;
+
+            for (int i = 0; i < prerequisite.PrerequisiteTypeId.Length; i++)
+            {
+                if (prerequisite.PrerequisiteTypeId[i] == PrerequisiteType.TradeSkillProfession)
+                    return prerequisite.ObjectId[i];
+                if (prerequisite.PrerequisiteTypeId[i] == PrerequisiteType.OtherPrerequisite)
+                {
+                    uint tier = FindTradeskillTier(prerequisite.ObjectId[i], depth + 1);
+                    if (tier != 0u)
+                        return tier;
+                }
+            }
+
+            return 0u;
         }
 
         public bool IsAutoComplete()

@@ -795,6 +795,21 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Fill work order objectives (type 31) of active quests asking for crafts of the supplied tradeskill tier.
+        /// </summary>
+        public void OnCraft(uint tradeskillTierId, uint count)
+        {
+            foreach (IQuest quest in activeQuests.Values.ToList())
+            {
+                if (quest.State != QuestState.Accepted || quest.Info.GetWorkOrderTradeskillTierId() != tradeskillTierId)
+                    continue;
+
+                foreach (IQuestObjective objective in quest.Where(o => o.ObjectiveInfo.Type == QuestObjectiveType.Unknown31 && !o.IsComplete()).ToList())
+                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, count);
+            }
+        }
+
+        /// <summary>
         /// Update any active quest <see cref="IQuestObjective"/>'s with supplied ID with progress.
         /// </summary>
         public void ObjectiveUpdate(uint id, uint progress)

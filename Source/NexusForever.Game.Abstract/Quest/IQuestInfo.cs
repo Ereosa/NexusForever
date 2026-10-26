@@ -15,6 +15,11 @@ namespace NexusForever.Game.Abstract.Quest
         bool IsQuestMentioned { get; }
 
         bool IsAutoComplete();
+
+        /// <summary>
+        /// Return the TradeskillTier a work order (objective type 31) asks to craft for, from the quest's TradeSkillProfession prerequisite.
+        /// </summary>
+        uint GetWorkOrderTradeskillTierId();
         bool IsCommunicatorReceived();
         bool CanBeCalledBack();
         bool CannotAbandon();

@@ -48,6 +48,7 @@ namespace NexusForever.Game.Quest
                 [QuestObjectiveType.SpellSuccess4]                = (QuestSupportLevel.Supported,   "Spell.UpdateQuestObjectives (per target)"),
                 [QuestObjectiveType.LearnTradeskill]              = (QuestSupportLevel.Supported,   "TradeskillManager.LearnTradeskill"),
                 [QuestObjectiveType.ObtainSchematic]              = (QuestSupportLevel.Supported,   "TradeskillManager schematic learn"),
+                [QuestObjectiveType.Unknown31]                    = (QuestSupportLevel.Partial,     "CraftingManager (work order: any craft of the quest's TradeSkillProfession tier, inferred)"),
                 [QuestObjectiveType.KillCreature2]                = (QuestSupportLevel.Supported,   "UnitEntity.RewardKiller (creature difficulty or higher)"),
                 [QuestObjectiveType.Unknown15]                    = (QuestSupportLevel.Supported,   "UnitEntity.RewardKiller (target groups)"),
                 [QuestObjectiveType.SpellSuccess3]                = (QuestSupportLevel.Supported,   "Spell.UpdateQuestObjectives (killing blow, or each target of a spell without damage)"),

@@ -142,6 +142,11 @@ namespace NexusForever.Game.Abstract.Entity
         void ObjectiveUpdate(uint id, uint progress);
 
         /// <summary>
+        /// Fill work order objectives (type 31) of active quests asking for crafts of the supplied tradeskill tier.
+        /// </summary>
+        void OnCraft(uint tradeskillTierId, uint count);
+
+        /// <summary>
         /// Mention quests from communicator messages whose conditions the owner now meets (zone, level, world, quest states).
         /// </summary>
         void CheckCommunicatorMessages();
