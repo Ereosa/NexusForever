@@ -1060,6 +1060,55 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Distance from a step's marker within which a spell named by the step has to land.
+        /// </summary>
+        private const float SpellAtMarkerDistance = 20f;
+
+        /// <summary>
+        /// Invoked when the owner casts a spell, updates objectives without a target whose text names the spell
+        /// ("Use Prototype Veggie Cannon 2.0 on the Target") once it lands at their marker, if they have one.
+        /// </summary>
+        /// <remarks>
+        /// Retail spells told server scripts of such steps through ravel signals, the client data only links them by name.
+        /// </remarks>
+        public void OnSpellCastNamed(uint spellNameTextId, IReadOnlyList<Vector3> targetPositions)
+        {
+            if (spellNameTextId == 0u || player.Map == null)
+                return;
+
+            string name = GameTableManager.Instance.GetTextTable(Language.English)?.GetEntry(spellNameTextId);
+            if (string.IsNullOrWhiteSpace(name) || name.Length < 6)
+                return;
+
+            TextTable textTable = GameTableManager.Instance.GetTextTable(Language.English);
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete()).ToList())
+                {
+                    QuestObjectiveEntry entry = objective.ObjectiveInfo.Entry;
+                    if (entry.Data != 0u || objective.ObjectiveInfo.Type is not (QuestObjectiveType.ActivateEntity or QuestObjectiveType.SucceedCSI))
+                        continue;
+
+                    string text = $"{textTable?.GetEntry(entry.LocalizedTextIdShort)} {textTable?.GetEntry(entry.LocalizedTextIdFull)}";
+                    if (!Regex.IsMatch(text, $@"\b{Regex.Escape(name)}(?![\w.])", RegexOptions.IgnoreCase))
+                        continue;
+
+                    // the step before it first (one target after the other)
+                    if (quest.Any(o => o.Index < objective.Index && !o.ObjectiveInfo.IsOptional() && !o.IsComplete()))
+                        continue;
+
+                    var markers = objective.ObjectiveInfo.GetAreaLocations().Where(l => l.WorldId == player.Map.Entry.Id).ToList();
+                    if (markers.Count > 0 && !markers.Any(l => targetPositions.Append(player.Position).Any(p =>
+                        Vector3.Distance(p, new Vector3(l.Position0, l.Position1, l.Position2)) <= Math.Max(SpellAtMarkerDistance, l.Radius))))
+                        continue;
+
+                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
         /// Invoked when the owner gains reputation, updates "Gain 1000 Algoroc Accord Reputation" objectives by the amount.
         /// </summary>
         public void OnReputationGain(uint factionId, float amount)

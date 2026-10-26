@@ -513,6 +513,17 @@ namespace NexusForever.Game.Spell
             uint spell4Id = Parameters.SpellInfo.Entry.Id;
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess, spell4Id, 1u);
 
+            // objectives without a target that name the spell ("Use Prototype Veggie Cannon 2.0 on the Target", "Shoot the Veggie Launcher at targets")
+            var targetPositions = executionContext.TargetCollection
+                .GetTargets(SpellEffectTargetFlags.ExplicitTarget | SpellEffectTargetFlags.ImplicitTarget)
+                .Select(t => t.Entity)
+                .Where(e => e != null && e != Caster)
+                .Select(e => e.Position)
+                .ToList();
+            if (Parameters.TargetPosition != null)
+                targetPositions.Add(Parameters.TargetPosition.Vector);
+            player.QuestManager.OnSpellCastNamed(Parameters.SpellInfo.BaseInfo?.Entry?.LocalizedTextIdName ?? 0u, targetPositions);
+
             bool dealsDamage = Parameters.SpellInfo.Effects.Any(e => e.EffectType == SpellEffectType.Damage);
 
             foreach (IUnitEntity target in executionContext.TargetCollection
