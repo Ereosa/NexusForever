@@ -139,6 +139,13 @@ namespace NexusForever.Script.Instance.Dungeon.KelVoreth
         public override void OnEntityDeath(IUnitEntity entity)
         {
             uint creatureId = entity.CreatureId;
+            if (bombshells.Count > 0 && creatureId == GetCreature(BombshellConstruct) && bombshells.All(b => b == entity || !b.IsAlive))
+            {
+                bombshells.Clear();
+                if (mapInstance.GetEntity<IUnitEntity>(drokkGuid) is IUnitEntity drokk)
+                    drokk.InvokeScriptCollection<Script.KelVorethDrokkAI>(s => s.OnBombshellsDestroyed());
+            }
+
             if ((Phase)publicEvent.Phase == Phase.BloodPit && BloodPitChampions.Contains(creatureId))
                 Update(Objective.BloodPit);
 
@@ -158,31 +165,105 @@ namespace NexusForever.Script.Instance.Dungeon.KelVoreth
                     player.AchievementManager.GrantAchievement(achievementId);
         }
 
-        /// <summary>
-        /// Grond the Corpsemaker raises the dead of the Blood Pit (guessed: skeletons and a necromancer).
-        /// </summary>
-        public void OnGrondAdds(IWorldEntity grond)
-        {
-            SpawnAround(grond, [BloodPitSkeleton, BloodPitSkeleton, VorethNecromancer], 12f);
-        }
+        private const uint BloodsuckerFlea    = 33837;
+        private const uint BombshellConstruct = 35538;
+        private const uint DestructoConstruct = 35424;
+        private const uint ExaniteShard       = 51370;
+        private const uint TrackingBeacon     = 63237;
+        private readonly List<IUnitEntity> bombshells = [];
+        private uint drokkGuid;
 
         /// <summary>
-        /// Slavemaster Drokk calls his enslaved constructs (guessed).
+        /// "Grond has a nasty itch!": four Bloodsucker Fleas go after random players other than his target; they burst after 20 seconds
+        /// (retail: kited into the traps; the timing is a guess).
         /// </summary>
-        public void OnDrokkAdds(IWorldEntity drokk)
+        public void OnGrondItch(IUnitEntity grond)
         {
-            SpawnAround(drokk, [EnslavedProbe, EnslavedProbe, EnslavedProtector], 12f);
-        }
+            List<IPlayer> targets = Players.Where(p => p.IsAlive && p.Guid != grond.TargetGuid).ToList();
+            if (targets.Count == 0)
+                targets = Players.Where(p => p.IsAlive).ToList();
+            if (targets.Count == 0)
+                return;
 
-        /// <summary>
-        /// Forgemaster Trogun's forge sends out Spheres of Primal Fire that roll towards him (guessed: three at a time).
-        /// </summary>
-        public void OnTrogunSpheres(IWorldEntity trogun)
-        {
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
-                float angle = MathF.Tau / 3f * i + Random.Shared.NextSingle();
-                Vector3 start = trogun.Position + new Vector3(MathF.Cos(angle) * 20f, 0f, MathF.Sin(angle) * 20f);
+                IPlayer target = targets[Random.Shared.Next(targets.Count)];
+                float angle = MathF.Tau / 4f * i;
+                Vector3 position = grond.Position + new Vector3(MathF.Cos(angle) * 4f, 0f, MathF.Sin(angle) * 4f);
+                SpawnCreature(BloodsuckerFlea, position, angle, (map, guid, vector) =>
+                {
+                    if (mapInstance.GetEntity<IUnitEntity>(guid) is not IUnitEntity flea)
+                        return;
+                    flea.ThreatManager.UpdateThreat(target, 1000);
+                    Delay(20d, () => flea.RemoveFromMap());
+                });
+            }
+        }
+
+        /// <summary>
+        /// Slavemaster Drokk vanishes at 83%: Bombshell Constructs rush out, he returns once they are destroyed.
+        /// </summary>
+        public void OnDrokkBombshells(IUnitEntity drokk)
+        {
+            drokkGuid = drokk.Guid;
+            bombshells.Clear();
+            for (int i = 0; i < 4; i++)
+            {
+                float angle = MathF.Tau / 4f * i;
+                Vector3 position = drokk.Position + new Vector3(MathF.Cos(angle) * 6f, 0f, MathF.Sin(angle) * 6f);
+                SpawnCreature(BombshellConstruct, position, angle, (map, guid, vector) =>
+                {
+                    if (mapInstance.GetEntity<IUnitEntity>(guid) is IUnitEntity bombshell)
+                        bombshells.Add(bombshell);
+                    AggroNearestPlayer(map, guid, vector);
+                });
+            }
+        }
+
+        /// <summary>
+        /// The chase: three times a player gets the Tracking Beacon and Destructo Constructs (with a Bombshell in the last chase) go
+        /// after them, 15 seconds apart.
+        /// </summary>
+        public void OnDrokkChase(IUnitEntity drokk, bool withBombshells)
+        {
+            for (int beacon = 0; beacon < 3; beacon++)
+            {
+                Delay(beacon * 15d, () =>
+                {
+                    if (!drokk.IsAlive)
+                        return;
+                    List<IPlayer> targets = Players.Where(p => p.IsAlive).ToList();
+                    if (targets.Count == 0)
+                        return;
+
+                    IPlayer target = targets[Random.Shared.Next(targets.Count)];
+                    CastOn(drokk, TrackingBeacon, target);
+                    uint[] constructs = withBombshells
+                        ? [DestructoConstruct, DestructoConstruct, BombshellConstruct]
+                        : [DestructoConstruct, DestructoConstruct, DestructoConstruct];
+                    for (int i = 0; i < constructs.Length; i++)
+                    {
+                        Vector3 position = drokk.Position + new Vector3((i - 1) * 3f, 0f, 3f);
+                        SpawnCreature(constructs[i], position, 0f, (map, guid, vector) =>
+                        {
+                            if (mapInstance.GetEntity<IUnitEntity>(guid) is IUnitEntity construct)
+                                construct.ThreatManager.UpdateThreat(target, 1000);
+                        });
+                    }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Forgemaster's Call: Spheres of Primal Fire roll towards Trogun from around the room (three, five with the buzzsaws).
+        /// </summary>
+        public void OnTrogunSpheres(IWorldEntity trogun, bool buzzsaws)
+        {
+            int count = buzzsaws ? 5 : 3;
+            for (int i = 0; i < count; i++)
+            {
+                float angle = MathF.Tau / count * i + Random.Shared.NextSingle();
+                Vector3 start = trogun.Position + new Vector3(MathF.Cos(angle) * 22f, 0f, MathF.Sin(angle) * 22f);
                 Vector3 target = trogun.Position;
                 SpawnCreature(SphereOfPrimalFire, start, angle + MathF.PI, (map, guid, vector) =>
                 {
@@ -190,6 +271,35 @@ namespace NexusForever.Script.Instance.Dungeon.KelVoreth
                         Walk(unit, [target], 3f);
                 });
             }
+
+            if (buzzsaws)
+                OnTrogunBuzzsaws(trogun);
+        }
+
+        /// <summary>
+        /// Buzzsaws (Exanite Shards) roll from Trogun's forge across the room.
+        /// </summary>
+        public void OnTrogunBuzzsaws(IWorldEntity trogun)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                Vector3 start = trogun.Position + new Vector3((i - 1.5f) * 8f, 0f, 0f);
+                Vector3 end = start + new Vector3(0f, 0f, -40f);
+                Delay(i * 2d, () => SpawnCreature(ExaniteShard, start, 0f, (map, guid, vector) =>
+                {
+                    if (mapInstance.GetEntity<IUnitEntity>(guid) is not IUnitEntity saw)
+                        return;
+                    Walk(saw, [end], 10f);
+                    Delay(6d, () => saw.RemoveFromMap());
+                }));
+            }
+        }
+
+        private void CastOn(IUnitEntity caster, uint spellId, IUnitEntity target)
+        {
+            ISpellParameters parameters = spellParametersFactory.Resolve();
+            parameters.PrimaryTargetId = target.Guid;
+            caster.CastSpell(spellId, parameters);
         }
 
         private void SpawnAround(IWorldEntity source, uint[] creatures, float radius)
