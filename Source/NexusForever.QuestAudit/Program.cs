@@ -38,7 +38,7 @@ namespace NexusForever.QuestAudit
         private static readonly List<string> noTargetTexts = [];
 
         // target-less activate objectives the server handles by their short text (QuestObjectiveInfo: area verbs, Listen to, Follow, Use/Open/Select)
-        private static readonly string[] areaVerbs = ["Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow"];
+        private static readonly string[] areaVerbs = ["Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow", "Attend", "Discover", "Learn the fate", "Learn more about the", "See all"];
 
         private static bool TextHandled(QuestObjectiveEntry objective, out string how)
         {

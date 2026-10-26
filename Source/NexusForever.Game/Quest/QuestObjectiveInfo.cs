@@ -57,7 +57,7 @@ namespace NexusForever.Game.Quest
         /// </summary>
         private static readonly string[] areaVerbs =
         [
-            "Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow"
+            "Go to", "Travel to", "Head to", "Head toward", "Return to", "Investigate", "Locate", "Find", "Enter", "Explore", "Search", "Reach", "Visit", "Escape", "Follow", "Attend", "Discover", "Learn the fate", "Learn more about the", "See all"
         ];
 
         private bool? isAreaObjective;
