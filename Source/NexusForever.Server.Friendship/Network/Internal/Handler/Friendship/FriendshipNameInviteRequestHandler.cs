@@ -81,7 +81,7 @@ namespace NexusForever.Server.Friendship.Network.Internal.Handler.Friendship
             if (result != null)
                 return result.Value;
 
-            if (await inviter.GetFriendInvitePendingAsync(invitee.Identity) != null)
+            if (message.Type == FriendshipType.Friend && await inviter.GetFriendInvitePendingAsync(invitee.Identity) != null)
                 return FriendshipResult.PlayerQueuedRequests;
 
             return await _friendRequestHandler.HandleRequestAsync(inviter, invitee, message.Type, message.Note);

@@ -15,6 +15,7 @@ namespace NexusForever.WorldServer.Network.Internal.Handler
             sc.AddRebusHandler<ChatChannelActionHandler>();
             sc.AddRebusHandler<ChatChannelJoinResultHandler>();
             sc.AddRebusHandler<ChatChannelMemberAddedHandler>();
+            sc.AddRebusHandler<ChatChannelMemberLeftHandler>();
             sc.AddRebusHandler<ChatChannelMembersHandler>();
             sc.AddRebusHandler<ChatChannelResultHandler>();
             sc.AddRebusHandler<ChatChannelTextAcceptedHandler>();

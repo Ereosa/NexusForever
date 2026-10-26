@@ -33,14 +33,16 @@ namespace NexusForever.Server.ChatServer.Network.Internal.Handler.Guild
             if (mainChannelType != null && (message.Permissions & GuildRankPermission.MemberChat) != 0)
             {
                 ChatChannel mainChannel = await _chatChannelManager.GetChatChannelAsync(mainChannelType.Value, ChatChannelReferenceType.Guild, message.GuildId);
-                mainChannel?.AddMemberAsync(message.Member.ToChatIdentity());
+                if (mainChannel != null)
+                    await mainChannel.AddMemberAsync(message.Member.ToChatIdentity());
             }
 
             ChatChannelType? officerChannelType = _dataManager.GetOfficerChannelType(message.Type);
             if (officerChannelType != null && (message.Permissions & GuildRankPermission.OfficerChat) != 0)
             {
                 ChatChannel officerChannel = await _chatChannelManager.GetChatChannelAsync(officerChannelType.Value, ChatChannelReferenceType.Guild, message.GuildId);
-                officerChannel?.AddMemberAsync(message.Member.ToChatIdentity());
+                if (officerChannel != null)
+                    await officerChannel.AddMemberAsync(message.Member.ToChatIdentity());
             }
 
             await _chatContext.SaveChangesAsync();
