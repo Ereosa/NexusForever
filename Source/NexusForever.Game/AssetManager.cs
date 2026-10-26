@@ -266,10 +266,15 @@ namespace NexusForever.Game
                     continue;
 
                 TargetGroupEntry targetGroup = GameTableManager.Instance.TargetGroup.GetEntry(objective.TargetGroupIdRewardPane);
-                if (targetGroup == null || (TargetGroupType)targetGroup.Type != TargetGroupType.CreatureIdGroup)
+                if (targetGroup == null)
                     continue;
 
-                foreach (uint creatureId in targetGroup.DataEntries.Where(d => d != 0u))
+                // the pane can list other target groups (eg: A Plagued Forest, Barkblight Feeders and Biters)
+                var creatureIds = new List<uint>();
+                var unhandled = new List<TargetGroupType>();
+                AddToTargets(targetGroup, ref creatureIds, ref unhandled);
+
+                foreach (uint creatureId in creatureIds.Distinct())
                 {
                     if (!entries.ContainsKey(creatureId))
                         entries.Add(creatureId, new HashSet<uint>());
