@@ -99,6 +99,9 @@ namespace NexusForever.Game.PublicEvent
                 }
             }
 
+            // event scripts that track positions or timers (eg: Fragment Zero) run every tick
+            scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
+
             if (IsBusy)
                 return;
 
