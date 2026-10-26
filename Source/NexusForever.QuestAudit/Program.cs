@@ -239,6 +239,9 @@ namespace NexusForever.QuestAudit
                     stat.Quests.Add(quest.Id);
 
                     QuestSupportLevel level = QuestObjectiveSupport.GetLevel((QuestObjectiveType)objective.Type);
+                    // work orders progress on crafts of the profession tier their quest's prerequisite asks for (QuestInfo.GetWorkOrderTradeskillTierId)
+                    if ((QuestObjectiveType)objective.Type == QuestObjectiveType.Unknown31)
+                        level = FindTradeskillTier(quest.PrerequisiteId, 0) != 0u ? QuestSupportLevel.Supported : QuestSupportLevel.Unsupported;
                     bool hidden = (objective.Flags & 0x08) != 0u;
                     bool optional = (objective.Flags & 0x20) != 0u;
 
@@ -445,6 +448,27 @@ namespace NexusForever.QuestAudit
         {
             return QuestObjectiveSupport.CommunicatorTriggers.TryGetValue(trigger, out QuestSupportLevel level)
                 && level != QuestSupportLevel.Unsupported;
+        }
+
+        private static uint FindTradeskillTier(uint prerequisiteId, int depth)
+        {
+            PrerequisiteEntry prerequisite = prerequisites.GetEntry(prerequisiteId);
+            if (prerequisite == null || depth > 4)
+                return 0u;
+
+            for (int i = 0; i < prerequisite.PrerequisiteTypeId.Length; i++)
+            {
+                if (prerequisite.PrerequisiteTypeId[i] == PrerequisiteType.TradeSkillProfession)
+                    return prerequisite.ObjectId[i];
+                if (prerequisite.PrerequisiteTypeId[i] == PrerequisiteType.OtherPrerequisite)
+                {
+                    uint tier = FindTradeskillTier(prerequisite.ObjectId[i], depth + 1);
+                    if (tier != 0u)
+                        return tier;
+                }
+            }
+
+            return 0u;
         }
 
         private static void CollectPrerequisites(uint prerequisiteId, HashSet<PrerequisiteType> types, HashSet<uint> visited)

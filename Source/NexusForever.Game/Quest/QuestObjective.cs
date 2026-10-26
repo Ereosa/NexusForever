@@ -169,7 +169,15 @@ namespace NexusForever.Game.Quest
 
         private uint GetMaxValue()
         {
-            return IsDynamic() ? 1000u : ObjectiveInfo.Entry.Count;
+            if (IsDynamic())
+                return 1000u;
+
+            // older work orders (eg: Titanium on My Mind) have no count, they need a craft like the newer ones with a count of 1,
+            // otherwise the objective is complete from the start and nothing ever achieves the quest
+            if (ObjectiveInfo.Type == QuestObjectiveType.Unknown31 && ObjectiveInfo.Entry.Count == 0u)
+                return 1u;
+
+            return ObjectiveInfo.Entry.Count;
         }
 
         /// <summary>
