@@ -297,6 +297,10 @@ namespace NexusForever.Game.Entity
             if (summon.IsBot)
                 CastBotDeathAmp(pet);
 
+            // the bot can't be summoned again straight away
+            if (summon.Data.DeathCooldown > TimeSpan.Zero)
+                owner.SpellManager.SetSpellCooldown(summon.Spell.Parameters.SpellInfo, summon.Data.DeathCooldown.TotalSeconds, true);
+
             Dismiss(summon);
         }
 
