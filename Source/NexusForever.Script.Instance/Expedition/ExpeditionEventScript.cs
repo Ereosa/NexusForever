@@ -106,8 +106,16 @@ namespace NexusForever.Script.Instance.Expedition
             publicEvent.SetPhase(InitialPhase);
         }
 
+        /// <summary>
+        /// Creatures left out of this run (e.g. the hallucinations a run of Space Madness didn't pick), normal ids.
+        /// </summary>
+        protected virtual bool IsExcluded(uint creatureId) => false;
+
         protected uint GetCreature(uint creatureId)
         {
+            if (IsExcluded(creatureId))
+                return 0u;
+
             if (IsVeteran)
                 return VeteranCreatures.TryGetValue(creatureId, out uint veteranId) ? veteranId : creatureId;
 
