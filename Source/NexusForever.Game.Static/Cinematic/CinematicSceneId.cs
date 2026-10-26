@@ -47,6 +47,8 @@ namespace NexusForever.Game.Static.Cinematic
         // Ellevar
         EllevarHighShamanRitual         = 66,
         EllevarArrival                  = 142,
+        EllevarIkthianAvengerDestroyed  = 67,
+        EllevarCallidorsAugmentation    = 65,
 
         // Celestion
         CelestionForestFightsBack       = 68,

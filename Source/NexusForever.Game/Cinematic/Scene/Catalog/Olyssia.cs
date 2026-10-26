@@ -187,6 +187,33 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithCamera(69831)
                 .WithActors(69832);
 
+            // GC067: Toric Antevian turns the Eldan weapon on the Ikthian Avenger over Lake Sterling. Camera spline 20128 is the exported
+            // full length camera of the scene (20123-20125 are its first three shots), its first node is the origin. The actors play
+            // Cinematic_Misc_20 (3333-20400). Played when Agent Cognosa sends the player to the crash site (guessed), subtitle timings guessed.
+            Add(CinematicSceneId.EllevarIkthianAvengerDestroyed)
+                .WithDuration(17067)
+                .AtOrigin(-1395.030f, -753.500f, -3601.210f)
+                .WithSequenceVisual(SequenceVisualMisc20)
+                .SplineShot(0, 20128)
+                .WithActors(51423, 51424, 51425)
+                .WithPlayerVisual(28868)
+                .WithPlayerVisual(30520, 500)
+                .WithTextsSpread(500, 16500, (578511, 46), (578512, 25), (578513, 54), (578514, 28), (578515, 33), (578516, 49), (578517, 20));
+
+            // GC065: Calidor goes through the recombination process and escapes as an augmented shell. No camera actor or spline exists,
+            // the Calidor model holds the cameras (Cinematic_01-10) and plays its scene as ten sequences (Cinematic_Misc_01-10), chained here.
+            // Origin guessed: WorldLocation2 29366 in the Recombination Chamber, the only cinematic style location there. Trigger guessed.
+            Add(CinematicSceneId.EllevarCallidorsAugmentation)
+                .WithDuration(59966)
+                .AtOrigin(-2911.7f, -1090.8f, -2565.3f)
+                .WithActor(CallidorActor(43370))
+                .WithActor(CallidorActor(50782))
+                .WithActor(CallidorActor(69756))
+                .WithCamera(43370)
+                .CutTo(4366, 8).CutTo(10300, 9).CutTo(17000, 10).CutTo(24033, 11).CutTo(28033, 12).CutTo(30366, 13).CutTo(41500, 14)
+                .CutTo(49533, 15).CutTo(52866, 16)
+                .WithPlayerVisual(47139);
+
             // GC066: the Stormseeker ritual in the Vein of the Flow ends with the High Priest dead, camera spline 14859
             Add(CinematicSceneId.EllevarHighShamanRitual)
                 .WithDuration(16333)
@@ -196,6 +223,23 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithActors(48586)
                 .WithPlayerVisual(30674)
                 .WithPlayerVisual(30557, 1000);
+        }
+
+        /// <summary>
+        /// Calidor's augmentation actor, the scene is ten consecutive sequences (Cinematic_Misc_01-10) on the Calidor model timeline.
+        /// </summary>
+        private static SceneActor CallidorActor(uint creatureId)
+        {
+            return new SceneActor(creatureId)
+            {
+                Visuals =
+                [
+                    new SceneVisual(11096, 0, 0), new SceneVisual(11097, 4366, 0), new SceneVisual(11098, 10300, 0),
+                    new SceneVisual(15318, 17000, 0), new SceneVisual(15319, 24033, 0), new SceneVisual(15320, 28033, 0),
+                    new SceneVisual(15321, 30366, 0), new SceneVisual(15322, 41500, 0), new SceneVisual(18572, 49533, 0),
+                    new SceneVisual(18190, 52866, 0)
+                ]
+            };
         }
     }
 }
