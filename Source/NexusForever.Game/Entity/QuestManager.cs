@@ -1113,8 +1113,25 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void OnReputationGain(uint factionId, float amount)
         {
-            if (amount >= 1f)
-                ObjectiveUpdateText(QuestTextTrigger.Reputation, i => i == factionId, null, (uint)amount);
+            if (amount < 1f || player.Map == null || player.IsLoading)
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.Where(q => q.State == QuestState.Accepted).ToList())
+            {
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete()).ToList())
+                {
+                    (QuestTextTrigger Kind, uint Id, string Name) trigger = objective.ObjectiveInfo.GetTextTrigger();
+                    if (trigger.Kind != QuestTextTrigger.Reputation)
+                        continue;
+
+                    bool matches = trigger.Id != 0u
+                        ? trigger.Id == factionId
+                        : quest.Info.Entry.Faction2IdRewardReputation00 == factionId || quest.Info.Entry.Faction2IdRewardReputation01 == factionId
+                            || quest.Info.Rewards.Values.Any(r => r.Quest2RewardTypeId == (uint)QuestRewardType.Reputation && r.ObjectId == factionId);
+                    if (matches)
+                        quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, (uint)amount);
+                }
+            }
         }
 
         /// <summary>

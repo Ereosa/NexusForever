@@ -10,6 +10,7 @@ using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
+using NexusForever.Game.Static.Reputation;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
@@ -455,6 +456,9 @@ namespace NexusForever.Game.Quest
             if (money != 0u)
                 player.CurrencyManager.CurrencyAddAmount(CurrencyType.Credits, money);
 
+            foreach ((uint factionId, float amount) in Info.GetRewardReputation())
+                RewardReputation(factionId, amount);
+
             CompleteQuest();
         }
 
@@ -467,6 +471,9 @@ namespace NexusForever.Game.Quest
                     break;
                 case QuestRewardType.Money:
                     player.CurrencyManager.CurrencyAddAmount((CurrencyType)entry.ObjectId, entry.ObjectAmount);
+                    break;
+                case QuestRewardType.Reputation:
+                    RewardReputation(entry.ObjectId, entry.ObjectAmount);
                     break;
                 case QuestRewardType.AccountCurrency:
                     player.Account.CurrencyManager.CurrencyAddAmount((AccountCurrencyType)entry.ObjectId, entry.ObjectAmount);
@@ -503,6 +510,18 @@ namespace NexusForever.Game.Quest
             }
 
             log.LogTrace($"Recieved quest reward, type: {(QuestRewardType)entry.Quest2RewardTypeId}, objectId: {entry.ObjectId}, amount: {entry.ObjectAmount}.");
+        }
+
+        private void RewardReputation(uint factionId, float amount)
+        {
+            try
+            {
+                player.ReputationManager.UpdateReputation((Faction)factionId, amount);
+            }
+            catch (ArgumentException exception)
+            {
+                log.LogWarning($"Failed to reward reputation for quest {Id}: {exception.Message}");
+            }
         }
 
         /// <summary>
@@ -671,8 +690,9 @@ namespace NexusForever.Game.Quest
         }
 
         /// <remarks>
-        /// Hidden objectives without any data (no target, no text) were driven by retail server scripts that are unknown,
-        /// they complete once every visible required objective is complete so they don't block the quest forever.
+        /// Hidden objectives without a target were driven by retail server scripts that are unknown, they complete once every visible
+        /// required objective is complete so they don't block the quest forever. Some carry a developer note as text
+        /// ("Use the upward air currents to get airborne"), the player never sees them either way.
         /// </remarks>
         private void CompleteServerObjectives()
         {
@@ -692,7 +712,7 @@ namespace NexusForever.Game.Quest
         {
             return objective.ObjectiveInfo.IsHidden()
                 && objective.ObjectiveInfo.Entry.Data == 0u
-                && objective.ObjectiveInfo.Entry.LocalizedTextIdFull == 0u;
+                && objective.ObjectiveInfo.Entry.TargetGroupIdRewardPane == 0u;
         }
 
         private bool RequiredObjectivesComplete()
