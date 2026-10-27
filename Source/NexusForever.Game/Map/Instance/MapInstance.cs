@@ -59,9 +59,7 @@ namespace NexusForever.Game.Map.Instance
         /// <summary>
         /// Count of players in map instance.
         /// </summary>
-        public uint PlayerCount => (uint)playerEntities.Count;
-
-        private readonly HashSet<uint> playerEntities = [];
+        public uint PlayerCount => (uint)GetPlayers().Count();
 
         private uint instanceLimit;
 
@@ -321,12 +319,8 @@ namespace NexusForever.Game.Map.Instance
         /// </summary>
         public IEnumerable<IPlayer> GetPlayers()
         {
-            foreach (uint guid in playerEntities)
-            {
-                IPlayer player = GetEntity<IPlayer>(guid);
-                if (player != null)
-                    yield return player;
-            }
+            // the player manager is server wide and the instance's own player list was never filled, the players on this map
+            return PlayerManager.Where(p => p.Map == this && p.InWorld).ToList();
         }
 
         /// <summary>
