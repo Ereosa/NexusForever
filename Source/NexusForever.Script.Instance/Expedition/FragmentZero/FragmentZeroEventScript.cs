@@ -104,7 +104,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private uint hugoLockedGuid;
         private uint deviceGuid;
         private readonly Dictionary<PublicEventCreature, uint> forceFields = [];
-        private readonly Dictionary<PublicEventCreature, uint> doors = [];
+        private readonly Dictionary<PublicEventCreature, List<uint>> doors = [];
         private readonly List<uint> biomaticsBeams = [];
         private readonly List<uint> blackBoxes = [];
         private readonly List<IWorldEntity> ambushers = [];
@@ -211,7 +211,9 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                 case PublicEventCreature.GronyxDoorWing:
                 case PublicEventCreature.PellDoorSurface:
                 case PublicEventCreature.PellDoorWing:
-                    doors[(PublicEventCreature)worldEntity.CreatureId] = worldEntity.Guid;
+                    if (!doors.TryGetValue((PublicEventCreature)worldEntity.CreatureId, out List<uint> doorGuids))
+                        doors[(PublicEventCreature)worldEntity.CreatureId] = doorGuids = [];
+                    doorGuids.Add(worldEntity.Guid);
                     break;
                 case PublicEventCreature.SecurityBeam:
                     // the facility defense control panels only turn off the beams inside the Biomatics Chamber
@@ -313,16 +315,12 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
         private void OpenDoor(PublicEventCreature door)
         {
-            if (!doors.Remove(door, out uint guid) || mapInstance.GetEntity<IDoorEntity>(guid) is not IDoorEntity entity)
+            // each iris is two props of the airlock cave, one door entity drives each of them through its active prop
+            if (!doors.TryGetValue(door, out List<uint> guids))
                 return;
 
-            // the iris plays its opening, then goes away: the open state alone left the gate shut for players
-            entity.OpenDoor();
-            Delay(2d, () =>
-            {
-                if (entity.InWorld)
-                    entity.RemoveFromMap();
-            });
+            foreach (uint guid in guids)
+                mapInstance.GetEntity<IDoorEntity>(guid)?.OpenDoor();
         }
 
         /// <summary>
