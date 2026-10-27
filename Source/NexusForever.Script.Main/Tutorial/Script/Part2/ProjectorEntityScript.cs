@@ -39,8 +39,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
 
         private static readonly Dictionary<uint, Destination> dominionDestinations = new()
         {
-            // Cryo Projector -> Dominion Arkship, wake from cryosleep (WorldLocation2 51657, the Dominion counterpart of the Exile arrival)
-            { 73745, new(new Vector3(-3689.68f, -436.79f, -4356.0f), 5999) }
+            // Cryo Projector -> Dominion Arkship, in front of the cryo pod (WorldLocation2 52851, 9 m from the pod at 51657 like the Exile 51675 is from 51658)
+            { 73745, new(new Vector3(-3680.6614f, -437.85535f, -4355.892f), 5999) }
         };
 
         private IWorldEntity owner;
