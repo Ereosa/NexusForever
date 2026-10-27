@@ -263,7 +263,9 @@ namespace NexusForever.Game.PublicEvent
             // follows the items it holds rather than the objective data alone
             if (Entry.PublicEventObjectiveTypeEnum == PublicEventObjectiveType.VirtualCollect)
             {
-                status.Count    = Count;
+                // the client shows this as the fraction done (1 = 100%)
+                uint required   = DynamicMax > 0 ? DynamicMax : Entry.Count;
+                status.Count    = required > 0 ? Math.Min(1f, (float)Count / required) : 0f;
                 status.DataType = PublicEventObjectiveDataType.VirtualItemDepot;
                 status.VirtualItems.Add(new Network.World.Message.Model.Shared.PublicEventObjectiveStatus.VirtualItem
                 {
