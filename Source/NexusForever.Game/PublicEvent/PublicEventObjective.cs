@@ -263,6 +263,7 @@ namespace NexusForever.Game.PublicEvent
             // follows the items it holds rather than the objective data alone
             if (Entry.PublicEventObjectiveTypeEnum == PublicEventObjectiveType.VirtualCollect)
             {
+                status.Count    = Count;
                 status.DataType = PublicEventObjectiveDataType.VirtualItemDepot;
                 status.VirtualItems.Add(new Network.World.Message.Model.Shared.PublicEventObjectiveStatus.VirtualItem
                 {
