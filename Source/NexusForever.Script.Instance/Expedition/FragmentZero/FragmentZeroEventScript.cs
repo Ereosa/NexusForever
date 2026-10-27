@@ -313,8 +313,16 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
         private void OpenDoor(PublicEventCreature door)
         {
-            if (doors.TryGetValue(door, out uint guid))
-                mapInstance.GetEntity<IDoorEntity>(guid)?.OpenDoor();
+            if (!doors.Remove(door, out uint guid) || mapInstance.GetEntity<IDoorEntity>(guid) is not IDoorEntity entity)
+                return;
+
+            // the iris plays its opening, then goes away: the open state alone left the gate shut for players
+            entity.OpenDoor();
+            Delay(2d, () =>
+            {
+                if (entity.InWorld)
+                    entity.RemoveFromMap();
+            });
         }
 
         /// <summary>
