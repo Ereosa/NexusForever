@@ -114,7 +114,7 @@ namespace NexusForever.Script.Instance.Expedition
             foreach (Ability ability in abilities)
                 ability.Timer -= lastTick;
 
-            if (entity.IsCasting())
+            if (entity.IsCasting() || !CombatAI.CanAct(entity))
                 return;
 
             IUnitEntity target = entity.GetVisible<IUnitEntity>(entity.TargetGuid.Value);

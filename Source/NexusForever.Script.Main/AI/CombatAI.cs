@@ -4,6 +4,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement.Command;
 using NexusForever.Game.Abstract.Entity.Movement.Command.Position;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Game.Static.Reputation;
@@ -115,10 +116,54 @@ namespace NexusForever.Script.Main.AI
             if (CheckLeash())
                 return;
 
+            // crowd control: stunned, asleep, knocked down... creatures stop where they are and don't act, rooted ones don't move
+            if (!CanMove(entity))
+            {
+                if (!heldInPlace)
+                {
+                    heldInPlace = true;
+                    entity.MovementManager.Finalise();
+                }
+            }
+            else
+                heldInPlace = false;
+
+            if (!CanAct(entity))
+                return;
+
             if (entity.IsCasting())
                 return;
 
             UpdateAI(lastTick);
+        }
+
+        private bool heldInPlace;
+
+        private static readonly HashSet<CCState> movementPreventing =
+        [
+            CCState.Stun, CCState.Sleep, CCState.Root, CCState.Polymorph, CCState.Hold, CCState.Knockdown, CCState.Disable, CCState.Tether,
+            CCState.Subdue
+        ];
+
+        private static readonly HashSet<CCState> actionPreventing =
+        [
+            CCState.Stun, CCState.Sleep, CCState.Polymorph, CCState.Hold, CCState.Knockdown, CCState.Disable
+        ];
+
+        /// <summary>
+        /// Returns if no crowd control effect on the unit keeps it from moving (stun, sleep, root, hold, knockdown, tether...).
+        /// </summary>
+        public static bool CanMove(IUnitEntity unit)
+        {
+            return unit.CrowdControlManager?.GetCCStates().Any(movementPreventing.Contains) != true;
+        }
+
+        /// <summary>
+        /// Returns if no crowd control effect on the unit keeps it from attacking and casting (stun, sleep, hold, knockdown...).
+        /// </summary>
+        public static bool CanAct(IUnitEntity unit)
+        {
+            return unit.CrowdControlManager?.GetCCStates().Any(actionPreventing.Contains) != true;
         }
 
         protected virtual void UpdateAI(double lastTick)
@@ -193,7 +238,7 @@ namespace NexusForever.Script.Main.AI
 
         private void DoChase()
         {
-            if (stationary)
+            if (stationary || heldInPlace)
                 return;
 
             if (!entity.TargetGuid.HasValue)
