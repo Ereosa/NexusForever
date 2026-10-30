@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Cinematic;
+﻿using System.Numerics;
+using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Cinematic.Cinematics;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Map.Instance;
@@ -67,6 +68,7 @@ namespace NexusForever.Script.Main.Tutorial
             player.CastSpell(SpellId.HoloTechVfx, parameters);
 
             CompleteAchievedQuests(player);
+            LeaveCryoPod(player);
 
             QuestId questId = player.Faction2 == Faction.Exile
                 ? QuestId.NavigatingNexusExile
@@ -105,6 +107,17 @@ namespace NexusForever.Script.Main.Tutorial
                 : CinematicSceneId.NpeCombatDominion);
             if (cinematic != null)
                 player.CinematicManager.QueueCinematic(cinematic);
+        }
+
+        /// <summary>
+        /// Dominion characters used to wake from cryosleep inside their pod (WorldLocation2 51657) and couldn't move, put them in front of it (52851).
+        /// </summary>
+        private static void LeaveCryoPod(IPlayer player)
+        {
+            var pod   = new Vector3(-3689.684f, -436.79004f, -4356.004f);
+            var front = new Vector3(-3680.6614f, -437.85535f, -4355.892f);
+            if (Vector3.Distance(player.Position, pod) <= 3f)
+                player.TeleportToLocal(front);
         }
 
         /// <summary>
