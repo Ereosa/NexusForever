@@ -2081,7 +2081,7 @@ namespace NexusForever.Game.Entity
                 return;
 
             // the platform can also be a moving platform (elevators, lifts) rather than a vehicle
-            if (GetVisible<IGridEntity>(PlatformGuid.Value) is IVehicleEntity vehicle)
+            if ((GetVisible<IGridEntity>(PlatformGuid.Value) ?? Map?.GetEntity<IGridEntity>(PlatformGuid.Value)) is IVehicleEntity vehicle)
                 vehicle.PassengerRemove(this);
             else
                 SetPlatform(null);
