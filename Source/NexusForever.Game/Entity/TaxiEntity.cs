@@ -123,9 +123,11 @@ namespace NexusForever.Game.Entity
             while (legs.TryDequeue(out TaxiLeg leg))
             {
                 currentLeg = leg;
-                if (leg.SplineId != 0)
+                if (leg.SplineId != 0 && leg.Points.Count >= 2)
                 {
-                    MovementManager.LaunchSpline(leg.SplineId, SplineMode.OneShot, leg.Speed, false);
+                    // a city tour rides one spline, its later legs only time the stops along it
+                    if (leg.Launch)
+                        MovementManager.LaunchSpline(leg.SplineId, SplineMode.OneShot, leg.Speed, false);
 
                     // the client reaches the end of a tbl spline after its length at the leg speed, the server's own spline
                     // finishes seconds later, the rider is landed when the client's taxi arrives
@@ -201,7 +203,14 @@ namespace NexusForever.Game.Entity
         {
             base.OnEntityCommandFinalise(command);
 
-            if (flying && !PendingRemoval && command is PositionPathCommand { IsFinalised: true } or PositionSplineCommand { IsFinalised: true })
+            if (!flying || PendingRemoval)
+                return;
+
+            // a tour spline is cut into legs by its stops, only the leg timers end those
+            if (command is PositionSplineCommand && (currentLeg?.Launch == false || legs.Any(l => !l.Launch)))
+                return;
+
+            if (command is PositionPathCommand { IsFinalised: true } or PositionSplineCommand { IsFinalised: true })
                 FinishLeg();
         }
 

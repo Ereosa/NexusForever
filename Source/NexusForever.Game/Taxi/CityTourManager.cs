@@ -181,6 +181,10 @@ namespace NexusForever.Game.Taxi
         /// <summary>
         /// Split the tour route at its stops and cues, each leg ends on one.
         /// </summary>
+        /// <remarks>
+        /// The vehicle rides the tbl spline of the route in one go (the client doesn't move a taxi along a custom path, reports 43 and 53),
+        /// at one speed for the whole route, the legs only time the stops and cues along it.
+        /// </remarks>
         private static List<TaxiLeg> BuildLegs(Tour tour)
         {
             List<Spline2NodeEntry> nodes = GameTableManager.Instance.Spline2Node.Entries
@@ -189,24 +193,25 @@ namespace NexusForever.Game.Taxi
                 .ToList();
             SplineType type = TaxiRouteSplines.GetType(tour.SplineId);
 
+            float totalLength = 0f;
+            float totalTime = 0f;
+            for (int i = 1; i < nodes.Count; i++)
+            {
+                totalLength += Vector3.Distance(GetPosition(nodes[i - 1]), GetPosition(nodes[i]));
+                // the frame time of a stop node includes its wait
+                totalTime   += nodes[i].FrameTime - nodes[i - 1].FrameTime - (nodes[i - 1].Delay >= MinimumStop ? nodes[i - 1].Delay : 0f);
+            }
+            float speed = totalTime > 0f ? MathF.Max(MinimumSpeed, BaseSpeed * totalLength / totalTime) : BaseSpeed;
+
             var legs = new List<TaxiLeg>();
             var points = new List<Vector3>();
-            float length = 0f;
-            float time = 0f;
 
             for (int i = 0; i < nodes.Count; i++)
             {
                 Spline2NodeEntry node = nodes[i];
-                var position = new Vector3(node.Position0, node.Position1, node.Position2);
+                Vector3 position = GetPosition(node);
 
-                if (points.Count > 0 && Vector3.DistanceSquared(points[^1], position) > 0.01f)
-                {
-                    length += Vector3.Distance(points[^1], position);
-                    // the frame time of a stop node includes its wait
-                    time   += nodes[i].FrameTime - nodes[i - 1].FrameTime - (nodes[i - 1].Delay >= MinimumStop ? nodes[i - 1].Delay : 0f);
-                    points.Add(position);
-                }
-                else if (points.Count == 0)
+                if (points.Count == 0 || Vector3.DistanceSquared(points[^1], position) > 0.01f)
                     points.Add(position);
 
                 bool stop  = node.Delay >= MinimumStop;
@@ -215,7 +220,6 @@ namespace NexusForever.Game.Taxi
                 if (!stop && !cue && !last)
                     continue;
 
-                float speed = time > 0f ? MathF.Max(MinimumSpeed, BaseSpeed * length / time) : BaseSpeed;
                 tour.Lines.TryGetValue(node.EventId, out uint[] lines);
                 lines ??= [];
 
@@ -223,19 +227,24 @@ namespace NexusForever.Game.Taxi
                 // several lines at one stop share its wait, each is said by its own leg without movement
                 uint share = lines.Length > 1 ? pause / (uint)lines.Length : pause;
 
-                legs.Add(new TaxiLeg(points.ToList(), type, speed, share, lines.Length > 0 ? p => Say(p, tour, lines[0]) : null));
+                legs.Add(new TaxiLeg(points.ToList(), type, speed, share, lines.Length > 0 ? p => Say(p, tour, lines[0]) : null,
+                    tour.SplineId, legs.Count == 0));
                 for (int l = 1; l < lines.Length; l++)
                 {
                     uint textId = lines[l];
-                    legs.Add(new TaxiLeg([], type, speed, l == lines.Length - 1 ? pause - share * (uint)l : share, p => Say(p, tour, textId)));
+                    legs.Add(new TaxiLeg([], type, speed, l == lines.Length - 1 ? pause - share * (uint)l : share, p => Say(p, tour, textId),
+                        tour.SplineId, false));
                 }
 
                 points = [position];
-                length = 0f;
-                time   = 0f;
             }
 
             return legs;
+        }
+
+        private static Vector3 GetPosition(Spline2NodeEntry node)
+        {
+            return new Vector3(node.Position0, node.Position1, node.Position2);
         }
 
         private static void Say(IPlayer player, Tour tour, uint textId)
