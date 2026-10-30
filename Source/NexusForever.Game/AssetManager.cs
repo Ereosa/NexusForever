@@ -35,6 +35,7 @@ namespace NexusForever.Game
         private ImmutableDictionary</*zoneId*/uint, /*tutorialId*/uint> zoneTutorials;
         private ImmutableDictionary</*creatureId*/uint, /*targetGroupIds*/ImmutableList<uint>> creatureAssociatedTargetGroups;
         private ImmutableDictionary</*creatureId*/uint, /*virtualItemIds*/ImmutableList<uint>> creatureVirtualCollectItems;
+        private ImmutableHashSet<(uint CreatureId, uint VirtualItemId)> guaranteedVirtualCollectItems;
         private ImmutableDictionary</*targetGroupId*/uint, /*targetGroupIds*/ImmutableList<uint>> questObjectiveTargets;
         private ImmutableDictionary</*creatureId*/uint, /*pathScientistCreatureInfoIds*/ImmutableList<uint>> scientistCreatureInfos;
         private ImmutableDictionary</*pathSoldierEventId*/uint, ImmutableList<PathSoldierHoldoutSpawnModel>> holdoutSpawns;
@@ -294,7 +295,37 @@ namespace NexusForever.Game
                 }
             }
 
-            creatureVirtualCollectItems = entries.ToImmutableDictionary(e => e.Key, e => e.Value.ToImmutableList());
+            // objectives without a reward pane take the item from the quest's own kill target, eg: Queen of the Blight collects the
+            // Barkblight Queen's Viscera from the Barkblight Queen it asks to kill (report 67), a single named kill always drops it
+            var guaranteed = new HashSet<(uint, uint)>();
+            foreach (Quest2Entry quest in GameTableManager.Instance.Quest2.Entries)
+            {
+                if (quest == null)
+                    continue;
+
+                List<QuestObjectiveEntry> objectives = quest.Objectives
+                    .Where(o => o != 0u)
+                    .Select(o => GameTableManager.Instance.QuestObjective.GetEntry(o))
+                    .Where(o => o != null)
+                    .ToList();
+
+                foreach (QuestObjectiveEntry objective in objectives.Where(o => (QuestObjectiveType)o.Type == QuestObjectiveType.VirtualCollect
+                    && o.TargetGroupIdRewardPane == 0u))
+                {
+                    foreach (QuestObjectiveEntry kill in objectives.Where(o => (QuestObjectiveType)o.Type == QuestObjectiveType.KillCreature && o.Data != 0u))
+                    {
+                        if (!entries.ContainsKey(kill.Data))
+                            entries.Add(kill.Data, new HashSet<uint>());
+
+                        entries[kill.Data].Add(objective.Data);
+                        if (kill.Count == 1u)
+                            guaranteed.Add((kill.Data, objective.Data));
+                    }
+                }
+            }
+
+            creatureVirtualCollectItems   = entries.ToImmutableDictionary(e => e.Key, e => e.Value.ToImmutableList());
+            guaranteedVirtualCollectItems = guaranteed.ToImmutableHashSet();
         }
 
         private void CacheRewardPropertiesByTier()
@@ -442,6 +473,14 @@ namespace NexusForever.Game
         public ImmutableList<uint> GetVirtualCollectItemsForCreatureId(uint creatureId)
         {
             return creatureVirtualCollectItems.TryGetValue(creatureId, out ImmutableList<uint> entries) ? entries : [];
+        }
+
+        /// <summary>
+        /// Returns if the supplied virtual item always drops from the creature: the quest asks to kill that one creature and collect it.
+        /// </summary>
+        public bool IsGuaranteedVirtualCollectItem(uint creatureId, uint virtualItemId)
+        {
+            return guaranteedVirtualCollectItems.Contains((creatureId, virtualItemId));
         }
 
         /// <summary>

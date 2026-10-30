@@ -41,6 +41,11 @@ namespace NexusForever.Game.Abstract
         ImmutableList<uint> GetVirtualCollectItemsForCreatureId(uint creatureId);
 
         /// <summary>
+        /// Returns if the supplied virtual item always drops from the creature: the quest asks to kill that one creature and collect it.
+        /// </summary>
+        bool IsGuaranteedVirtualCollectItem(uint creatureId, uint virtualItemId);
+
+        /// <summary>
         /// Returns the PathScientistCreatureInfo ids a creature can be scanned for.
         /// </summary>
         ImmutableList<uint> GetScientistCreatureInfoIds(uint creatureId);
