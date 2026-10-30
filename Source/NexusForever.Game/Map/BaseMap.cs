@@ -53,7 +53,7 @@ namespace NexusForever.Game.Map
 
         // latest position of entities with a relocate already queued, moving entities relocate every tick and only the last
         // position matters: one queued relocate per entity keeps the queue from outgrowing the per tick threshold
-        private readonly ConcurrentDictionary<IGridEntity, Vector3> queuedRelocates = new();
+        private readonly ConcurrentDictionary<IGridEntity, (Vector3 Position, OnRelocateDelegate Callback)> queuedRelocates = new();
 
         private readonly QueuedCounter entityCounter = new();
         protected readonly Dictionary<uint /*guid*/, IGridEntity> entities = new();
@@ -129,8 +129,7 @@ namespace NexusForever.Game.Map
         private void ProcessGridActions()
         {
             var newActions = new List<IGridAction>();
-            foreach (IGridAction action in pendingActions.Dequeue(
-                SharedConfiguration.Instance.Get<MapConfig>().GridActionThreshold ?? 100u))
+            foreach (IGridAction action in DequeueGridActions())
             {
                 try
                 {
@@ -151,8 +150,16 @@ namespace NexusForever.Game.Map
                         case IGridActionRelocate actionRelocate:
                         {
                             Vector3 vector = actionRelocate.Vector;
-                            if (actionRelocate.Callback == null && queuedRelocates.TryRemove(actionRelocate.Entity, out Vector3 latest))
-                                vector = latest;
+                            OnRelocateDelegate callback = actionRelocate.Callback;
+                            if (actionRelocate.Coalesced)
+                            {
+                                // the position was already used by an earlier action for the entity
+                                if (!queuedRelocates.TryRemove(actionRelocate.Entity, out var latest))
+                                    break;
+
+                                vector   = latest.Position;
+                                callback = latest.Callback;
+                            }
 
                             // the entity left this map (teleport, logout) after the relocate was queued, relocating it
                             // would put it back in the grid as a ghost that breaks vision updates and the next login
@@ -160,7 +167,7 @@ namespace NexusForever.Game.Map
                                 break;
 
                             RelocateEntity(actionRelocate.Entity, vector);
-                            actionRelocate.Callback?.Invoke(vector);
+                            callback?.Invoke(vector);
                             break;
                         }
                         case IGridActionRemove actionRemove:
@@ -184,6 +191,44 @@ namespace NexusForever.Game.Map
             // new actions are added to the queue after processing so they are processed starting next update
             foreach (IGridAction action in newActions)
                 pendingActions.Enqueue(action);
+        }
+
+        /// <summary>
+        /// Dequeue the pending grid actions to process this update, in the order they were queued.
+        /// </summary>
+        /// <remarks>
+        /// Coalesced relocates have their own, larger, budget. They are limited to one per moving entity but a busy map has hundreds of
+        /// moving entities, sharing the budget with adds and removes left the position of every entity many seconds behind
+        /// the position the client is shown: spells and attacks aimed at a creature missed it and creatures hit from where they stood.
+        /// </remarks>
+        private IEnumerable<IGridAction> DequeueGridActions()
+        {
+            var config = SharedConfiguration.Instance.Get<MapConfig>();
+            uint actionBudget   = config.GridActionThreshold ?? 100u;
+            uint relocateBudget = config.GridRelocateThreshold ?? 1000u;
+
+            // actions queued while processing wait for the next update
+            int count = pendingActions.Count;
+            for (int i = 0; i < count; i++)
+            {
+                if (!pendingActions.TryPeek(out IGridAction action))
+                    yield break;
+
+                // stop at the first action over budget, later actions must not overtake it
+                bool relocate = action is IGridActionRelocate { Coalesced: true };
+                if ((relocate ? relocateBudget : actionBudget) == 0u)
+                    yield break;
+
+                if (!pendingActions.TryDequeue(out action))
+                    yield break;
+
+                if (relocate)
+                    relocateBudget--;
+                else
+                    actionBudget--;
+
+                yield return action;
+            }
         }
 
         private bool ProcessGridActionAdd(IGridActionAdd actionAdd)
@@ -315,22 +360,30 @@ namespace NexusForever.Game.Map
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> to be relocated in <see cref="IBaseMap"/> to <see cref="Vector3"/>.
         /// </summary>
-        public void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null)
+        public void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null, bool coalesce = false)
         {
-            // a relocate without a callback is already queued for the entity: it moves to the latest position instead
-            if (callback == null)
+            if (coalesce)
             {
-                bool queued = queuedRelocates.ContainsKey(entity);
-                queuedRelocates[entity] = position;
-                if (queued)
+                // when a coalesced relocate is already queued for the entity it moves to the latest position instead
+                bool added = false;
+                queuedRelocates.AddOrUpdate(entity,
+                    _ =>
+                    {
+                        added = true;
+                        return (position, callback);
+                    },
+                    (_, _) => (position, callback));
+
+                if (!added)
                     return;
             }
 
             pendingActions.Enqueue(new GridActionRelocate
             {
-                Entity   = entity,
-                Vector   = position,
-                Callback = callback
+                Entity    = entity,
+                Vector    = position,
+                Callback  = callback,
+                Coalesced = coalesce
             });
         }
 
