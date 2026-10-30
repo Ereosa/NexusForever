@@ -292,6 +292,14 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Returns if the supplied entity moves together with this one (its platform or one of its passengers) and must stay in vision.
+        /// </summary>
+        protected virtual bool IsAttachedTo(IGridEntity entity)
+        {
+            return false;
+        }
+
+        /// <summary>
         /// Adds the specified <see cref="IGridEntity"/> to the appropriate vision collection based on its visibility.
         /// </summary>
         public void AddVisionEntity(IGridEntity entity)
@@ -455,6 +463,12 @@ namespace NexusForever.Game.Entity
                 .ToList())
             {
                 if (entities.ContainsKey(guid))
+                    continue;
+
+                // the platform an entity rides and the passengers of a vehicle move with it, they are briefly missing from the
+                // grid search while the pair crosses into another grid, removing them destroyed the taxi under the rider on the
+                // client (riders stopped over the water past Thayd)
+                if (IsAttachedTo(entity))
                     continue;
 
                 try

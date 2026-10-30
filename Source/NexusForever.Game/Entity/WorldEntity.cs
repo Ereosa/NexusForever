@@ -308,6 +308,14 @@ namespace NexusForever.Game.Entity
         public IEnumerable<uint> PlatformPassengerGuids => platformPassengerGuids;
         private readonly HashSet<uint> platformPassengerGuids = new();
 
+        /// <summary>
+        /// Returns if the supplied entity is this entity's platform or one of its platform passengers, they move together and stay in vision.
+        /// </summary>
+        protected override bool IsAttachedTo(IGridEntity entity)
+        {
+            return entity.Guid == PlatformGuid || platformPassengerGuids.Contains(entity.Guid);
+        }
+
         protected readonly Dictionary<Static.Entity.Stat, IStatValue> stats = [];
         private readonly HashSet<Static.Entity.Stat> dirtyStats = [];
 

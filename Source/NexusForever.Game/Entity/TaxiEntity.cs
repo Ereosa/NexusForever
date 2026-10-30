@@ -299,7 +299,8 @@ namespace NexusForever.Game.Entity
         {
             flying = false;
 
-            IPlayer player = Map?.GetEntity<IPlayer>(OwnerGuid);
+            // the rider has to still be seated, guids are reused once a player logs out
+            IPlayer player = GetPassenger(OwnerGuid) != null ? Map?.GetEntity<IPlayer>(OwnerGuid) : null;
             if (player == null)
             {
                 RemoveFromMap();
