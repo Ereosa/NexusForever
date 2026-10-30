@@ -10,17 +10,17 @@ namespace NexusForever.WorldServer.Command.Handler
     [CommandTarget(typeof(IPlayer))]
     public class TaxiCommandCategory : CommandCategory
     {
-        private static readonly string[] modes = { "spline", "path", "control", "late" };
+        private static readonly string[] modes = { "free", "freepath", "spline", "path", "control", "late" };
 
-        [Command(Permission.Movement, "Set how your next taxi flights are driven: spline, path, control or late.", "mode")]
+        [Command(Permission.Movement, "Set how your next taxi flights are driven: free, freepath, spline, path, control or late.", "mode")]
         public void HandleTaxiMode(ICommandContext context,
-            [Parameter("Flight mode: spline (default), path, control or late.")]
+            [Parameter("Flight mode: free (default), freepath, spline, path, control or late.")]
             string mode)
         {
             IPlayer player = context.GetTargetOrInvoker<IPlayer>();
             if (string.IsNullOrWhiteSpace(mode))
             {
-                context.SendMessage($"Taxi mode: {(TaxiEntity.TestModes.TryGetValue(player.CharacterId, out string current) ? current : "spline")}. Modes: {string.Join(", ", modes)}.");
+                context.SendMessage($"Taxi mode: {(TaxiEntity.TestModes.TryGetValue(player.CharacterId, out string current) ? current : "free")}. Modes: {string.Join(", ", modes)}.");
                 return;
             }
 
