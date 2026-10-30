@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Entity;
+﻿using Microsoft.Extensions.Logging;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Script.Template;
 using NexusForever.Network;
 using NexusForever.Network.Message;
@@ -8,11 +9,28 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
 {
     public class ClientActivateUnitHandler : IMessageHandler<IWorldSession, ClientActivateUnit>
     {
+        #region Dependency Injection
+
+        private readonly ILogger<ClientActivateUnitHandler> log;
+
+        public ClientActivateUnitHandler(
+            ILogger<ClientActivateUnitHandler> log)
+        {
+            this.log = log;
+        }
+
+        #endregion
+
         public void HandleMessage(IWorldSession session, ClientActivateUnit activateUnit)
         {
             IWorldEntity entity = session.Player.GetVisible<IWorldEntity>(activateUnit.UnitId);
+            // the client can activate a unit the server has just removed from its vision (a respawn, a phase or grid change),
+            // that isn't a bad packet and must not disconnect the player (report #47: the Northern Wilds departure console)
             if (entity == null)
-                throw new InvalidPacketValueException();
+            {
+                log.LogDebug($"{session.Player.Name} activated unit {activateUnit.UnitId} which isn't visible to them.");
+                return;
+            }
 
             // TODO: sanity check for range etc.
 
