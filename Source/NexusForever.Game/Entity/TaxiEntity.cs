@@ -28,6 +28,7 @@ namespace NexusForever.Game.Entity
         private readonly Queue<TaxiLeg> legs = new();
         private TaxiLeg currentLeg;
         private double pauseTimer;
+        private double legTimer;
         private Action<IPlayer> onFinished;
         public Vector3 Destination { get; private set; }
         public Vector3 DestinationRotation { get; private set; }
@@ -56,10 +57,10 @@ namespace NexusForever.Game.Entity
             Destination              = destination;
             DestinationRotation      = destinationRotation;
 
-            // the tbl splines carry client events at their ends (98 and 99) and the client drops the connection handling them
-            // on a taxi ("Failure Handling Network message 3610"), so the same points are sent as a custom path instead
+            // flights ride the route's tbl spline: the client only moves a taxi along a tbl spline ("Embark_NoSplineForTaxi"),
+            // custom paths left the taxi standing still on the client (reports 43 and 53)
             foreach (ushort splineId in splineIds)
-                legs.Enqueue(new TaxiLeg(Taxi.TaxiRouteSplines.GetPoints(splineId), Taxi.TaxiRouteSplines.GetType(splineId), FlightSpeed));
+                legs.Enqueue(new TaxiLeg(Taxi.TaxiRouteSplines.GetPoints(splineId), Taxi.TaxiRouteSplines.GetType(splineId), FlightSpeed, SplineId: splineId));
         }
 
         /// <summary>
@@ -122,6 +123,16 @@ namespace NexusForever.Game.Entity
             while (legs.TryDequeue(out TaxiLeg leg))
             {
                 currentLeg = leg;
+                if (leg.SplineId != 0)
+                {
+                    MovementManager.LaunchSpline(leg.SplineId, SplineMode.OneShot, leg.Speed, false);
+
+                    // the client reaches the end of a tbl spline after its length at the leg speed, the server's own spline
+                    // finishes seconds later, the rider is landed when the client's taxi arrives
+                    legTimer = GetLength(leg.Points) / leg.Speed;
+                    return;
+                }
+
                 if (leg.Points.Count >= 2 && leg.Points[0] != leg.Points[^1])
                 {
                     // custom paths always go out as linear: the client doesn't move a unit along a Catmull-Rom SetPositionPath
@@ -159,9 +170,24 @@ namespace NexusForever.Game.Entity
             return true;
         }
 
+        private static double GetLength(IReadOnlyList<Vector3> points)
+        {
+            double length = 0d;
+            for (int i = 1; i < points.Count; i++)
+                length += Vector3.Distance(points[i - 1], points[i]);
+            return length;
+        }
+
         public override void Update(double lastTick)
         {
             base.Update(lastTick);
+
+            if (flying && legTimer > 0d && !PendingRemoval)
+            {
+                legTimer -= lastTick;
+                if (legTimer <= 0d)
+                    FinishLeg();
+            }
 
             if (!flying || pauseTimer <= 0d)
                 return;
@@ -175,11 +201,21 @@ namespace NexusForever.Game.Entity
         {
             base.OnEntityCommandFinalise(command);
 
-            if (flying && !PendingRemoval && command is PositionPathCommand { IsFinalised: true })
-            {
-                if (!OnLegFinished())
-                    LaunchNextSpline();
-            }
+            if (flying && !PendingRemoval && command is PositionPathCommand { IsFinalised: true } or PositionSplineCommand { IsFinalised: true })
+                FinishLeg();
+        }
+
+        private void FinishLeg()
+        {
+            // whichever comes first, the leg timer or the server's spline
+            if (currentLeg == null)
+                return;
+
+            legTimer = 0d;
+            bool paused = OnLegFinished();
+            currentLeg = null;
+            if (!paused)
+                LaunchNextSpline();
         }
 
         private void Land()
