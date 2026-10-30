@@ -25,6 +25,16 @@ namespace NexusForever.Game.Entity
 
         public uint OwnerGuid { get; private set; }
 
+        /// <summary>
+        /// Test modes for driving flights, set per character with the "taxi mode" command while the client side of the flight
+        /// is worked out (reports 43 and 53): "spline" (tbl spline, default), "path" (linear custom path), "control" (the rider's
+        /// client controls the taxi), "late" (the spline starts 2 seconds after the rider is seated).
+        /// </summary>
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, string> TestModes = new();
+
+        private string mode = "spline";
+        private bool riderControls;
+
         private readonly Queue<TaxiLeg> legs = new();
         private TaxiLeg currentLeg;
         private double pauseTimer;
@@ -56,6 +66,7 @@ namespace NexusForever.Game.Entity
             Rotation                 = owner.Rotation;
             Destination              = destination;
             DestinationRotation      = destinationRotation;
+            mode                     = TestModes.TryGetValue(owner.CharacterId, out string testMode) ? testMode : "spline";
 
             // flights ride the route's tbl spline: the client only moves a taxi along a tbl spline ("Embark_NoSplineForTaxi"),
             // custom paths left the taxi standing still on the client (reports 43 and 53)
@@ -105,7 +116,17 @@ namespace NexusForever.Game.Entity
                 return;
 
             flying = true;
-            LaunchNextSpline();
+
+            if (mode == "control")
+            {
+                player.SetControl(this);
+                riderControls = true;
+            }
+
+            if (mode == "late")
+                pauseTimer = 2d;
+            else
+                LaunchNextSpline();
         }
 
         protected override void OnPassengerRemove(IPlayer player, VehicleSeatType seatType, byte seatPosition)
@@ -116,6 +137,12 @@ namespace NexusForever.Game.Entity
 
             flying = false;
             player.TaxiManager.OnLanded();
+
+            if (riderControls)
+            {
+                riderControls = false;
+                player.SetControl(player);
+            }
         }
 
         private void LaunchNextSpline()
@@ -123,7 +150,7 @@ namespace NexusForever.Game.Entity
             while (legs.TryDequeue(out TaxiLeg leg))
             {
                 currentLeg = leg;
-                if (leg.SplineId != 0 && leg.Points.Count >= 2)
+                if (leg.SplineId != 0 && leg.Points.Count >= 2 && mode != "path")
                 {
                     // a city tour rides one spline, its later legs only time the stops along it
                     if (leg.Launch)
