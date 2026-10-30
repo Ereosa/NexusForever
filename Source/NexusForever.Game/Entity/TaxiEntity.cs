@@ -37,6 +37,7 @@ namespace NexusForever.Game.Entity
 
         private string mode = "release";
         private bool riderControls;
+        private bool landing;
 
         private readonly Queue<TaxiLeg> legs = new();
         private TaxiLeg currentLeg;
@@ -145,7 +146,10 @@ namespace NexusForever.Game.Entity
             flying = false;
             player.TaxiManager.OnLanded();
 
-            if (riderControls)
+            // on landing the local teleport gives control back after the platform and drop off position reach the client,
+            // giving it back here first made the client ignore them and land the rider relative to the removed taxi (high above
+            // the water off Thayd)
+            if (riderControls && !landing)
             {
                 riderControls = false;
                 player.SetControl(player);
@@ -275,10 +279,15 @@ namespace NexusForever.Game.Entity
             player.TaxiManager.OnLanded();
 
             // the taxi is removed with its last passenger
+            landing = true;
             PassengerRemove(player);
 
             player.Rotation = DestinationRotation;
-            player.TeleportToLocal(Destination, false);
+            if (player.CanTeleport())
+                player.TeleportToLocal(Destination, false);
+            else if (riderControls)
+                player.SetControl(player);
+            riderControls = false;
 
             onFinished?.Invoke(player);
         }
