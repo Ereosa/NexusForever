@@ -689,6 +689,8 @@ namespace NexusForever.Game.Entity
                 player.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.KillCreature, targetGroupId, 1u);
             }
 
+            player.QuestManager.ObjectiveUpdateKillInArea(this);
+
             // quest items dropped by creatures, there is no drop data for these so they drop half the time, a named quest kill always drops its item
             foreach (uint virtualItemId in AssetManager.Instance.GetVirtualCollectItemsForCreatureId(CreatureId))
                 if (AssetManager.Instance.IsGuaranteedVirtualCollectItem(CreatureId, virtualItemId) || Random.Shared.Next(2) == 0)

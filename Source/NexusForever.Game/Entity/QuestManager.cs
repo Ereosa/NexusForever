@@ -949,6 +949,55 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Count the kill of the supplied unit for active kill objectives whose target group is a trigger volume (type 9) around the player's zone.
+        /// </summary>
+        /// <remarks>
+        /// Type 9 groups list trigger volumes, not creatures (Yeti Extermination's "Kill Yeti in Icemaw Cavern" lists the cave entrance
+        /// volumes 16040-16042, report 68). Retail counted the kills inside the volume, here any hostile kill while the player is in the
+        /// zone of the objective's marker (or one of its sub zones) counts, the same rule the challenges use for type 9 groups. The player's
+        /// zone is the one the client reports, the server's area grid has no underground zones (the cave reads as Algoroc).
+        /// </remarks>
+        public void ObjectiveUpdateKillInArea(IUnitEntity unit)
+        {
+            if (unit is IPlayer || player.Zone == null)
+                return;
+
+            foreach (IQuest quest in activeQuests.Values.ToList())
+            {
+                if (quest.State != QuestState.Accepted)
+                    continue;
+
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete() && o.ObjectiveInfo.Type == QuestObjectiveType.KillTargetGroup).ToList())
+                {
+                    TargetGroupEntry group = GameTableManager.Instance.TargetGroup.GetEntry(objective.ObjectiveInfo.Entry.Data);
+                    if (group == null || (TargetGroupType)group.Type != TargetGroupType.Unknown9)
+                        continue;
+
+                    // a kill of a creature the group itself lists is already counted by the target group update
+                    if (group.DataEntries.Contains(unit.CreatureId))
+                        continue;
+
+                    if (!objective.ObjectiveInfo.GetAreaLocations().Any(l => IsInZone(player.Zone, l.WorldZoneId)))
+                        continue;
+
+                    quest.ObjectiveUpdate(objective.ObjectiveInfo.Id, 1u);
+                }
+            }
+        }
+
+        private static bool IsInZone(WorldZoneEntry zone, uint zoneId)
+        {
+            for (int depth = 0; zone != null && depth < 16; depth++)
+            {
+                if (zone.Id == zoneId)
+                    return true;
+                zone = zone.ParentZoneId != 0u ? GameTableManager.Instance.WorldZone.GetEntry(zone.ParentZoneId) : null;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Fill work order objectives (type 31) of active quests asking for crafts of the supplied tradeskill tier.
         /// </summary>
         public void OnCraft(uint tradeskillTierId, uint count)

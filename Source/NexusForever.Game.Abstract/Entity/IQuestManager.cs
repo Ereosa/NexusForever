@@ -138,6 +138,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         void ObjectiveUpdateRewardPane(QuestObjectiveType type, uint targetGroupId, uint progress);
 
+        /// <summary>
+        /// Count the kill of the supplied unit for active kill objectives whose target group is a trigger volume (type 9) around the player's zone.
+        /// </summary>
+        void ObjectiveUpdateKillInArea(IUnitEntity unit);
+
         // <summary>
         /// Update any active quest <see cref="IQuestObjective"/>'s with supplied ID with progress.
         /// </summary>
