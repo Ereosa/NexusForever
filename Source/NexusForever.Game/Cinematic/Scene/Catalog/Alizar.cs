@@ -17,7 +17,9 @@ namespace NexusForever.Game.Cinematic.Scene
         {
             // GC002: the transport carrying the player is shot down and crashes in the Northern Wilds, camera splines 10824-10826
             // start on the origin at the crash site. No actor creatures exist for the scene, Cinematic 2 holds the CinematicRace player
-            // models (Human, Aurin, Mordesh) played on the player copy. Voice clip order and subtitle timings guessed.
+            // models (Human, Aurin, Mordesh) played on the player copy. This is the launch (2014) arrival, from 2016 on every Exile
+            // leaving the Arkship for the Northern Wilds drops in by pod instead (footage of an Aurin). Subtitle timings from retail
+            // footage (youtube.com/watch?v=iMSWhvau5mI, 0:40), lines read with speech recognition, about +-300 ms.
             Add(CinematicSceneId.NorthernWildsHumanIntro)
                 .WithDuration(27000)
                 .AtOrigin(3890.446f, -696.264f, -5313.697f)
@@ -27,23 +29,40 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithPlayerVisual(30554, 300)
                 .WithPlayerVisual(30560, 15033)
                 .WithPlayerVisual(30558, 21000)
-                .WithTextsSpread(300, 7300, (578197, 25), (578198, 67), (578199, 50), (578200, 11), (578201, 33), (578202, 27))
-                .WithTextsSpread(15100, 20900, (578203, 24), (578204, 54))
-                .WithTextsSpread(21000, 26500, (578205, 36), (578206, 33));
+                .WithText(578197, 1600, 2900)
+                .WithText(578198, 2900, 6300)
+                .WithText(578199, 6600, 9200)
+                .WithText(578200, 9800, 10600)
+                .WithText(578201, 10800, 13000)
+                .WithText(578202, 13500, 15000)
+                .WithText(578203, 18600, 19900)
+                .WithText(578204, 19900, 23500)
+                .WithText(578205, 23900, 25400)
+                .WithText(578206, 25400, 26900);
 
             // Leaving Camp Icefury in a borrowed Dominion shuttle (More Important Than Revenge). No scene of its own exists in the client
             // beyond old camera splines, the generic Dominion transport departure of GC197 (the same shuttle leaving Tremor Ridge) is played
             // on the Camp Icefury landing site WorldLocation2 49749 with the departure lines. Guessed reconstruction.
+            // Retail footage of the launch build (youtube.com/watch?v=dPFnwNUoWcE, 14:04) shows a 25 s scene: a static wide shot of the
+            // parked shuttle while the radio lines play, lift off at 12.8 s, then the shuttle flies off into the sunset. The generic
+            // departure is shorter, so the lines keep their footage timing and the countdown is pulled in before its end.
             Add(CinematicSceneId.NorthernWildsDeparture)
                 .WithDuration(17967)
                 .AtOrigin(4548.010f, -700.209f, -5204.670f)
                 .WithCamera(70036)
                 .WithActors(70037)
-                .WithTextsSpread(500, 9500, (578229, 24), (578230, 25), (578231, 46), (578232, 11), (578233, 33));
+                .WithText(578229, 3400, 4900)
+                .WithText(578230, 4900, 6600)
+                .WithText(578231, 7300, 9600)
+                .WithText(578232, 10400, 11400)
+                .WithText(578233, 12000, 15600);
 
             // GC174: Contact with Thayd, the rescue ship from Thayd lands at the flares and is shot down with Sadie aboard
             // Origin guessed: WorldLocation2 49637 at the landing site outside Settler's Reach, the camera path only fits the terrain there
-            // and the entry is from the same build as the scene. Subtitle timings guessed from line lengths.
+            // and the entry is from the same build as the scene.
+            // Subtitles are the 2016 Sadie and Deadeye Brightland lines (755538-755545), timed from retail footage
+            // (youtube.com/watch?v=QScgJtxNp0M, 37:02), which starts when the last of the three signal flares is lit.
+            // The pilot's lines (755544/755545) weren't audible in the footage, they're placed on the landing shot (guessed).
             Add(CinematicSceneId.NorthernWildsSadieDeath)
                 .WithDuration(89333)
                 .AtOrigin(4353.266f, -747.386f, -5594.562f)
@@ -55,9 +74,14 @@ namespace NexusForever.Game.Cinematic.Scene
                 .CutTo(72833, 37).CutTo(81067, 38).CutTo(85167, 39)
                 .WithActors(70272, 70273, 70274, 70275, 70276, 70277, 70278, 70279, 70280, 70283, 70284, 71761)
                 .WithPlayerVisual(50826)
-                .WithText(578497, 1000, 4000)
-                .WithTextsSpread(6000, 46000, (578208, 15), (578209, 41), (578210, 51), (578211, 30), (578212, 18), (578213, 50), (578214, 35), (578215, 13), (578216, 23))
-                .WithTextsSpread(47000, 62000, (578217, 26), (578218, 54), (578219, 28), (578220, 46), (578221, 18));
+                .WithText(755544, 6500, 10500)
+                .WithText(755545, 10600, 12500)
+                .WithText(755542, 13100, 16300)
+                .WithText(755538, 17800, 20600)
+                .WithText(755543, 21000, 26800)
+                .WithText(755539, 27800, 34200)
+                .WithText(755540, 37400, 39500)
+                .WithText(755541, 84100, 88900);
 
             // GC034: Mordesh arrival at the Vitalus Production Facility, Whisperwind Hollow
             // Camera splines 13654-13656 start on the origin (WorldLocation2 28117/40219), the actors play Cinematic_Misc_20.
