@@ -1,10 +1,12 @@
 using System.Numerics;
+using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
+using NexusForever.GameTable.Model;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
@@ -19,6 +21,7 @@ namespace NexusForever.Script.Alizar.Celestion
     /// the taxi stand, the mount vendor and the transmat terminal. Here a Rogum is summoned for the player when they come near his spot, he
     /// walks the path, waits at each stop until the player is close (at most 30 seconds, guessed), and the objective completes when he
     /// reaches the end with the player near him. His walking speed is a guess.
+    /// The summoned guide is the same creature, so he skips the visibility prerequisite: otherwise it hides him from the player he guides.
     /// </remarks>
     [ScriptFilterOwnerId(9087)]
     public class TouringWoodhavenQuestScript : IQuestScript, IOwnedScript<IQuest>
@@ -131,7 +134,7 @@ namespace NexusForever.Script.Alizar.Celestion
 
             segmentEnd = 0;
             walking    = false;
-            player.SummonFactory.Summon<INonPlayerEntity>(creatureInfo, path[0].Position, Vector3.Zero, (map, guid, vector) =>
+            player.SummonFactory.Summon<INonPlayerEntity>(new TourGuideCreatureInfo(creatureInfo), path[0].Position, Vector3.Zero, (map, guid, vector) =>
             {
                 guideGuid = guid;
             });
@@ -161,6 +164,35 @@ namespace NexusForever.Script.Alizar.Celestion
                 owner?.GetOwner()?.Map?.GetEntity<IWorldEntity>(guideGuid.Value)?.RemoveFromMap();
             guideGuid = null;
             walking = false;
+        }
+
+        /// <summary>
+        /// <see cref="ICreatureInfo"/> of the tour guide: Rogum without his visibility prerequisite.
+        /// </summary>
+        private class TourGuideCreatureInfo : ICreatureInfo
+        {
+            public Creature2Entry Entry => creatureInfo.Entry;
+            public Creature2DifficultyEntry DifficultyEntry => creatureInfo.DifficultyEntry;
+            public Creature2ArcheTypeEntry ArcheTypeEntry => creatureInfo.ArcheTypeEntry;
+            public Creature2TierEntry TierEntry => creatureInfo.TierEntry;
+            public Creature2ModelInfoEntry ModelEntry => creatureInfo.ModelEntry;
+            public UnitVehicleEntry UnitVehicleEntry => creatureInfo.UnitVehicleEntry;
+            public PrerequisiteEntry PrerequisiteVisibilityEntry => null;
+
+            private readonly ICreatureInfo creatureInfo;
+
+            public TourGuideCreatureInfo(ICreatureInfo creatureInfo)
+            {
+                this.creatureInfo = creatureInfo;
+            }
+
+            public void Initialise(Creature2Entry entry) => creatureInfo.Initialise(entry);
+            public void InitialiseOverrides(IEnumerable<CreatureInfoPropertyModel> properties, IEnumerable<CreatureInfoStatModel> stats) => creatureInfo.InitialiseOverrides(properties, stats);
+            public IEnumerable<ICreatureInfoProperty> GetPropertyOverrides() => creatureInfo.GetPropertyOverrides();
+            public IEnumerable<ICreatureInfoStat> GetStatOverrides() => creatureInfo.GetStatOverrides();
+            public uint GetLevel() => creatureInfo.GetLevel();
+            public Creature2DisplayInfoEntry GetDisplayInfoEntry() => creatureInfo.GetDisplayInfoEntry();
+            public Creature2OutfitInfoEntry GetOutfitInfoEntry() => creatureInfo.GetOutfitInfoEntry();
         }
     }
 }
