@@ -143,6 +143,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         void ObjectiveUpdateKillInArea(IUnitEntity unit);
 
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> uses a quest item, completes the target-less objective the item is for.
+        /// </summary>
+        void OnItemUsed(uint itemId);
+
         // <summary>
         /// Update any active quest <see cref="IQuestObjective"/>'s with supplied ID with progress.
         /// </summary>

@@ -86,5 +86,10 @@ namespace NexusForever.Game.Abstract.Quest
         /// Update any <see cref="IQuestObjective"/>'s with supplied ID with progress.
         /// </summary>
         void ObjectiveUpdate(uint id, uint progress);
+
+        /// <summary>
+        /// Complete the target-less activate objective the supplied quest item is used on.
+        /// </summary>
+        void OnItemUsed(uint itemId);
     }
 }

@@ -113,6 +113,7 @@ namespace NexusForever.Game.Quest
         private IPlayer player;
         private readonly List<IQuestObjective> objectives = [];
         private bool serverObjectivesChecked;
+        private bool activationItemsChecked;
 
         private UpdateTimer questTimer;
 
@@ -308,6 +309,12 @@ namespace NexusForever.Game.Quest
                 }
             }
 
+            if (!activationItemsChecked)
+            {
+                activationItemsChecked = true;
+                PushActivationItems();
+            }
+
             if (questTimer != null)
             {
                 questTimer.Update(lastTick);
@@ -404,6 +411,13 @@ namespace NexusForever.Game.Quest
                 uint itemId = Info.Entry.PushedItemIds[i];
                 if (itemId != 0u)
                     player.Inventory.ItemDelete(itemId, Info.Entry.PushedItemCounts[i]);
+            }
+
+            foreach (Item2Entry item in GetActivationItems().Where(i => i.Quest2IdActivationRequired == Id))
+            {
+                uint count = player.Inventory.GetItemCount(item.Id);
+                if (count > 0u)
+                    player.Inventory.ItemDelete(item.Id, count);
             }
 
             State = QuestState.Completed;
@@ -741,8 +755,73 @@ namespace NexusForever.Game.Quest
                 SendQuestObjectiveUpdate(objective);
         }
 
+        private static readonly Lazy<ILookup<(uint QuestId, uint ObjectiveIndex), Item2Entry>> activationItems = new(() =>
+            GameTableManager.Instance.Item.Entries
+                .Where(i => i != null && i.Quest2IdActivationRequired != 0u)
+                .ToLookup(i => (i.Quest2IdActivationRequired, i.QuestObjectiveActivationRequired)));
+
+        private static IEnumerable<Item2Entry> GetActivationItems()
+        {
+            return activationItems.Value.SelectMany(g => g);
+        }
+
+        /// <summary>
+        /// Returns if the objective is an "Activate the X" step with no target, done by using a quest item that can only be used on it.
+        /// </summary>
+        private static bool IsItemObjective(IQuestObjective objective)
+        {
+            return objective.ObjectiveInfo.Type == QuestObjectiveType.ActivateEntity && objective.ObjectiveInfo.Entry.Data == 0u;
+        }
+
+        /// <summary>
+        /// Hand out the items of target-less activate objectives once they can be done.
+        /// </summary>
+        /// <remarks>
+        /// Some quest items are only usable on one objective (Item2 Quest2IdActivationRequired and QuestObjectiveActivationRequired), the quest
+        /// doesn't push them and nothing in the client data hands them out, eg: An Explosive Disruption's Autopilot Activation Device
+        /// (report 70). Retail gave them by server script when the step started, here when the objective becomes the next one to do.
+        /// </remarks>
+        private void PushActivationItems()
+        {
+            if (State != QuestState.Accepted || PendingDelete)
+                return;
+
+            foreach (IQuestObjective objective in objectives.Where(o => !o.IsComplete() && IsItemObjective(o) && CanUpdateObjective(o)))
+            {
+                foreach (Item2Entry item in activationItems.Value[(Id, objective.Index)])
+                    if (player.Inventory.GetItemCount(item.Id) == 0u)
+                        player.Inventory.ItemCreate(InventoryLocation.Inventory, item.Id, 1u);
+            }
+        }
+
+        /// <summary>
+        /// Complete the target-less activate objective the supplied quest item is used on.
+        /// </summary>
+        public void OnItemUsed(uint itemId)
+        {
+            if (State != QuestState.Accepted || PendingDelete)
+                return;
+
+            Item2Entry item = GameTableManager.Instance.Item.GetEntry(itemId);
+            if (item == null || item.Quest2IdActivationRequired != Id)
+                return;
+
+            IQuestObjective objective = GetQuestObjectiveByIndex((byte)item.QuestObjectiveActivationRequired);
+            if (objective == null || objective.IsComplete() || !IsItemObjective(objective) || !CanUpdateObjective(objective))
+                return;
+
+            // used where the objective's marker points, the marker of the step is where retail's script waited for the item
+            List<WorldLocation2Entry> locations = objective.ObjectiveInfo.GetAreaLocations().ToList();
+            if (locations.Count > 0 && !locations.Any(l => l.WorldId == player.Map?.Entry.Id
+                && System.Numerics.Vector3.Distance(player.Position, new System.Numerics.Vector3(l.Position0, l.Position1, l.Position2)) <= MathF.Max(40f, l.Radius)))
+                return;
+
+            ObjectiveUpdate(objective.ObjectiveInfo.Id, objective.ObjectiveInfo.Entry.Count);
+        }
+
         private void SendQuestObjectiveUpdate(IQuestObjective objective)
         {
+            activationItemsChecked = false;
             // Only update objectives if the state isn't complete. Some scripts will complete quest without objective update.
             if (State == QuestState.Completed)
                 return;

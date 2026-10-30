@@ -45,6 +45,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Item
                     return;
                 }
 
+                uint itemId = item.Info.Entry.Id;
                 if (session.Player.Inventory.ItemUse(item))
                 {
                     session.Player.CastSpell(itemSpecial.Spell4IdOnActivate, new SpellParameters
@@ -52,6 +53,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Item
                         PrimaryTargetId = itemUse.TargetUnitId,
                         TargetPosition  = itemUse.Position
                     });
+
+                    session.Player.QuestManager.OnItemUsed(itemId);
                 }
             }
         }

@@ -985,6 +985,15 @@ namespace NexusForever.Game.Entity
             }
         }
 
+        /// <summary>
+        /// Invoked when <see cref="IPlayer"/> uses a quest item, completes the target-less objective the item is for.
+        /// </summary>
+        public void OnItemUsed(uint itemId)
+        {
+            foreach (IQuest quest in activeQuests.Values.ToList())
+                quest.OnItemUsed(itemId);
+        }
+
         private static bool IsInZone(WorldZoneEntry zone, uint zoneId)
         {
             for (int depth = 0; zone != null && depth < 16; depth++)
