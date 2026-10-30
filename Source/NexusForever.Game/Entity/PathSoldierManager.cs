@@ -58,6 +58,10 @@ namespace NexusForever.Game.Entity
             public double WaveElapsed;
             public readonly HashSet<uint> WaveUnits = new();
             public readonly HashSet<uint> DefendUnits = new();
+            /// <summary>
+            /// Wave props that aren't combatants (eg: Granok Drop Pods in Battlebot Brawl), shown with their wave and removed with the holdout.
+            /// </summary>
+            public readonly HashSet<uint> SceneryUnits = new();
 
             /// <summary>
             /// Units summoned but not yet added to the map, they only get a guid once the map adds them.
@@ -323,6 +327,13 @@ namespace NexusForever.Game.Entity
                         return;
                     }
 
+                    // props have no faction, forcing threat on them made an invisible "pod" chase and hit the player
+                    if (IsScenery(creatureInfo))
+                    {
+                        owner.SceneryUnits.Add(guid);
+                        return;
+                    }
+
                     owner.WaveUnits.Add(guid);
 
                     summoned.ThreatManager.UpdateThreat(player, 1);
@@ -333,6 +344,11 @@ namespace NexusForever.Game.Entity
                         summoned.ThreatManager.UpdateThreat(defend, 2);
                 });
             }
+        }
+
+        private static bool IsScenery(ICreatureInfo creatureInfo)
+        {
+            return creatureInfo.Entry.FactionId == 0u || creatureInfo.Entry.Creature2ArcheTypeId is 27u or 29u;
         }
 
         private void CheckHoldout()
@@ -425,7 +441,7 @@ namespace NexusForever.Game.Entity
             Holdout ended = holdout;
             holdout = null;
 
-            foreach (uint guid in ended.WaveUnits.Concat(ended.DefendUnits))
+            foreach (uint guid in ended.WaveUnits.Concat(ended.DefendUnits).Concat(ended.SceneryUnits))
                 player.Map?.GetEntity<IWorldEntity>(guid)?.RemoveFromMap();
 
             player.Session.EnqueueMessageEncrypted(new ServerPathSoldierHoldoutEnd

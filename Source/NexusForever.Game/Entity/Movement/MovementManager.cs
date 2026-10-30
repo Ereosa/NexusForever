@@ -473,6 +473,11 @@ namespace NexusForever.Game.Entity.Movement
         private bool hasVelocity;
 
         /// <summary>
+        /// Horizontal speed (m/s) above which a unit counts as moving, walking is several m/s.
+        /// </summary>
+        private const float MovingVelocityThreshold = 0.5f;
+
+        /// <summary>
         /// Return the current velocity.
         /// </summary>
         public Vector3 GetVelocity()
@@ -486,7 +491,9 @@ namespace NexusForever.Game.Entity.Movement
         public void SetVelocity(Vector3 velocity, bool blend)
         {
             velocityCommandGroup.SetVelocity(velocity, blend);
-            HasVelocity = velocity.Length() > 0;
+            // only walking counts as moving, the client also sends small and vertical (falling) velocities while the player stands still,
+            // which ended "until you move" effects straight away (eg: the Soldier weapon locker bar, proc BeginMoving)
+            HasVelocity = new Vector2(velocity.X, velocity.Z).Length() > MovingVelocityThreshold;
         }
 
         /// <summary>

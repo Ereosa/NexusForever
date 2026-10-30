@@ -8,6 +8,23 @@ namespace NexusForever.Script.Template.Filter.Dynamic
     {
         private HashSet<uint> creatureIds;
 
+        /// <summary>
+        /// Creatures flagged NoAI that still need the combat AI, eg: soldier holdout wave units.
+        /// </summary>
+        /// <remarks>
+        /// Most holdout wave creatures are NoAI in the game tables, retail drove them with the holdout's server script.
+        /// </remarks>
+        private static readonly HashSet<uint> additionalCreatureIds = [];
+
+        /// <summary>
+        /// Give creatures that are flagged NoAI the combat AI anyway.
+        /// </summary>
+        public static void AddCreatures(IEnumerable<uint> creatureIds)
+        {
+            lock (additionalCreatureIds)
+                additionalCreatureIds.UnionWith(creatureIds);
+        }
+
         #region Dependency Injection
 
         private readonly IGameTableManager gameTableManager;
@@ -50,7 +67,11 @@ namespace NexusForever.Script.Template.Filter.Dynamic
                 if (search.CreatureId == null)
                     return false;
 
-                return creatureIds.Contains(search.CreatureId.Value);
+                if (creatureIds.Contains(search.CreatureId.Value))
+                    return true;
+
+                lock (additionalCreatureIds)
+                    return additionalCreatureIds.Contains(search.CreatureId.Value);
             }
 
             return true;
