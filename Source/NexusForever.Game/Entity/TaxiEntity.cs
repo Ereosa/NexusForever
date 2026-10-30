@@ -26,17 +26,13 @@ namespace NexusForever.Game.Entity
         public uint OwnerGuid { get; private set; }
 
         /// <summary>
-        /// Test modes for driving flights, set per character with the "taxi mode" command while the client side of the flight
-        /// is worked out (reports 43 and 53): "spline" (tbl spline, default), "path" (linear custom path), "control" (the rider's
-        /// client controls the taxi), "late" (the spline starts 2 seconds after the rider is seated), "free" and "freepath" (spline
-        /// or path with no owner in the taxi's create packet: the client drives units it owns itself, like mounts, so a taxi owned
-        /// by the rider may ignore the server's movement), "release" and "releasepath" (as free/freepath, and the rider's movement
-        /// control is taken away for the flight: the client ignores server movement for the unit it controls, its own player, so a
-        /// rider still in control stays where they boarded while the server carries them). "release" is the default.
+        /// Test modes for driving flights, set per character with the "taxi mode" command: "spline" (tbl spline, default), "path"
+        /// (linear custom path), "control" (the rider's client controls the taxi), "late" (the spline starts 2 seconds after the
+        /// rider is seated), "release" and "releasepath" (spline or path with the rider's movement control taken away for the flight).
         /// </summary>
         public static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, string> TestModes = new();
 
-        private string mode = "release";
+        private string mode = "spline";
         private bool riderControls;
 
         private readonly Queue<TaxiLeg> legs = new();
@@ -70,7 +66,7 @@ namespace NexusForever.Game.Entity
             Rotation                 = owner.Rotation;
             Destination              = destination;
             DestinationRotation      = destinationRotation;
-            mode                     = TestModes.TryGetValue(owner.CharacterId, out string testMode) ? testMode : "release";
+            mode                     = TestModes.TryGetValue(owner.CharacterId, out string testMode) ? testMode : "spline";
 
             // flights ride the route's tbl spline: the client only moves a taxi along a tbl spline ("Embark_NoSplineForTaxi"),
             // custom paths left the taxi standing still on the client (reports 43 and 53)
@@ -102,7 +98,6 @@ namespace NexusForever.Game.Entity
                 CreatureId    = CreatureId,
                 // taxis spawned from the world database (quest taxis, flavour objects) never get a vehicle entry
                 UnitVehicleId = (ushort)(VehicleEntry?.Id ?? CreatureInfo?.Entry?.UnitVehicleId ?? 0u),
-                OwnerId       = mode is "free" or "freepath" or "release" or "releasepath" ? 0u : OwnerGuid,
                 Passengers    = this
                     .Select(p => new TaxiEntityModel.Passenger
                     {
@@ -159,7 +154,7 @@ namespace NexusForever.Game.Entity
             while (legs.TryDequeue(out TaxiLeg leg))
             {
                 currentLeg = leg;
-                if (leg.SplineId != 0 && leg.Points.Count >= 2 && mode is not ("path" or "freepath" or "releasepath"))
+                if (leg.SplineId != 0 && leg.Points.Count >= 2 && mode is not ("path" or "releasepath"))
                 {
                     // a city tour rides one spline, its later legs only time the stops along it
                     if (leg.Launch)
