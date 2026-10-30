@@ -45,6 +45,12 @@ namespace NexusForever.Game.Entity
 
         private readonly Dictionary<uint, IGridEntity> inRangeEntities = [];
 
+        /// <summary>
+        /// Range checks postponed until the vision update that triggered them has added both sides of every pair.
+        /// </summary>
+        [ThreadStatic]
+        private static List<(IGridEntity Entity, IGridEntity Target)> deferredRangeChecks;
+
         protected readonly Dictionary<uint, IGridEntity> visibleEntities = [];
         protected readonly Dictionary<uint, IGridEntity> invisibleEntities = [];
         private readonly HashSet<(uint GridX, uint GridZ)> visibleGrids = [];
@@ -188,7 +194,8 @@ namespace NexusForever.Game.Entity
                 });
             }
             else
-                Map.EnqueueRelocate(this, position, OnRelocate);
+                // movement relocates the entity every tick and only the latest position matters
+                Map.EnqueueRelocate(this, position, OnRelocate, true);
         }
 
         /// <summary>
@@ -429,23 +436,50 @@ namespace NexusForever.Game.Entity
                 .GroupBy(e => e.Guid)
                 .ToDictionary(g => g.Key, g => g.First());
 
-            // new entities now in vision range
-            foreach ((uint guid, IGridEntity entity) in entities)
+            // range events (eg: a creature aggroing a player) fire once both sides have the other in vision, otherwise the
+            // combat messages reach a client that hasn't received the creature yet and it never learns who the creature targets
+            bool deferring = deferredRangeChecks == null;
+            if (deferring)
+                deferredRangeChecks = [];
+
+            try
             {
-                if (visibleEntities.ContainsKey(guid)
-                    || invisibleEntities.ContainsKey(guid))
-                    continue;
-                
-                // one broken entity must not stop the rest of the vision update
-                try
+                // new entities now in vision range
+                foreach ((uint guid, IGridEntity entity) in entities)
                 {
-                    AddVisionEntity(entity);
-                    if (entity != this)
-                        entity.AddVisionEntity(this);
+                    if (visibleEntities.ContainsKey(guid)
+                        || invisibleEntities.ContainsKey(guid))
+                        continue;
+
+                    // one broken entity must not stop the rest of the vision update
+                    try
+                    {
+                        AddVisionEntity(entity);
+                        if (entity != this)
+                            entity.AddVisionEntity(this);
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Error(ex, $"Failed to add entity {guid} to the vision of {Guid}!");
+                    }
                 }
-                catch (Exception ex)
+            }
+            finally
+            {
+                List<(IGridEntity Entity, IGridEntity Target)> pending = deferring ? deferredRangeChecks : [];
+                if (deferring)
+                    deferredRangeChecks = null;
+
+                foreach ((IGridEntity checker, IGridEntity target) in pending)
                 {
-                    log.Error(ex, $"Failed to add entity {guid} to the vision of {Guid}!");
+                    try
+                    {
+                        checker.CheckEntityInRange(target);
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Error(ex, $"Failed range check of entity {target.Guid} for {checker.Guid}!");
+                    }
                 }
             }
 
@@ -523,6 +557,12 @@ namespace NexusForever.Game.Entity
         {
             if (!RangeCheck.HasValue)
                 return;
+
+            if (deferredRangeChecks != null)
+            {
+                deferredRangeChecks.Add((this, target));
+                return;
+            }
 
             if (!HasEnteredRange(target) && IsInRange(target))
                 AddToRange(target);

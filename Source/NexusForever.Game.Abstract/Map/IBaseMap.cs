@@ -64,7 +64,10 @@ namespace NexusForever.Game.Abstract.Map
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> to be relocated in <see cref="IBaseMap"/> to <see cref="Vector3"/>.
         /// </summary>
-        void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null);
+        /// <remarks>
+        /// A coalesced relocate replaces the position of the relocate already queued for the entity instead of queueing another one.
+        /// </remarks>
+        void EnqueueRelocate(IGridEntity entity, Vector3 position, OnRelocateDelegate callback = null, bool coalesce = false);
 
         /// <summary>
         /// Enqueue <see cref="IGridEntity"/> for visibility update.
