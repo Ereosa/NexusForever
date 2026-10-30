@@ -165,7 +165,7 @@ namespace NexusForever.Game.Map.Instance
         private void ProcessUnloadAwaitingGridActions()
         {
             // waiting for pending grid actions to be processed
-            if (pendingActions.Count == 0)
+            if (PendingActionCount == 0)
                 UnloadStatus = MapUnloadStatus.AwaitingUnloadPlayers;
         }
 

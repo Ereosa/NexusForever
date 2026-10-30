@@ -51,6 +51,15 @@ namespace NexusForever.Game.Map
 
         protected readonly ConcurrentQueue<IGridAction> pendingActions = new();
 
+        // adds of non-player entities (grid activation queues thousands) wait here so they can not hold up
+        // removes, teleports and player adds queued behind them
+        private readonly ConcurrentQueue<IGridAction> pendingBulkAdds = new();
+
+        /// <summary>
+        /// Number of grid actions waiting to be processed.
+        /// </summary>
+        protected int PendingActionCount => pendingActions.Count + pendingBulkAdds.Count;
+
         // latest position of entities with a relocate already queued, moving entities relocate every tick and only the last
         // position matters: one queued relocate per entity keeps the queue from outgrowing the per tick threshold
         private readonly ConcurrentDictionary<IGridEntity, (Vector3 Position, OnRelocateDelegate Callback)> queuedRelocates = new();
@@ -129,7 +138,7 @@ namespace NexusForever.Game.Map
         private void ProcessGridActions()
         {
             var newActions = new List<IGridAction>();
-            foreach (IGridAction action in DequeueGridActions())
+            foreach (IGridAction action in DequeueGridActions(Stopwatch.StartNew()))
             {
                 try
                 {
@@ -190,43 +199,77 @@ namespace NexusForever.Game.Map
 
             // new actions are added to the queue after processing so they are processed starting next update
             foreach (IGridAction action in newActions)
+                QueueAction(action);
+        }
+
+        private void QueueAction(IGridAction action)
+        {
+            if (action is IGridActionAdd { Entity: not IPlayer })
+                pendingBulkAdds.Enqueue(action);
+            else
                 pendingActions.Enqueue(action);
         }
 
         /// <summary>
-        /// Dequeue the pending grid actions to process this update, in the order they were queued.
+        /// Dequeue the pending grid actions to process this update.
         /// </summary>
         /// <remarks>
         /// Coalesced relocates have their own, larger, budget. They are limited to one per moving entity but a busy map has hundreds of
         /// moving entities, sharing the budget with adds and removes left the position of every entity many seconds behind
         /// the position the client is shown: spells and attacks aimed at a creature missed it and creatures hit from where they stood.
+        /// Removes, teleports (relocate callbacks), visibility updates and player adds keep the order they were queued in, past the
+        /// <see cref="MapConfig.GridActionThreshold"/> they keep going until the update has used its time budget.
+        /// Adds of other entities are in a lane of their own that gets the rest of the time budget, a grid activation queues
+        /// thousands of them and a minute of waiting behind them stalled teleports, removes and every vision update.
         /// </remarks>
-        private IEnumerable<IGridAction> DequeueGridActions()
+        private IEnumerable<IGridAction> DequeueGridActions(Stopwatch stopwatch)
         {
             var config = SharedConfiguration.Instance.Get<MapConfig>();
-            uint actionBudget   = config.GridActionThreshold ?? 100u;
-            uint relocateBudget = config.GridRelocateThreshold ?? 1000u;
+            uint actionThreshold = config.GridActionThreshold ?? 100u;
+            uint relocateBudget  = config.GridRelocateThreshold ?? 1000u;
+            long timeBudget      = config.GridActionTimeBudget ?? 30u;
+            uint bulkMinimum     = config.GridBulkAddMinimum ?? 25u;
 
             // actions queued while processing wait for the next update
+            uint processed = 0u;
             int count = pendingActions.Count;
             for (int i = 0; i < count; i++)
             {
                 if (!pendingActions.TryPeek(out IGridAction action))
-                    yield break;
+                    break;
 
                 // stop at the first action over budget, later actions must not overtake it
                 bool relocate = action is IGridActionRelocate { Coalesced: true };
-                if ((relocate ? relocateBudget : actionBudget) == 0u)
-                    yield break;
+                if (relocate)
+                {
+                    if (relocateBudget == 0u)
+                        break;
+                }
+                else if (processed >= actionThreshold && stopwatch.ElapsedMilliseconds >= timeBudget)
+                    break;
 
                 if (!pendingActions.TryDequeue(out action))
-                    yield break;
+                    break;
 
                 if (relocate)
                     relocateBudget--;
                 else
-                    actionBudget--;
+                    processed++;
 
+                yield return action;
+            }
+
+            uint bulkProcessed = 0u;
+            count = pendingBulkAdds.Count;
+            for (int i = 0; i < count; i++)
+            {
+                if (bulkProcessed >= bulkMinimum && stopwatch.ElapsedMilliseconds >= timeBudget)
+                    break;
+
+                if (!pendingBulkAdds.TryDequeue(out IGridAction action))
+                    break;
+
+                bulkProcessed++;
                 yield return action;
             }
         }
@@ -278,7 +321,7 @@ namespace NexusForever.Game.Map
         {
             entity.OnEnqueueAddToMap();
 
-            pendingActions.Enqueue(new GridActionAdd
+            QueueAction(new GridActionAdd
             {
                 Entity    = entity,
                 Vector    = position,
@@ -298,7 +341,7 @@ namespace NexusForever.Game.Map
         {
             player.OnEnqueueAddToMap();
 
-            pendingActions.Enqueue(new GridActionPlayerAdd
+            QueueAction(new GridActionPlayerAdd
             {
                 Entity    = player,
                 Vector    = position,
