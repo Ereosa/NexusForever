@@ -124,7 +124,10 @@ namespace NexusForever.Game.Entity
                 currentLeg = leg;
                 if (leg.Points.Count >= 2 && leg.Points[0] != leg.Points[^1])
                 {
-                    MovementManager.LaunchSpline(leg.Points.ToList(), leg.Type, SplineMode.OneShot, leg.Speed);
+                    // custom paths always go out as linear: the client doesn't move a unit along a Catmull-Rom SetPositionPath
+                    // (report 43, the taxi stood still and the rider snapped to the destination on landing), every custom path
+                    // the client is known to follow is linear and the tbl points are dense enough to keep the shape of the route
+                    MovementManager.LaunchSpline(leg.Points.ToList(), SplineType.Linear, SplineMode.OneShot, leg.Speed);
                     return;
                 }
 
