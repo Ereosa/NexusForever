@@ -11,6 +11,7 @@ using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reward;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Script.Template.Filter.Dynamic;
 using NexusForever.Shared;
 using NLog;
 
@@ -115,6 +116,15 @@ namespace NexusForever.Game
             holdoutSpawns = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathSoldierHoldoutSpawns()
                 .GroupBy(m => (uint)m.PathSoldierEventId)
                 .ToImmutableDictionary(g => g.Key, g => g.ToImmutableList());
+
+            // the waves (not the units to defend, flag 0x02) fight the player, most of their creatures are NoAI in the game tables
+            ScriptFilterDynamicCombatAI.AddCreatures(holdoutSpawns.Values
+                .SelectMany(s => s)
+                .Where(s => (s.Flags & 0x02) == 0)
+                .Select(s => GameTableManager.Instance.Creature2.GetEntry(s.CreatureId))
+                .Where(e => e != null && e.FactionId != 0u && !ScriptFilterDynamicCombatAI.IsEnvironmentalHazard(e)
+                    && e.Creature2ArcheTypeId is not (25u or 27u or 29u))
+                .Select(e => e.Id));
         }
 
         private void CacheSettlerStructures()
