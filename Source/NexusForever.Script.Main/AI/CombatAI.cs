@@ -29,7 +29,7 @@ namespace NexusForever.Script.Main.AI
         private readonly UpdateTimer autoAttackTimer = new(TimeSpan.FromSeconds(1.5d));
 
         /// <summary>
-        /// Turrets shoot from where they were placed and never chase.
+        /// Turrets, and creatures bound to a world prop, attack from where they were placed and never chase.
         /// </summary>
         private bool stationary;
         private const uint TurretUnitRaceId = 267;
@@ -83,6 +83,11 @@ namespace NexusForever.Script.Main.AI
         {
             entity = owner;
             entity.SetInRangeCheck(15f);
+
+            // the model of a creature bound to a world prop (thorn plants, traps) is the prop itself, chasing moved only the
+            // invisible unit and left the prop behind: players were hit by something they could not see (report 73)
+            if (entity.ActivePropId != 0ul)
+                stationary = true;
 
             if (entity.Type == EntityType.AiTurret || entity.CreatureInfo?.Entry?.UnitRaceId == TurretUnitRaceId)
             {
