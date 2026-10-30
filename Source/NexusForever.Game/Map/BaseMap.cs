@@ -627,7 +627,14 @@ namespace NexusForever.Game.Map
         {
             Debug.Assert(entity.Map != null);
 
-            GetGrid(entity.Position).RemoveEntity(entity);
+            // removing from the grid at the entity's position failed with an overflow every tick when the entity had moved to another
+            // grid without a relocate, the entity then never left the map; look through the active grids for it instead
+            if (GetGrid(entity.Position)?.RemoveEntity(entity) != true)
+            {
+                foreach ((uint gridX, uint gridZ) in activeGrids.ToList())
+                    if (GetGrid(gridX, gridZ)?.RemoveEntity(entity) == true)
+                        break;
+            }
 
             log.Trace($"Removed entity {entity.Guid} from map {Entry.Id}.");
 
@@ -651,10 +658,12 @@ namespace NexusForever.Game.Map
             IMapGrid newGrid = GetGrid(vector);
             IMapGrid oldGrid = GetGrid(entity.Position);
 
-            if (newGrid.Coord.X != oldGrid.Coord.X
+            // the old grid can be gone (unloaded) when the entity's position moved on without a relocate
+            if (oldGrid == null
+                || newGrid.Coord.X != oldGrid.Coord.X
                 || newGrid.Coord.Z != oldGrid.Coord.Z)
             {
-                oldGrid.RemoveEntity(entity);
+                oldGrid?.RemoveEntity(entity);
                 newGrid.AddEntity(entity, vector);
             }
             else

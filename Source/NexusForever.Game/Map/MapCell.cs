@@ -72,10 +72,13 @@ namespace NexusForever.Game.Map
         /// <summary>
         /// Remove <see cref="IGridEntity"/> from the <see cref="IMapCell"/>.
         /// </summary>
-        public void RemoveEntity(IGridEntity entity)
+        public bool RemoveEntity(IGridEntity entity)
         {
-            entities.Remove(entity);
+            if (!entities.Remove(entity))
+                return false;
+
             log.Trace($"Removed entity {entity.Guid} from cell at X:{Coord.X}, Z:{Coord.Z}.");
+            return true;
         }
 
         /// <summary>

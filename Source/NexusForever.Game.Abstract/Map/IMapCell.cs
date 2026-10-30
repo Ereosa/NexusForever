@@ -27,7 +27,7 @@ namespace NexusForever.Game.Abstract.Map
         /// <summary>
         /// Remove <see cref="IGridEntity"/> from the <see cref="IMapCell"/>.
         /// </summary>
-        void RemoveEntity(IGridEntity entity);
+        bool RemoveEntity(IGridEntity entity);
 
         /// <summary>
         /// Return all <see cref="IGridEntity"/>'s in the <see cref="IMapCell"/> that satisfy <see cref="ISearchCheck{T}"/>.
