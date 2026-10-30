@@ -28,6 +28,11 @@ namespace NexusForever.Network.Session
         /// </remarks>
         public SocketHeartbeat Heartbeat { get; } = new();
 
+        /// <summary>
+        /// Remote address the client connected from, empty before <see cref="OnAccept"/>.
+        /// </summary>
+        public string RemoteAddress { get; private set; } = "";
+
         private Socket socket;
         private readonly byte[] buffer = new byte[4096];
         private int bufferOffset;
@@ -45,6 +50,7 @@ namespace NexusForever.Network.Session
             Id = Guid.NewGuid().ToString();
 
             socket = newSocket;
+            RemoteAddress = (newSocket.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "";
             socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, ReceiveDataCallback, null);
 
             log.Trace($"New client {Id} connected from {newSocket.RemoteEndPoint}.");

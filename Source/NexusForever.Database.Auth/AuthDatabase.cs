@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -281,6 +282,56 @@ namespace NexusForever.Database.Auth
             });
 
             context.SaveChanges();
+        }
+
+        /// <summary>
+        /// Insert a player bug report into the report website's player_report table, returns the new report id or 0 if it could not be saved.
+        /// </summary>
+        public async Task<uint> AddPlayerReportAsync(PlayerReportModel report)
+        {
+            try
+            {
+                using var context = new AuthContext(config);
+                DbConnection connection = context.Database.GetDbConnection();
+                await connection.OpenAsync();
+
+                using DbCommand command = connection.CreateCommand();
+                command.CommandText = "INSERT INTO player_report (category, summary, description, zone, accountId, email, characterId, characterName, " +
+                    "level, class, worldId, worldZoneId, locationX, locationY, locationZ, ip) VALUES (@category, @summary, @description, @zone, " +
+                    "@accountId, @email, @characterId, @characterName, @level, @class, @worldId, @worldZoneId, @locationX, @locationY, @locationZ, @ip); " +
+                    "SELECT LAST_INSERT_ID();";
+                AddParameter(command, "@category", report.Category);
+                AddParameter(command, "@summary", report.Summary);
+                AddParameter(command, "@description", report.Description);
+                AddParameter(command, "@zone", report.Zone);
+                AddParameter(command, "@accountId", report.AccountId);
+                AddParameter(command, "@email", report.Email);
+                AddParameter(command, "@characterId", report.CharacterId);
+                AddParameter(command, "@characterName", report.CharacterName);
+                AddParameter(command, "@level", Math.Min(report.Level, byte.MaxValue));
+                AddParameter(command, "@class", report.Class);
+                AddParameter(command, "@worldId", report.WorldId);
+                AddParameter(command, "@worldZoneId", report.WorldZoneId);
+                AddParameter(command, "@locationX", report.LocationX);
+                AddParameter(command, "@locationY", report.LocationY);
+                AddParameter(command, "@locationZ", report.LocationZ);
+                AddParameter(command, "@ip", report.Ip ?? "");
+
+                return Convert.ToUInt32(await command.ExecuteScalarAsync());
+            }
+            catch (Exception exception)
+            {
+                log.Error(exception, $"Failed to save player report from account {report.AccountId}!");
+                return 0u;
+            }
+        }
+
+        private static void AddParameter(DbCommand command, string name, object value)
+        {
+            DbParameter parameter = command.CreateParameter();
+            parameter.ParameterName = name;
+            parameter.Value         = value;
+            command.Parameters.Add(parameter);
         }
     }
 }

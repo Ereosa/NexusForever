@@ -21,6 +21,11 @@ namespace NexusForever.Network.Session
         /// </summary>
         SocketHeartbeat Heartbeat { get; }
 
+        /// <summary>
+        /// Remote address the client connected from, empty before <see cref="OnAccept"/>.
+        /// </summary>
+        string RemoteAddress { get; }
+
         bool CanDispose();
         void ForceDisconnect();
         void OnAccept(Socket newSocket);
