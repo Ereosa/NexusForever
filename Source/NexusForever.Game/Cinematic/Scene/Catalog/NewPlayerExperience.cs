@@ -173,6 +173,32 @@ namespace NexusForever.Game.Cinematic.Scene
                 .WithText(750198, 54000, 60400);
         }
 
+        // GC071: launch from the Exile Arkship to the Northern Wilds, played at the Departures Terminal before the drop pod lands
+        // (NorthernWildsOnCreate). The ALLSHIPS models hold five 20.7 s launch scenes of three static shots each, the Northern Wilds
+        // one is the third (Cinematic_Misc_12, cameras Cinematic_09-11), matching retail footage of the 2016 tutorial
+        // (youtube.com/watch?v=uhdjrrVe354, 13:44): hull close-up, the ship far away, the planet with the pod, cuts at 5.9 and 12.3 s.
+        // Origin guessed: WorldLocation2 51603, unreferenced and 112 m below the Exile Docking Bay, its twin 51604 sits below the
+        // Dominion one. Dispatcher voice (ExileDispatcherNW_01/02) and subtitle timings from the footage, voice offsets guessed.
+        private const uint NpeLaunchSequenceNorthernWilds = 18574;
+
+        private static void AddNewPlayerExperienceLaunches()
+        {
+            Add(CinematicSceneId.NpeLaunchNorthernWilds)
+                .WithDuration(20667)
+                .AtOrigin(-4128.19f, -557.94f, -4046.78f)
+                .WithSequenceVisual(NpeLaunchSequenceNorthernWilds)
+                .WithCamera(51514, 15)
+                .CutTo(5900, 16).CutTo(12333, 17)
+                .WithActors(51519, 51520, 51521, 51526, 74813)
+                .WithPlayerVisual(27971)
+                .WithPlayerVisual(30537, 4400)
+                .WithPlayerVisual(30540, 11900)
+                .WithText(585004, 4500, 9000)
+                .WithText(585005, 9000, 12000)
+                .WithText(585006, 12000, 14500)
+                .WithText(754541, 14500, 18700);
+        }
+
         private static SceneActor Placed(uint creatureId, float x, float y, float z, float angle)
         {
             return new SceneActor(creatureId)
