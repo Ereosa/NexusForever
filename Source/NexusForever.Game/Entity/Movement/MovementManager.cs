@@ -434,7 +434,42 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetPositionMultiSpline(List<ushort> splineIds, SplineMode mode, float speed)
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            // the server follows the chained spline points, the client rides the tbl splines
+            var points = new List<Vector3>();
+            foreach (ushort splineId in splineIds)
+            {
+                foreach (GameTable.Model.Spline2NodeEntry node in GameTable.GameTableManager.Instance.Spline2Node.Entries
+                    .Where(n => n.SplineId == splineId)
+                    .OrderBy(n => n.Ordinal))
+                {
+                    var position = new Vector3(node.Position0, node.Position1, node.Position2);
+                    if (points.Count == 0 || Vector3.DistanceSquared(points[^1], position) > 0.01f)
+                        points.Add(position);
+                }
+            }
+
+            if (points.Count < 2)
+                return;
+
+            positionCommandGroup.SetPositionMultiSpline(splineIds, points, mode, speed);
+        }
+
+        /// <summary>
+        /// Launch a new multi spline with the supplied spline ids, <see cref="SplineMode"/> and speed.
+        /// </summary>
+        public void LaunchMultiSpline(List<ushort> splineIds, SplineMode mode, float speed)
+        {
+            if (!ServerControl)
+                return;
+
+            SetState(StateFlags.Move);
+            SetMoveDefaults(false);
+            SetRotationDefaults();
+
+            SetPositionMultiSpline(splineIds, mode, speed);
         }
 
         /// <summary>

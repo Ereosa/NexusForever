@@ -41,6 +41,11 @@ namespace NexusForever.Game.Abstract.Entity.Movement.Command.Position
         void SetPositionSpline(ushort splineId, SplineMode mode, float speed);
 
         /// <summary>
+        /// Launch a new multi spline with supplied splines, their chained points, <see cref="SplineMode"/> and speed.
+        /// </summary>
+        void SetPositionMultiSpline(List<ushort> splineIds, List<Vector3> points, SplineMode mode, float speed);
+
+        /// <summary>
         /// NYI
         /// </summary>
         void SetPositionMultiSpline();

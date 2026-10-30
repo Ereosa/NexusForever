@@ -132,7 +132,7 @@ namespace NexusForever.Game.Entity
                 player.SetControl(this);
                 riderControls = true;
             }
-            else if (mode is "release" or "releasepath")
+            else if (mode is "release" or "releasepath" or "legs")
             {
                 player.SetControl(null);
                 riderControls = true;
@@ -174,6 +174,21 @@ namespace NexusForever.Game.Entity
             while (legs.TryDequeue(out TaxiLeg leg))
             {
                 currentLeg = leg;
+
+                // a flight over several routes rides them as one multi spline, the client stopped at the hand over when each
+                // route was its own spline (Gallow - Thayd - Sylvan Glade, report from Ereosa)
+                if (onFinished == null && leg.SplineId != 0 && legs.Count > 0 && legs.All(l => l.SplineId != 0)
+                    && mode is not ("path" or "releasepath" or "legs"))
+                {
+                    var flight = new List<TaxiLeg> { leg };
+                    flight.AddRange(legs);
+                    legs.Clear();
+
+                    MovementManager.LaunchMultiSpline(flight.Select(l => l.SplineId).ToList(), SplineMode.OneShot, leg.Speed);
+                    legTimer = flight.Sum(l => GetLength(l.Points)) / leg.Speed;
+                    return;
+                }
+
                 if (leg.SplineId != 0 && leg.Points.Count >= 2 && mode is not ("path" or "releasepath"))
                 {
                     // a city tour rides one spline, its later legs only time the stops along it
@@ -213,7 +228,7 @@ namespace NexusForever.Game.Entity
             if (leg == null)
                 return false;
 
-            if (leg.OnReached != null && GetVisible<IPlayer>(OwnerGuid) is IPlayer player)
+            if (leg.OnReached != null && Map?.GetEntity<IPlayer>(OwnerGuid) is IPlayer player)
                 leg.OnReached(player);
 
             if (leg.PauseMs == 0u)
@@ -262,7 +277,8 @@ namespace NexusForever.Game.Entity
             if (command is PositionSplineCommand && (currentLeg?.Launch == false || legs.Any(l => !l.Launch)))
                 return;
 
-            if (command is PositionPathCommand { IsFinalised: true } or PositionSplineCommand { IsFinalised: true })
+            if (command is PositionPathCommand { IsFinalised: true } or PositionSplineCommand { IsFinalised: true }
+                or PositionMultiSplineCommand { IsFinalised: true })
                 FinishLeg();
         }
 
@@ -283,7 +299,7 @@ namespace NexusForever.Game.Entity
         {
             flying = false;
 
-            IPlayer player = GetVisible<IPlayer>(OwnerGuid);
+            IPlayer player = Map?.GetEntity<IPlayer>(OwnerGuid);
             if (player == null)
             {
                 RemoveFromMap();

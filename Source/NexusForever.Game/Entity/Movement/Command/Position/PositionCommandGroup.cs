@@ -203,6 +203,17 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
         /// <summary>
         /// Set the position based on the supplied spline, <see cref="SplineMode"/> and speed.
         /// </summary>
+        public void SetPositionMultiSpline(List<ushort> splineIds, List<Vector3> points, SplineMode mode, float speed)
+        {
+            Finalise();
+
+            var command = factory.Resolve<PositionMultiSplineCommand>();
+            command.Initialise(splineIds, points, mode, speed);
+            Command = command;
+
+            IsDirty = true;
+        }
+
         public void SetPositionSpline(ushort splineId, SplineMode mode, float speed)
         {
             Finalise();

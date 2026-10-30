@@ -10,9 +10,9 @@ namespace NexusForever.WorldServer.Command.Handler
     [CommandTarget(typeof(IPlayer))]
     public class TaxiCommandCategory : CommandCategory
     {
-        private static readonly string[] modes = { "release", "spline", "path", "control", "late", "releasepath" };
+        private static readonly string[] modes = { "release", "legs", "spline", "path", "control", "late", "releasepath" };
 
-        [Command(Permission.Movement, "Set how your next taxi flights are driven: release, spline, path, control, late or releasepath.", "mode")]
+        [Command(Permission.Movement, "Set how your next taxi flights are driven: release, legs (one spline per route), spline, path, control, late or releasepath.", "mode")]
         public void HandleTaxiMode(ICommandContext context,
             [Parameter("Flight mode: release (default), spline, path, control, late or releasepath.")]
             string mode)

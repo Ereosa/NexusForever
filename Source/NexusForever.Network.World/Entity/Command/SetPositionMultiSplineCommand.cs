@@ -44,7 +44,8 @@ namespace NexusForever.Network.World.Entity.Command
             foreach (var splineId in SplineIds)
                 writer.Write(splineId);
 
-            writer.Write(Speed);
+            // client reader sub_1400AE180: count 10, ids, speed as a 16 bit packed float, position and the two heights as floats
+            writer.WritePackedFloat(Speed);
             writer.Write(Position);
             writer.Write(TakeoffLocationHeight);
             writer.Write(LandingLocationHeight);
