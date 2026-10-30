@@ -462,8 +462,25 @@ namespace NexusForever.Game.Entity
 
             _SetSpellCooldown(spellInfo.Entry.Id, cooldown, emit);
 
+            // mechanic alternates (Spellslinger Charged Shot and its surged form) share the cooldown and the action bar slot,
+            // the client only shows a cooldown on the spell id it is told about
+            foreach (uint alternateSpell4Id in GetMechanicAlternateSpellIds(spellInfo.Entry).ToList())
+                _SetSpellCooldown(alternateSpell4Id, cooldown, emit);
+
             foreach (SpellCoolDownEntry coolDownEntry in spellInfo.Cooldowns)
                 SetSpellCooldownByCooldownId(coolDownEntry.Id, cooldown);
+        }
+
+        private IEnumerable<uint> GetMechanicAlternateSpellIds(Spell4Entry entry)
+        {
+            if (entry.Spell4IdMechanicAlternateSpell > 0)
+                yield return entry.Spell4IdMechanicAlternateSpell;
+
+            foreach (ICharacterSpell characterSpell in spells.Values)
+            {
+                if (characterSpell.SpellInfo.Entry.Spell4IdMechanicAlternateSpell == entry.Id)
+                    yield return characterSpell.SpellInfo.Entry.Id;
+            }
         }
 
         /// <summary>
