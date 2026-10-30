@@ -11,6 +11,8 @@ namespace NexusForever.Game.Configuration.Model
         public bool SynchronousUpdate { get; set; } = false;
         public uint? GridActionThreshold { get; set; } = 100u;
         public uint? GridRelocateThreshold { get; set; } = 1000u;
+        public uint? GridActionTimeBudget { get; set; } = 30u;
+        public uint? GridBulkAddMinimum { get; set; } = 25u;
         public uint? GridActionMaxRetry { get; set; } = 5u;
         public double? GridUnloadTimer { get; set; } = 600u;
         public uint? MaxInstances { get; set; } = 10u;
