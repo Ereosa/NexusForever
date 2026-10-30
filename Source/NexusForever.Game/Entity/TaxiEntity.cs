@@ -26,13 +26,16 @@ namespace NexusForever.Game.Entity
         public uint OwnerGuid { get; private set; }
 
         /// <summary>
-        /// Test modes for driving flights, set per character with the "taxi mode" command: "spline" (tbl spline, default), "path"
+        /// Test modes for driving flights, set per character with the "taxi mode" command: "release" (default, tbl spline with the
+        /// rider's movement control taken away for the flight, confirmed in game: the rider is seated and the taxi flies the whole
+        /// route; the client skips server movement for the unit it controls, so a rider still in control is never seated), "spline"
+        /// (tbl spline only), "path"
         /// (linear custom path), "control" (the rider's client controls the taxi), "late" (the spline starts 2 seconds after the
         /// rider is seated), "release" and "releasepath" (spline or path with the rider's movement control taken away for the flight).
         /// </summary>
         public static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, string> TestModes = new();
 
-        private string mode = "spline";
+        private string mode = "release";
         private bool riderControls;
 
         private readonly Queue<TaxiLeg> legs = new();
@@ -66,7 +69,7 @@ namespace NexusForever.Game.Entity
             Rotation                 = owner.Rotation;
             Destination              = destination;
             DestinationRotation      = destinationRotation;
-            mode                     = TestModes.TryGetValue(owner.CharacterId, out string testMode) ? testMode : "spline";
+            mode                     = TestModes.TryGetValue(owner.CharacterId, out string testMode) ? testMode : "release";
 
             // flights ride the route's tbl spline: the client only moves a taxi along a tbl spline ("Embark_NoSplineForTaxi"),
             // custom paths left the taxi standing still on the client (reports 43 and 53)
