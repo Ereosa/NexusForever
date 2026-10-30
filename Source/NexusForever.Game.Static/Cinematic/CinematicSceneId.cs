@@ -108,6 +108,7 @@
         NpeHousingExile                 = 297,
         NpeDepartureBayExile            = 298,
         NpeAnnihilator                  = 299,
+        NpeLaunchNorthernWilds          = 71,
 
         // Expeditions
         OutpostM13Arrival               = 176,

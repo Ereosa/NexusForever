@@ -17,6 +17,8 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
     {
         private record Destination(Vector3 Position, uint ZoneId);
 
+        private const uint CryoProjector = 73745;
+
         /// <summary>
         /// Transition cinematics (Exile, Dominion) that play once the player arrives in the next simulation.
         /// </summary>
@@ -84,12 +86,22 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
 
             // the transition cinematic of the next simulation plays once the player has arrived there
             CinematicSceneId sceneId = activator.Faction2 == Faction.Dominion ? transition.Dominion : transition.Exile;
-            activator.TeleportToLocal(destination.Position, callback: _ =>
+            void Transition()
             {
-                ICinematicBase cinematic = cinematicFactory.CreateCinematic(sceneId);
-                if (cinematic != null)
-                    activator.CinematicManager.QueueCinematic(cinematic);
-            });
+                activator.TeleportToLocal(destination.Position, callback: _ =>
+                {
+                    ICinematicBase cinematic = cinematicFactory.CreateCinematic(sceneId);
+                    if (cinematic != null)
+                        activator.CinematicManager.QueueCinematic(cinematic);
+                });
+            }
+
+            // the Annihilator rises behind the player before the cryo projector ends the simulation (retail footage, both factions)
+            ICinematicBase annihilator = owner.CreatureId == CryoProjector ? cinematicFactory.CreateCinematic(CinematicSceneId.NpeAnnihilator) : null;
+            if (annihilator != null)
+                activator.CinematicManager.QueueCinematic(annihilator, Transition);
+            else
+                Transition();
         }
     }
 }

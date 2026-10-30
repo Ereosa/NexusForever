@@ -1,4 +1,6 @@
+using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Static.Cinematic;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
@@ -10,6 +12,7 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
     /// <remarks>
     /// The terminal's activate spell is a yes/no confirmation, on success the player leaves the tutorial for the chosen starting zone.
     /// Destinations are the veteran (skip tutorial) starting locations from character creation.
+    /// The Northern Wilds terminal plays the Arkship launch (GC071) first, the drop pod lands once the player arrives.
     /// </remarks>
     [ScriptFilterCreatureId(EverstarGroveTerminal, NorthernWildsTerminal, CrimsonIsleTerminal, LevianBayTerminal)]
     public class DepartureTerminalEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
@@ -25,6 +28,18 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
         private const ushort LevianBayWorldId     = 1387;
 
         private IWorldEntity owner;
+
+        #region Dependency Injection
+
+        private readonly ICinematicFactory cinematicFactory;
+
+        public DepartureTerminalEntityScript(
+            ICinematicFactory cinematicFactory)
+        {
+            this.cinematicFactory = cinematicFactory;
+        }
+
+        #endregion
 
         /// <summary>
         /// Invoked when <see cref="IScript"/> is loaded.
@@ -42,8 +57,16 @@ namespace NexusForever.Script.Main.Tutorial.Script.Part2
             switch (owner.CreatureId)
             {
                 case NorthernWildsTerminal:
-                    activator.TeleportTo(NorthernWildsWorldId, 4110.71f, -658.625f, -5145.48f);
+                {
+                    void Depart() => activator.TeleportTo(NorthernWildsWorldId, 4110.71f, -658.625f, -5145.48f);
+
+                    ICinematicBase launch = cinematicFactory.CreateCinematic(CinematicSceneId.NpeLaunchNorthernWilds);
+                    if (launch != null)
+                        activator.CinematicManager.QueueCinematic(launch, Depart);
+                    else
+                        Depart();
                     break;
+                }
                 case EverstarGroveTerminal:
                     activator.TeleportTo(EverstarGroveWorldId, -771.823f, -904.285f, -2269.56f);
                     break;

@@ -37,11 +37,9 @@ namespace NexusForever.Script.Alizar.NorthernWilds
             if (player.QuestManager.GetQuestState(Quest.ReportingForDuty) != null)
                 return;
 
-            // Granok drop in by pod, the other races (CinematicRace 2: Human, Aurin, Mordesh) crash land in a transport
-            ICinematicBase cinematic = player.Race == Race.Granok
-                ? cinematicFactory.CreateCinematic<INorthernWildsOnCreate>()
-                : cinematicFactory.CreateCinematic(CinematicSceneId.NorthernWildsHumanIntro);
-            player.CinematicManager.QueueCinematic(cinematic);
+            // from the 2016 tutorial on every race drops in by pod (retail footage of an Aurin, youtube.com/watch?v=uhdjrrVe354, 13:44),
+            // the transport crash of the launch build (GC002, NorthernWildsHumanIntro) is left for the GM command
+            player.CinematicManager.QueueCinematic(cinematicFactory.CreateCinematic<INorthernWildsOnCreate>());
         }
 
         // TODO: OnEnterZone work for empowered tower
