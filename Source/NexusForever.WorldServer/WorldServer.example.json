@@ -48,6 +48,8 @@
             "GridRelocateThreshold": 1000,
             "GridActionTimeBudget": 30,
             "GridBulkAddMinimum": 25,
+            "GridActionMaxTimeBudget": 50,
+            "GridBulkBacklog": 1000,
             "GridActionMaxRetry": 5,
             "GridUnloadTimer": 3600,
             "MaxInstances": 10

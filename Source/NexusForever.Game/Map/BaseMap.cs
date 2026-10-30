@@ -53,7 +53,7 @@ namespace NexusForever.Game.Map
 
         // adds of non-player entities (grid activation queues thousands) wait here so they can not hold up
         // removes, teleports and player adds queued behind them
-        private readonly ConcurrentQueue<IGridAction> pendingBulkAdds = new();
+        private readonly BulkAddQueue pendingBulkAdds = new();
 
         /// <summary>
         /// Number of grid actions waiting to be processed.
@@ -205,7 +205,7 @@ namespace NexusForever.Game.Map
         private void QueueAction(IGridAction action)
         {
             if (action is IGridActionAdd { Entity: not IPlayer })
-                pendingBulkAdds.Enqueue(action);
+                pendingBulkAdds.Enqueue(action, ((IGridActionAdd)action).Vector);
             else
                 pendingActions.Enqueue(action);
         }
@@ -259,14 +259,17 @@ namespace NexusForever.Game.Map
                 yield return action;
             }
 
+            if (pendingBulkAdds.Count == 0)
+                yield break;
+
+            // a big backlog (long flights, teleports into a busy area) gets a longer update, the nearest adds still come first
+            if (pendingBulkAdds.Count > (config.GridBulkBacklog ?? 1000u))
+                timeBudget = config.GridActionMaxTimeBudget ?? 50u;
+
             uint bulkProcessed = 0u;
-            count = pendingBulkAdds.Count;
-            for (int i = 0; i < count; i++)
+            foreach (IGridAction action in pendingBulkAdds.Drain(entities.Values.OfType<IPlayer>().Select(p => p.Position).ToList()))
             {
                 if (bulkProcessed >= bulkMinimum && stopwatch.ElapsedMilliseconds >= timeBudget)
-                    break;
-
-                if (!pendingBulkAdds.TryDequeue(out IGridAction action))
                     break;
 
                 bulkProcessed++;
