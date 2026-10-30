@@ -9,13 +9,14 @@ using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.GameTable.Model;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.GameTable;
+using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 using NexusForever.Shared;
 
 namespace NexusForever.Script.Instance.Expedition.FragmentZero
 {
     [ScriptFilterOwnerId(3180)]
-    public class FragmentZeroMapScript : EventBaseContentMapScript
+    public class FragmentZeroMapScript : EventBaseContentMapScript, IMapScript
     {
         public override uint PublicEventId => 680u;
 
@@ -75,6 +76,16 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             player.InstancePortalReturn ??= player.Faction1 == Faction.Dominion
                 ? CreateReturn(22, new Vector3(-5664.35f, -977.071f, -851.552f))  // Transport to Fragment Zero, Deradune
                 : CreateReturn(51, new Vector3(3690.11f, -1024.26f, -4619.81f)); // Transport to Fragment Zero, Algoroc
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IGridEntity"/> is removed from map.
+        /// </summary>
+        public void OnRemoveFromMap(IGridEntity entity)
+        {
+            // the low gravity, flash light and space helmet belong to Fragment Zero only
+            if (entity is IPlayer player)
+                player.FinishSpells(s => ZoneSpells.Contains(s.Spell4Id));
         }
 
         private IMapPosition CreateReturn(uint worldId, Vector3 position)
