@@ -23,6 +23,17 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private const float FlightSpeed = 30f;
 
+        /// <summary>
+        /// "Taxi Sound Passenger Spell", its visual plays Play_GenVO_Taxi_RandomRide, a random line of the driver's commentary.
+        /// </summary>
+        private const uint CommentarySpell4Id = 72257u;
+
+        /// <summary>
+        /// Seconds between two lines of driver commentary, a random time in this range.
+        /// </summary>
+        private const double CommentaryMinDelay = 10d;
+        private const double CommentaryMaxDelay = 30d;
+
         public uint OwnerGuid { get; private set; }
 
         /// <summary>
@@ -38,6 +49,7 @@ namespace NexusForever.Game.Entity
         private string mode = "release";
         private bool riderControls;
         private bool landing;
+        private double commentaryTimer;
 
         private readonly Queue<TaxiLeg> legs = new();
         private TaxiLeg currentLeg;
@@ -131,6 +143,10 @@ namespace NexusForever.Game.Entity
                 riderControls = true;
             }
 
+            // tours have their guide, flights get the driver's commentary
+            if (onFinished == null)
+                commentaryTimer = NextCommentaryDelay();
+
             if (mode == "late")
                 pauseTimer = 2d;
             else
@@ -218,9 +234,24 @@ namespace NexusForever.Game.Entity
             return length;
         }
 
+        private static double NextCommentaryDelay()
+        {
+            return CommentaryMinDelay + Random.Shared.NextDouble() * (CommentaryMaxDelay - CommentaryMinDelay);
+        }
+
         public override void Update(double lastTick)
         {
             base.Update(lastTick);
+
+            if (flying && commentaryTimer > 0d && !PendingRemoval)
+            {
+                commentaryTimer -= lastTick;
+                if (commentaryTimer <= 0d)
+                {
+                    GetVisible<IPlayer>(OwnerGuid)?.CastSpell(CommentarySpell4Id, new Spell.SpellParameters());
+                    commentaryTimer = NextCommentaryDelay();
+                }
+            }
 
             if (flying && legTimer > 0d && !PendingRemoval)
             {
