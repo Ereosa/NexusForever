@@ -167,6 +167,10 @@ namespace NexusForever.Game.Loot
         /// <summary>
         /// Generates loot for the specified group from a looted entity.
         /// </summary>
+        /// <remarks>
+        /// Group loot is personal: the drop is generated once and every group member in range gets their own copy of each item they are eligible for.
+        /// The group loot rules (need before greed, master loot, etc.) are not used.
+        /// </remarks>
         /// <param name="group">The group that looted the entity.</param>
         /// <param name="lootedEntity">The entity that was looted.</param>
         public void GenerateLoot(IGroup group, IUnitEntity lootedEntity)
@@ -179,52 +183,38 @@ namespace NexusForever.Game.Loot
                     players.Add(player);
             }
 
+            if (players.Count == 0)
+                return;
+
             ILootBuilder lootBuilder = lootGroupManager.GenerateEntityLoot(lootedEntity.CreatureId, players);
             if (lootBuilder == null)
                 return;
 
-            ILootInstance lootInstance = lootInstanceFactory.Resolve();
-            lootInstance.Initialise(this, lootedEntity);
-
             if (!lootInstances.ContainsKey(lootedEntity.Guid))
                 lootInstances.Add(lootedEntity.Guid, []);
 
-            lootInstances[lootedEntity.Guid].Add(lootInstance);
-
-            foreach (ILootBuilderItem lootBuilderItem in lootBuilder.GetItems())
+            foreach (IPlayer player in players)
             {
-                ILootInstanceItem lootInstanceItem = lootInstance.AddLootItem(lootBuilderItem);
-                if (lootInstanceItem.Type != LootItemType.StaticItem)
-                    continue;
-
-                IItemInfo itemInfo = itemManager.GetItemInfo(lootInstanceItem.StaticId);
-                if (itemInfo == null)
-                    continue;
-
-                LootRule lootRule;
-                if (itemInfo.Quality >= group.ThresholdQuality)
-                    lootRule = group.ThresholdRule;
-                else
-                    lootRule = group.NormalRule;
-
-                switch (lootRule)
+                ILootInstance lootInstance = null;
+                foreach (ILootBuilderItem lootBuilderItem in lootBuilder.GetItems())
                 {
-                    case LootRule.FreeForAll:
-                        lootInstanceItem.SetLootable();
-                        break;
-                    case LootRule.RoundRobin:
-                        // TODO:...
-                        break;
-                    case LootRule.NeedBeforeGreed:
-                        lootInstanceItem.SetRollTime(TimeSpan.FromMinutes(5));
-                        break;
-                    case LootRule.Master:
-                        lootInstanceItem.SetMasterLooter(group.Leader);
-                        break;
-                }
-            }
+                    // conditional loot (eg: quest items) is only eligible for some of the group
+                    if (!lootBuilderItem.Looters.Contains(player.Identity))
+                        continue;
 
-            lootInstance.SendLootNotify();
+                    if (lootInstance == null)
+                    {
+                        lootInstance = lootInstanceFactory.Resolve();
+                        lootInstance.Initialise(this, lootedEntity);
+                        lootInstances[lootedEntity.Guid].Add(lootInstance);
+                    }
+
+                    ILootInstanceItem lootInstanceItem = lootInstance.AddLootItem(lootBuilderItem.StaticId, lootBuilderItem.Type, lootBuilderItem.Count, [ player.Identity ]);
+                    lootInstanceItem.SetLootable();
+                }
+
+                lootInstance?.SendLootNotify();
+            }
         }
 
         /// <summary>
