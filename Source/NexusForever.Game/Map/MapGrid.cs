@@ -174,16 +174,17 @@ namespace NexusForever.Game.Map
         /// <summary>
         /// Remove <see cref="IGridEntity"/> from the <see cref="IMapGrid"/>.
         /// </summary>
-        public void RemoveEntity(IGridEntity entity)
+        public bool RemoveEntity(IGridEntity entity)
         {
-            GetCell(entity.Position).RemoveEntity(entity);
+            // the entity's position can have moved on without a relocate (eg: a spline moving it), look through every cell then
+            if (!GetCell(entity.Position).RemoveEntity(entity) && !cells.Any(c => c.RemoveEntity(entity)))
+                return false;
 
-            checked
-            {
+            if (entityCount > 0u)
                 entityCount--;
-            }
 
             log.Trace($"Removed entity {entity.Guid} to grid at X:{Coord.X}, Z:{Coord.Z}.");
+            return true;
         }
 
         /// <summary>
