@@ -24,15 +24,10 @@ namespace NexusForever.Game.Entity
         private const float FlightSpeed = 30f;
 
         /// <summary>
-        /// "Taxi Sound Passenger Spell", its visual plays Play_GenVO_Taxi_RandomRide, a random line of the driver's commentary.
+        /// "Taxi Sound Passenger Spell", a cancel only aura whose visual (Play_GenVO_Taxi_RandomRide) keeps playing random lines of
+        /// the driver's commentary while the rider has it, cast once when the rider is seated and cancelled on landing.
         /// </summary>
         private const uint CommentarySpell4Id = 72257u;
-
-        /// <summary>
-        /// Seconds between two lines of driver commentary, a random time in this range.
-        /// </summary>
-        private const double CommentaryMinDelay = 10d;
-        private const double CommentaryMaxDelay = 30d;
 
         public uint OwnerGuid { get; private set; }
 
@@ -49,7 +44,7 @@ namespace NexusForever.Game.Entity
         private string mode = "release";
         private bool riderControls;
         private bool landing;
-        private double commentaryTimer;
+
 
         private readonly Queue<TaxiLeg> legs = new();
         private TaxiLeg currentLeg;
@@ -144,8 +139,9 @@ namespace NexusForever.Game.Entity
             }
 
             // tours have their guide, flights get the driver's commentary
+            // not user initiated, a user cast dismounts the caster and took the rider off the taxi
             if (onFinished == null)
-                commentaryTimer = NextCommentaryDelay();
+                player.CastSpell(CommentarySpell4Id, new Spell.SpellParameters { UserInitiatedSpellCast = false });
 
             if (mode == "late")
                 pauseTimer = 2d;
@@ -161,6 +157,7 @@ namespace NexusForever.Game.Entity
 
             flying = false;
             player.TaxiManager.OnLanded();
+            player.GetSpellBySpellId(CommentarySpell4Id)?.Finish();
 
             // on landing the local teleport gives control back after the platform and drop off position reach the client,
             // giving it back here first made the client ignore them and land the rider relative to the removed taxi (high above
@@ -234,24 +231,10 @@ namespace NexusForever.Game.Entity
             return length;
         }
 
-        private static double NextCommentaryDelay()
-        {
-            return CommentaryMinDelay + Random.Shared.NextDouble() * (CommentaryMaxDelay - CommentaryMinDelay);
-        }
-
         public override void Update(double lastTick)
         {
             base.Update(lastTick);
 
-            if (flying && commentaryTimer > 0d && !PendingRemoval)
-            {
-                commentaryTimer -= lastTick;
-                if (commentaryTimer <= 0d)
-                {
-                    GetVisible<IPlayer>(OwnerGuid)?.CastSpell(CommentarySpell4Id, new Spell.SpellParameters());
-                    commentaryTimer = NextCommentaryDelay();
-                }
-            }
 
             if (flying && legTimer > 0d && !PendingRemoval)
             {
