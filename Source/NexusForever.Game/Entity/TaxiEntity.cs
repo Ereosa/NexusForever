@@ -313,10 +313,16 @@ namespace NexusForever.Game.Entity
             landing = true;
             PassengerRemove(player);
 
+            // the rider is set down straight away instead of through a local teleport, its relocate waits in the map's grid action
+            // queue, which on a busy map held the rider frozen in the air for a minute after landing (Woodhaven, 2026-10-30)
             player.Rotation = DestinationRotation;
-            if (player.CanTeleport())
-                player.TeleportToLocal(Destination, false);
-            else if (riderControls)
+            player.RelocateOnMap(Destination);
+            player.MovementManager.SetPosition(Destination, false);
+            player.MovementManager.SetRotation(DestinationRotation, false);
+            player.MovementManager.BroadcastNetworkEntityCommands();
+
+            // control comes back after the platform clear and drop off position are on their way to the client
+            if (riderControls || player.ControlGuid == null)
                 player.SetControl(player);
             riderControls = false;
 
