@@ -287,6 +287,10 @@ namespace NexusForever.Script.Main.AI
         /// </remarks>
         private bool IsProximityAggroTarget(IUnitEntity unit)
         {
+            // players riding a taxi fly over creatures without pulling them
+            if (unit is IPlayer { PlatformGuid: uint platformGuid } && unit.Map?.GetEntity<IWorldEntity>(platformGuid) is ITaxiEntity)
+                return false;
+
             if (unit is IPlayer or ICombatPetEntity)
                 return true;
 
