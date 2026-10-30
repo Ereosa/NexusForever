@@ -65,6 +65,18 @@ namespace NexusForever.Game.Entity
         {
             SetStandState(StandState.State1);
 
+            // a door driving a map prop (ActivePropId) only showed opened to clients that created it in that state, the
+            // stand state change alone left Fragment Zero's airlock iris shut: recreate it for everyone who can see it
+            if (ActivePropId > 0 && Map != null)
+            {
+                EnqueueToVisible(new ServerEntityDestroy
+                {
+                    Guid     = Guid,
+                    Unknown0 = true
+                });
+                EnqueueToVisible(BuildCreatePacket(false));
+            }
+
             scriptCollection.Invoke<IDoorEntityScript>(script => script.OnOpenDoor());
         }
 
