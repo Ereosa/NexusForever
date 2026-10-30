@@ -18,6 +18,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 throw new InvalidPacketValueException();
 
             entity.OnActivateCast(session.Player, activateUnitInteraction.ClientSpellCastUniqueId);
+
+            // "Select the Transmat Terminal" (Touring Tremor Ridge, Touring Woodhaven): the terminals are bind points
+            session.Player.QuestManager.ObjectiveUpdateUseCreature(entity.CreatureId);
         }
     }
 }
