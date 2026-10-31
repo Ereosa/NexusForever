@@ -535,7 +535,11 @@ namespace NexusForever.Game.Entity
                     && !GlobalQuestManager.Instance.GetQuestGivers((ushort)info.Entry.Id)
                         .Any(c => player.GetVisibleCreature<WorldEntity>(c).Any())
                     && !GlobalQuestManager.Instance.GetQuestCommunicatorMessages((ushort)info.Entry.Id)
-                        .Any(m => m.Meets(player, false)))
+                        .Any(m => m.Meets(player, false))
+                    // quests without objectives and without a giver are offered and handed in by their receiver in one go (eg: Making
+                    // Amends at the Lightkeeper Shrine, report 130)
+                    && !(info.Entry.Objectives.All(o => o == 0u)
+                        && GlobalQuestManager.Instance.GetQuestReceivers((ushort)info.Entry.Id).Any(c => player.GetVisibleCreature<WorldEntity>(c).Any())))
                     throw new QuestException($"Player {player.CharacterId} tried to start quest {info.Entry.Id} without quest giver!");
             }
 
