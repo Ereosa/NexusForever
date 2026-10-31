@@ -164,6 +164,14 @@ namespace NexusForever.Game.Abstract.PublicEvent
         T CreateEntity<T>() where T : IGridEntity;
 
         /// <summary>
+        /// Spawn the entities of an entity group without entering it as a phase.
+        /// </summary>
+        /// <remarks>
+        /// Used by scripts for entity_event groups that appear partway through a phase, eg: after a cinematic.
+        /// </remarks>
+        void SpawnEntities(uint phase);
+
+        /// <summary>
         /// Invoke <see cref="Action{T}"/> against <see cref="IPublicEvent"/> script collection.
         /// </summary>
         void InvokeScriptCollection<T>(Action<T> action);
