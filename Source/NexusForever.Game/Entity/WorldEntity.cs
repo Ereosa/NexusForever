@@ -775,8 +775,23 @@ namespace NexusForever.Game.Entity
             if (CreatureInfo?.Entry == null || CreatureInfo.Entry.QuestAnimStateId == 0u || questObjectSpawnModel == null || Map == null)
                 return;
 
+            // an object that is the single target of its objective (eg: "Disable the second Grim Slave Pen Generator") can't be used
+            // twice by the same player anyway, removing it left the other players of a group waiting for it to come back (report 117)
+            QuestObjectiveEntry objective = GetAnimObjective();
+            if (objective != null && objective.Count == 1u && objective.Data == CreatureInfo.Entry.Id)
+                return;
+
             Map.ScheduleRespawn(CreatureInfo, questObjectSpawnModel, QuestObjectRespawnDelay);
             RemoveFromMap();
+        }
+
+        private QuestObjectiveEntry GetAnimObjective()
+        {
+            Quest2Entry quest = GameTableManager.Instance.Quest2.GetEntry(CreatureInfo.Entry.QuestAnimStateId);
+            if (quest == null || CreatureInfo.Entry.QuestAnimObjectiveIndex >= quest.Objectives.Length)
+                return null;
+
+            return GameTableManager.Instance.QuestObjective.GetEntry(quest.Objectives[CreatureInfo.Entry.QuestAnimObjectiveIndex]);
         }
 
         public void DespawnWithRespawn(TimeSpan respawnDelay)
