@@ -7,6 +7,7 @@ using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Script;
+using NexusForever.Shared.Game.Events;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Collection;
 
@@ -65,16 +66,22 @@ namespace NexusForever.Game.Entity
         {
             SetStandState(StandState.State1);
 
-            // a door driving a map prop (ActivePropId) only showed opened to clients that created it in that state, the
-            // stand state change alone left Fragment Zero's airlock iris shut: recreate it for everyone who can see it
-            if (ActivePropId > 0 && Map != null)
+            // doors only showed open to clients that created them already open: the stand state change alone left Fragment Zero's
+            // inner airlock irises and Outpost M-13's bridge door shut for the players next to them, and a destroy and create in
+            // the same tick changed nothing (the client still had the entity). Destroy it for everyone who can see it and create
+            // it again, open, a second later.
+            if (Map != null)
             {
                 EnqueueToVisible(new ServerEntityDestroy
                 {
                     Guid     = Guid,
                     Unknown0 = true
                 });
-                EnqueueToVisible(BuildCreatePacket(false));
+                eventQueue.EnqueueEvent(new DelayEvent(TimeSpan.FromSeconds(1d), () =>
+                {
+                    if (Map != null)
+                        EnqueueToVisible(BuildCreatePacket(false));
+                }));
             }
 
             scriptCollection.Invoke<IDoorEntityScript>(script => script.OnOpenDoor());
