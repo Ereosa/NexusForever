@@ -548,6 +548,15 @@ namespace NexusForever.Game.PublicEvent
             return entityFactory.CreateEntity<T>();
         }
 
+        /// <summary>
+        /// Spawn the entities of an entity group without entering it as a phase.
+        /// </summary>
+        public void SpawnEntities(uint phase)
+        {
+            if (Map != null)
+                entityFactory.SpawnEntities(phase);
+        }
+
         private void Broadcast(IWritable message)
         {
             foreach (IPublicEventTeam publicEventTeam in teams.Values)

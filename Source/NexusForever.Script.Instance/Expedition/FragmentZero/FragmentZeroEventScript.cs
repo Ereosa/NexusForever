@@ -108,6 +108,12 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private readonly List<uint> biomaticsBeams = [];
         private readonly List<uint> blackBoxes = [];
         private readonly List<IWorldEntity> ambushers = [];
+        private bool ambushSpawned;
+
+        // GC139's length, the Skeech at the crash site only come out once it has played
+        private const double PellIntroLength = 24.1d;
+        // entity_event group of the crash site Skeech (Jabbithole sightings), spawned after GC139
+        private const uint CrashSiteSkeechGroup = 100u;
         private readonly HashSet<IWorldEntity> ambushersAdded = [];
         private readonly List<IWorldEntity> objectiveRings = [];
         private readonly HashSet<int> ambushesTriggered = [];
@@ -564,7 +570,12 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             Delay(12d, () => BroadcastCommunicatorMessage(CommunicatorMessage.HugoRoughWaters));
 
             RemoveEntity(ref friendlySkeech);
-            SpawnAmbush(OpeningAmbush, 8);
+            Delay(PellIntroLength, () =>
+            {
+                publicEvent.SpawnEntities(CrashSiteSkeechGroup);
+                SpawnAmbush(OpeningAmbush, 8);
+                ambushSpawned = true;
+            });
         }
 
         private void OnPhaseFollowProjectionsIncubation()
@@ -1087,7 +1098,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     foreach (IWorldEntity ambusher in ambushers.Where(a => a.InWorld))
                         ambushersAdded.Add(ambusher);
                     ambushers.RemoveAll(a => ambushersAdded.Contains(a) && (!a.InWorld || a is IUnitEntity { IsAlive: false }));
-                    if (ambushers.Count == 0)
+                    if (ambushSpawned && ambushers.Count == 0)
                         publicEvent.UpdateObjective(PublicEventObjective.SurviveSkeechAmbush, 1);
                     break;
                 case PublicEventPhase.FollowProjectionsIncubation:
