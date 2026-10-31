@@ -1,4 +1,12 @@
-﻿using System.Numerics;
+            // units without a faction (eg: scenery units) are never hostile
+            if (unit.Faction1 == 0)
+                return;
+
+            // neutral creatures leave players alone until they are hurt by one, then they fight back
+            Disposition disposition = entity.GetDispositionTo(unit.Faction1);
+            bool retaliate = provoked && disposition == Disposition.Neutral && unit is IPlayer or ICombatPetEntity;
+            if (disposition != Disposition.Hostile && !retaliate)
+                return;﻿using System.Numerics;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement.Command;
@@ -324,10 +332,10 @@ namespace NexusForever.Script.Main.AI
             if (type is DamageType.Heal or null)
                 return;
 
-            AggroEntity(source);
+            AggroEntity(source, true);
         }
 
-        private void AggroEntity(IGridEntity source)
+        private void AggroEntity(IGridEntity source, bool provoked = false)
         {
             if (!entity.IsAlive)
                 return;
