@@ -54,7 +54,8 @@ namespace NexusForever.Script.Template.Filter.Dynamic
             // townie, object and trap archetypes, combat archetypes flagged as hazards are bosses and adds that do fight
             return entry.Creature2ArcheTypeId is 25u or 27u or 29u
                 && ((entry.Description?.Contains("Hazard", StringComparison.OrdinalIgnoreCase) ?? false)
-                    || (entry.Description?.Contains("Security Beam", StringComparison.OrdinalIgnoreCase) ?? false));
+                    || (entry.Description?.Contains("Security Beam", StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (entry.Description?.Contains(" Mine ", StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
         /// <summary>
