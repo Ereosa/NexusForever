@@ -2,11 +2,13 @@ using System.Numerics;
 using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Creature;
+using NexusForever.Game.Map.Search;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Spell;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.PlayerPath;
+using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model.PlayerPath;
@@ -308,8 +310,46 @@ namespace NexusForever.Game.Entity
 
             // scan buffs, e.g. "Vitalium Glow - Scan Spell"
             foreach (uint spell4Id in new[] { info.Spell4IdBuff00, info.Spell4IdBuff01, info.Spell4IdBuff02, info.Spell4IdBuff03 })
-                if (spell4Id != 0u)
-                    player.CastSpell(spell4Id, new SpellParameters());
+            {
+                if (spell4Id == 0u)
+                    continue;
+
+                player.CastSpell(spell4Id, new SpellParameters());
+                CastScanAura(spell4Id);
+            }
+        }
+
+        /// <summary>
+        /// Some scan spells are only a visual, their fluff effect names the aura the server applies, e.g. "Shield of the Hoogle Guardian" applies "Hoogle Totem Protection Aura".
+        /// </summary>
+        /// <remarks>
+        /// Only beneficial auras are applied, to the scanner and the players within the fluff radius (DataBits03).
+        /// </remarks>
+        private void CastScanAura(uint spell4Id)
+        {
+            foreach (Spell4EffectsEntry effect in GameTableManager.Instance.Spell4Effects.Entries
+                .Where(e => e != null && e.SpellId == spell4Id && e.EffectType == SpellEffectType.Fluff && e.DataBits01 != 0u))
+            {
+                Spell4Entry aura = GameTableManager.Instance.Spell4.GetEntry(effect.DataBits01);
+                Spell4BaseEntry auraBase = aura != null ? GameTableManager.Instance.Spell4Base.GetEntry(aura.Spell4BaseIdBaseSpell) : null;
+                if (auraBase == null || auraBase.SpellClass is not (SpellClass.BuffDispellable or SpellClass.BuffNonDispellable))
+                    continue;
+
+                float radius = BitConverter.Int32BitsToSingle((int)effect.DataBits03);
+                if (float.IsNaN(radius) || radius < 1f || radius > 100f)
+                    radius = 0f;
+
+                var players = new List<IPlayer> { player };
+                if (radius > 0f && player.Map != null)
+                {
+                    var check = new SearchCheckRange<IPlayer>();
+                    check.Initialise(player.Position, radius);
+                    players.AddRange(player.Map.Search(player.Position, radius, check).Where(p => p != player));
+                }
+
+                foreach (IPlayer target in players)
+                    target.CastSpell(aura.Id, new SpellParameters());
+            }
         }
 
         private IEnumerable<IPathMission> GetScanMissions(uint creatureInfoId)
