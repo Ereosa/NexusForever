@@ -967,7 +967,7 @@ namespace NexusForever.Game.Entity
                 if (quest.State != QuestState.Accepted)
                     continue;
 
-                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete() && o.ObjectiveInfo.Type == QuestObjectiveType.KillTargetGroup).ToList())
+                foreach (IQuestObjective objective in quest.Where(o => !o.IsComplete() && o.ObjectiveInfo.Type is QuestObjectiveType.KillTargetGroup or QuestObjectiveType.KillTargetGroups).ToList())
                 {
                     TargetGroupEntry group = GameTableManager.Instance.TargetGroup.GetEntry(objective.ObjectiveInfo.Entry.Data);
                     if (group == null || (TargetGroupType)group.Type != TargetGroupType.Unknown9)

@@ -137,13 +137,40 @@ namespace NexusForever.Game.Loot
         }
 
         /// <summary>
+        /// Lowest Creature2Difficulty that always drops something (4 elite, 5 rare and prime).
+        /// </summary>
+        private const uint GuaranteedLootDifficultyId = 4u;
+
+        /// <summary>
+        /// Most rerolls of an elite's loot table that came up empty.
+        /// </summary>
+        private const int GuaranteedLootRolls = 10;
+
+        /// <remarks>
+        /// The creature loot tables are archived drop rates, each item rolled on its own, so a kill can come up empty: a third of the
+        /// Frostshard's kills (Algoroc rare, report 83) dropped nothing. Elites and rares always left something on retail, their table
+        /// is rolled again until it drops (guessed rule).
+        /// </remarks>
+        private ILootBuilder GenerateEntityLoot(IUnitEntity lootedEntity, List<IPlayer> players)
+        {
+            ILootBuilder lootBuilder = lootGroupManager.GenerateEntityLoot(lootedEntity.CreatureId, players);
+            if (lootBuilder == null || (lootedEntity.CreatureInfo?.Entry?.Creature2DifficultyId ?? 0u) < GuaranteedLootDifficultyId)
+                return lootBuilder;
+
+            for (int i = 0; i < GuaranteedLootRolls && !lootBuilder.GetItems().Any(); i++)
+                lootBuilder = lootGroupManager.GenerateEntityLoot(lootedEntity.CreatureId, players) ?? lootBuilder;
+
+            return lootBuilder;
+        }
+
+        /// <summary>
         /// Generates loot for the specified player from a looted entity.
         /// </summary>
         /// <param name="looter">The player who looted the entity.</param>
         /// <param name="lootedEntity">The entity that was looted.</param>
         public void GenerateLoot(IPlayer looter, IUnitEntity lootedEntity)
         {
-            ILootBuilder lootBuilder = lootGroupManager.GenerateEntityLoot(lootedEntity.CreatureId, [ looter ]);
+            ILootBuilder lootBuilder = GenerateEntityLoot(lootedEntity, [ looter ]);
             if (lootBuilder == null)
                 return;
 
@@ -186,7 +213,7 @@ namespace NexusForever.Game.Loot
             if (players.Count == 0)
                 return;
 
-            ILootBuilder lootBuilder = lootGroupManager.GenerateEntityLoot(lootedEntity.CreatureId, players);
+            ILootBuilder lootBuilder = GenerateEntityLoot(lootedEntity, players);
             if (lootBuilder == null)
                 return;
 
