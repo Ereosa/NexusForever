@@ -106,12 +106,13 @@ namespace NexusForever.Script.Main.Challenge
     /// <remarks>
     /// The beams themselves are client visuals between the emitters and their layout isn't in any data, touching an emitter stands in for
     /// touching a beam. The course runs across the grid along X, the run is finished on reaching the far side from where it started.
+    /// Touching a beam sends the player back to where they entered the grid (report 99), the touch range is guessed.
     /// </remarks>
     [ScriptFilterOwnerId(116)]
     public class TheGridChallengeScript : ChallengeScript
     {
         private const uint BeamEmitterCreatureId = 15187;
-        private const float TouchRange  = 0.75f;
+        private const float TouchRange  = 1.25f;
         private const float TouchHeight = 3f;
 
         /// <summary>
@@ -123,10 +124,13 @@ namespace NexusForever.Script.Main.Challenge
         private const float GridSouthZ = -3560f;
 
         private bool? startedWest;
+        private Vector3 lastOutside;
+        private Vector3 start;
 
         public override void OnActivate()
         {
             startedWest = null;
+            lastOutside = Player.Position;
         }
 
         public override void Update(double lastTick)
@@ -138,7 +142,12 @@ namespace NexusForever.Script.Main.Challenge
             {
                 // the run starts when the player steps into the grid from one of its ends
                 if (inLanes && position.X >= GridWestX && position.X <= GridEastX)
+                {
                     startedWest = position.X - GridWestX < GridEastX - position.X;
+                    start = lastOutside;
+                }
+                else
+                    lastOutside = position;
                 return;
             }
 
@@ -146,7 +155,10 @@ namespace NexusForever.Script.Main.Challenge
             {
                 if (HorizontalDistance(emitter.Position, position) <= TouchRange && Math.Abs(emitter.Position.Y - position.Y) <= TouchHeight)
                 {
+                    IPlayer player = Player;
                     Fail();
+                    if (player.CanTeleport())
+                        player.TeleportToLocal(start);
                     return;
                 }
             }
