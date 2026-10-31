@@ -1,3 +1,4 @@
+﻿using System.Collections.Concurrent;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Effect;
@@ -26,6 +27,12 @@ namespace NexusForever.Game.Spell.Effect.Handler
                 return SpellEffectExecutionResult.PreventEffect;
 
             player.ShowActionBar((ShortcutSet)data.DataBits02, (ushort)data.DataBits00, executionContext.Spell.Caster.Guid);
+
+            // a bar without a duration whose spell removes itself through procs ("until you move", the Soldier Weapons Lockbox, 55640)
+            // stays up until a spell force removes its spell group (its own close button, the proc), report 133
+            if (IsUntilRemoved(executionContext.Spell.Parameters.SpellInfo, info))
+                persistentBars[(player.Guid, (ShortcutSet)data.DataBits02)] = ((ushort)data.DataBits00, executionContext.Spell.Parameters.SpellInfo.SpellGroups.ToArray());
+
             return SpellEffectExecutionResult.Ok;
         }
 
@@ -34,8 +41,34 @@ namespace NexusForever.Game.Spell.Effect.Handler
         /// </summary>
         public void Remove(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, ISpellEffectDefaultData data)
         {
-            if (target is IPlayer player)
-                player.HideActionBar((ShortcutSet)data.DataBits02, (ushort)data.DataBits00);
+            if (target is not IPlayer player)
+                return;
+
+            if (persistentBars.TryGetValue((player.Guid, (ShortcutSet)data.DataBits02), out var bar) && bar.BarId == (ushort)data.DataBits00)
+                return;
+
+            player.HideActionBar((ShortcutSet)data.DataBits02, (ushort)data.DataBits00);
         }
-    }
+    
+        private static readonly ConcurrentDictionary<(uint PlayerGuid, ShortcutSet Set), (ushort BarId, uint[] SpellGroups)> persistentBars = new();
+
+        private static bool IsUntilRemoved(Abstract.Spell.Info.ISpellInfo spellInfo, ISpellTargetEffectInfo info)
+        {
+            return (info.Entry.DurationTime == 0u)
+                && spellInfo.Entry.SpellDuration == 0u
+                && spellInfo.Effects.Any(e => e.EffectType == SpellEffectType.Proc);
+        }
+
+        /// <summary>
+        /// A spell force removed the supplied spell group from <see cref="IPlayer"/>: hide the bars that stay up until then.
+        /// </summary>
+        public static void OnSpellGroupRemoved(IPlayer player, uint spellGroupId)
+        {
+            foreach (var entry in persistentBars.Where(e => e.Key.PlayerGuid == player.Guid && e.Value.SpellGroups.Contains(spellGroupId)).ToList())
+            {
+                persistentBars.TryRemove(entry.Key, out _);
+                player.HideActionBar(entry.Key.Set, entry.Value.BarId);
+            }
+        }
+}
 }
