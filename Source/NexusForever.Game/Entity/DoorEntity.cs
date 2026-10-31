@@ -59,6 +59,40 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// How long a door opened by a player stays open (guessed).
+        /// </summary>
+        private const double UsedDoorOpenTime = 20d;
+
+        private double closeTimer;
+
+        /// <summary>
+        /// A door with an activate spell (eg: the Cage Door of Information Extraction, report 138) opens when a player uses it, the
+        /// activate effect never reaches it (doors aren't units), the interaction succeeds here.
+        /// </summary>
+        public override void OnActivateSuccess(IPlayer activator)
+        {
+            base.OnActivateSuccess(activator);
+
+            if (InWorld && !IsOpen)
+            {
+                OpenDoor();
+                closeTimer = UsedDoorOpenTime;
+            }
+        }
+
+        public override void Update(double lastTick)
+        {
+            base.Update(lastTick);
+
+            if (closeTimer <= 0d)
+                return;
+
+            closeTimer -= lastTick;
+            if (closeTimer <= 0d && IsOpen)
+                CloseDoor();
+        }
+
+        /// <summary>
         /// Used to open this <see cref="IDoorEntity"/>.
         /// </summary>
         public void OpenDoor()
