@@ -190,9 +190,7 @@ namespace NexusForever.Game.Entity
 
             PathSettlerHubEntry hub = GameTableManager.Instance.PathSettlerHub.GetEntry(group.PathSettlerHubId);
             uint[] resources = [hub.Item2IdResource00, hub.Item2IdResource01, hub.Item2IdResource02];
-            uint[] counts = contribution
-                ? [improvement.CountRecontributionResource00, improvement.CountRecontributionResource01, improvement.CountRecontributionResource02]
-                : [improvement.CountResource00, improvement.CountResource01, improvement.CountResource02];
+            uint[] counts = GetResourceCosts(improvement, contribution);
             for (int i = 0; i < resources.Length; i++)
                 if (resources[i] != 0u && counts[i] != 0u)
                     TakeResource(resources[i], counts[i]);
@@ -259,6 +257,19 @@ namespace NexusForever.Game.Entity
                 player.Inventory.ItemDelete(itemId, count, ItemUpdateReason.SettlerImprovementConsumeResource);
         }
 
+        /// <summary>
+        /// Improvement costs are scaled down for the smaller population than retail, every required resource still costs at least 1.
+        /// </summary>
+        private const uint ImprovementCostDivisor = 10u;
+
+        private static uint[] GetResourceCosts(PathSettlerImprovementEntry improvement, bool contribution)
+        {
+            uint[] counts = contribution
+                ? [improvement.CountRecontributionResource00, improvement.CountRecontributionResource01, improvement.CountRecontributionResource02]
+                : [improvement.CountResource00, improvement.CountResource01, improvement.CountResource02];
+            return counts.Select(c => c == 0u ? 0u : Math.Max(1u, (c + ImprovementCostDivisor - 1u) / ImprovementCostDivisor)).ToArray();
+        }
+
         private SettlerBuildResult CanBuild(PathSettlerImprovementGroupEntry group, uint tier, out PathSettlerImprovementEntry improvement, out bool contribution)
         {
             improvement  = null;
@@ -297,9 +308,7 @@ namespace NexusForever.Game.Entity
                 return Fail("the improvement group has no hub");
 
             uint[] resources = [hub.Item2IdResource00, hub.Item2IdResource01, hub.Item2IdResource02];
-            uint[] counts = contribution
-                ? [improvement.CountRecontributionResource00, improvement.CountRecontributionResource01, improvement.CountRecontributionResource02]
-                : [improvement.CountResource00, improvement.CountResource01, improvement.CountResource02];
+            uint[] counts = GetResourceCosts(improvement, contribution);
             for (int i = 0; i < resources.Length; i++)
                 if (resources[i] != 0u && counts[i] != 0u && !HasResource(resources[i], counts[i]))
                     return Fail("the player doesn't have the resources");
