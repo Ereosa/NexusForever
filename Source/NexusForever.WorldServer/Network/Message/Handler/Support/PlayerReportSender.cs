@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using NexusForever.Database;
 using NexusForever.Database.Auth;
 using NexusForever.Database.Auth.Model;
@@ -20,11 +19,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Support
         public const int SummaryMaxLength     = 120;
         public const int DescriptionMaxLength = 5000;
 
-        // same limit as REPORT_SUBMIT_MAX on the website, counted separately
-        private const int ReportsPerHour = 6;
-
-        private static readonly Dictionary<uint, List<DateTime>> recentReports = new();
-
         /// <summary>
         /// Save a report for the session's player, <paramref name="callback"/> is invoked with the new report id or 0 if it was not saved.
         /// </summary>
@@ -33,13 +27,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Support
             IPlayer player = session.Player;
             if (player == null)
                 return;
-
-            if (!TryUseRateLimit(session.Account.Id))
-            {
-                player.SendSystemMessage("You have sent a lot of reports in the last hour. Please wait a bit before sending more.");
-                callback(0u);
-                return;
-            }
 
             string footer = $"\n\n{context}";
             description = Truncate(description.Trim().Replace("\r\n", "\n"), DescriptionMaxLength - footer.Length) + footer;
@@ -103,23 +90,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Support
             if (name == "" && player.Map != null)
                 name = GetText(player.Map.Entry.LocalizedTextIdName);
             return Truncate(name, 100);
-        }
-
-        private static bool TryUseRateLimit(uint accountId)
-        {
-            lock (recentReports)
-            {
-                DateTime now = DateTime.UtcNow;
-                if (!recentReports.TryGetValue(accountId, out List<DateTime> times))
-                    recentReports.Add(accountId, times = new List<DateTime>());
-
-                times.RemoveAll(t => now - t > TimeSpan.FromHours(1));
-                if (times.Count >= ReportsPerHour)
-                    return false;
-
-                times.Add(now);
-                return true;
-            }
         }
 
         private static string Truncate(string text, int length)
