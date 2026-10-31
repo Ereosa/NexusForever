@@ -373,7 +373,10 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     // through to the side the player isn't on
                     float side = Vector2.Dot(offset, direction) < 0f ? 1f : -1f;
                     Vector2 target = new Vector2(iris.X, iris.Z) + direction * side * 6f;
-                    player.TeleportToLocal(new Vector3(target.X, iris.Y + 1.5f, target.Y), false);
+                    // above the floor on either side: the iris props sit below it (the airlock floor is at its world location,
+                    // the iris 1.7 m lower), landing at iris + 1.5 m put players under the airlock floor (report 110)
+                    float height = side > 0f ? iris.Y + 3.5f : airlock.Y + 1.5f;
+                    player.TeleportToLocal(new Vector3(target.X, height, target.Y), false);
                 }
             }
         }
