@@ -23,12 +23,15 @@ namespace NexusForever.Game.Prerequisite.Check
 
         public bool Meets(IPlayer player, PrerequisiteComparison comparison, uint value, uint objectId, IPrerequisiteParameters parameters)
         {
+            // a quest the player never took has no state, the client data compares it with 0 (Unknown), eg: Sergeant Kormak 16664 is
+            // only visible while He's the Brains is "0 or 1" (report 94)
+            QuestState state = player.QuestManager.GetQuestState((ushort)objectId) ?? QuestState.Unknown;
             switch (comparison)
             {
                 case PrerequisiteComparison.Equal:
-                    return player.QuestManager.GetQuestState((ushort)objectId) == (QuestState)value;
+                    return state == (QuestState)value;
                 case PrerequisiteComparison.NotEqual:
-                    return player.QuestManager.GetQuestState((ushort)objectId) != (QuestState)value;
+                    return state != (QuestState)value;
                 default:
                     log.LogWarning($"Unhandled PrerequisiteComparison {comparison} for {PrerequisiteType.QuestState}!");
                     return false;
