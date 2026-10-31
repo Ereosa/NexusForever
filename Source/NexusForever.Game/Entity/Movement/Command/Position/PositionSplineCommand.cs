@@ -19,6 +19,13 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
         public bool IsFinalised => spline?.IsFinialised ?? false;
 
         private ushort splineId;
+        private SplineMode networkMode;
+        private float networkSpeed;
+
+        /// <summary>
+        /// Speed the server follows a spline at whose speed is left to the client (-1, the tbl timing).
+        /// </summary>
+        private const float ClientTimedSpeed = 4f;
 
         #region Dependency Injection
 
@@ -41,6 +48,15 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
         public void Initialise(ushort splineId, SplineMode mode, float speed)
         {
             this.splineId = splineId;
+            networkMode   = mode;
+            networkSpeed  = speed;
+
+            // the world database's moving platforms (elevators, lifts) use mode 6 and speed -1, the client runs those itself from
+            // the tbl spline (report 119): they go out as they are, the server follows them back and forth at a guessed speed
+            if (mode > SplineMode.CyclicReverse)
+                mode = SplineMode.BackAndForth;
+            if (speed <= 0f)
+                speed = ClientTimedSpeed;
 
             template.Initialise(splineId);
             spline.Initialise(template, mode, speed);
@@ -65,8 +81,8 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
                 Model   = new SetPositionSplineCommand
                 {
                     SplineId            = splineId,
-                    Speed               = spline.Speed,
-                    Mode                = spline.Mode.Mode,
+                    Speed               = networkSpeed,
+                    Mode                = networkMode,
                     Position            = spline.Offset,
                     IsContinuing        = false,
                     AdjustSpeedToLength = true,

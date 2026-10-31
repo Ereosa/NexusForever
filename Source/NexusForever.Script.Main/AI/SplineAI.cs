@@ -29,7 +29,8 @@ namespace NexusForever.Script.Main.AI
                 return;
 
             // TODO: Rawaho, handle negative spline speed and additional modes...
-            if (owner.Spline.Mode > SplineMode.CyclicReverse || owner.Spline.Speed == -1)
+            // moving platforms (elevators, lifts) are mode 6 with speed -1, the client runs those from the tbl spline (report 119)
+            if ((owner.Spline.Mode > SplineMode.CyclicReverse || owner.Spline.Speed == -1) && owner.Type != EntityType.Platform)
                 return;
 
             owner.MovementManager.SetMode(ModeType.Walk);
