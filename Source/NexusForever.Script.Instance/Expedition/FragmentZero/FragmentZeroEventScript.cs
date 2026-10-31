@@ -111,6 +111,17 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private readonly HashSet<IWorldEntity> ambushersAdded = [];
         private readonly List<IWorldEntity> objectiveRings = [];
         private readonly HashSet<int> ambushesTriggered = [];
+        private readonly HashSet<PublicEventCreature> openedWingDoors = [];
+
+        /// <summary>
+        /// Airlock centre and inner iris position of each wing (iris positions from the airlock caves' props).
+        /// </summary>
+        private static readonly Dictionary<PublicEventCreature, (Vector3 Airlock, Vector3 Door)> WingAirlocks = new()
+        {
+            { PublicEventCreature.XenobiteDoorWing, (new Vector3(9685.685f, -767.607f, -6098.117f), new Vector3(9665.150f, -769.328f, -6100.075f)) },
+            { PublicEventCreature.GronyxDoorWing,   (new Vector3(10121.299f, -776.524f, -6117.797f), new Vector3(10132.879f, -781.862f, -6117.770f)) },
+            { PublicEventCreature.PellDoorWing,     (new Vector3(9831.389f, -780.753f, -6313.683f), new Vector3(9827.509f, -782.474f, -6331.560f)) }
+        };
 
         private bool blackBoxFound;
         private bool noDeaths = true;
@@ -321,6 +332,34 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
 
             foreach (uint guid in guids)
                 mapInstance.GetEntity<IDoorEntity>(guid)?.OpenDoor();
+
+            if (WingAirlocks.ContainsKey(door))
+                openedWingDoors.Add(door);
+        }
+
+        /// <summary>
+        /// STOPGAP: the inner airlock irises stay shut on the client although their door entities are open, so a player who walks
+        /// up to an opened inner iris is moved to its other side. Remove once the irises open for real.
+        /// </summary>
+        private void PassOpenedWingDoors(List<IPlayer> players)
+        {
+            foreach (PublicEventCreature door in openedWingDoors)
+            {
+                (Vector3 airlock, Vector3 iris) = WingAirlocks[door];
+                Vector2 direction = Vector2.Normalize(new Vector2(iris.X - airlock.X, iris.Z - airlock.Z));
+
+                foreach (IPlayer player in players)
+                {
+                    Vector2 offset = new(player.Position.X - iris.X, player.Position.Z - iris.Z);
+                    if (offset.Length() > 4f || MathF.Abs(player.Position.Y - iris.Y) > 6f)
+                        continue;
+
+                    // through to the side the player isn't on
+                    float side = Vector2.Dot(offset, direction) < 0f ? 1f : -1f;
+                    Vector2 target = new Vector2(iris.X, iris.Z) + direction * side * 6f;
+                    player.TeleportToLocal(new Vector3(target.X, iris.Y + 1.5f, target.Y), false);
+                }
+            }
         }
 
         /// <summary>
@@ -1011,6 +1050,8 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
             if (deviceGuid != 0u && mapInstance.GetEntity<IUnitEntity>(hugoLockedGuid) is IUnitEntity lockedHugo
                 && mapInstance.GetEntity<IWorldEntity>(deviceGuid) is IWorldEntity device && lockedHugo.Position.GetDistance(device.Position) < 3f)
                 RemoveEntity(ref deviceGuid);
+
+            PassOpenedWingDoors(players);
 
             switch ((PublicEventPhase)publicEvent.Phase)
             {
