@@ -53,6 +53,16 @@ namespace NexusForever.Game.Abstract.Entity
         void QuestMention(IQuestInfo info);
 
         /// <summary>
+        /// Deliver the quest of the supplied <see cref="ICommunicatorMessage"/> as a communicator call.
+        /// </summary>
+        void QuestMention(ICommunicatorMessage message);
+
+        /// <summary>
+        /// The client took (<paramref name="engaged"/>) or ignored a communicator call for the supplied quest.
+        /// </summary>
+        void OnCommunicatorAction(ushort questId, bool engaged);
+
+        /// <summary>
         /// Add a quest from supplied id, optionally supplying <see cref="IItem"/> which was used to start the quest.
         /// </summary>
         void QuestAdd(ushort questId, IItem item);

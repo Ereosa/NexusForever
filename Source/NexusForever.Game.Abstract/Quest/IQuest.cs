@@ -12,6 +12,11 @@ namespace NexusForever.Game.Abstract.Quest
         ushort Id { get; }
         IQuestInfo Info { get; }
         QuestState State { get; set; }
+
+        /// <summary>
+        /// Set the <see cref="QuestState"/> the client has already set itself (communicator calls), without sending it to the client.
+        /// </summary>
+        void SetClientState(QuestState state);
         QuestStateFlags Flags { get; set; }
         uint? Timer { get; set; }
         DateTime? Reset { get; set; }

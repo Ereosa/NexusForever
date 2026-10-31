@@ -427,6 +427,64 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Deliver the quest of the supplied <see cref="ICommunicatorMessage"/> as a communicator call.
+        /// </summary>
+        /// <remarks>
+        /// Retail sent the message (ServerCommunicatorMessage) and the client queued the call, set the quest to mentioned itself and
+        /// told the server with ClientCommunicatorAction. The client queues the calls of messages triggered by quest states on its own
+        /// as well and drops a queued call when the server changes the quest's state, so the mentioned state isn't sent (report 105).
+        /// </remarks>
+        public void QuestMention(ICommunicatorMessage message)
+        {
+            IQuestInfo info = GlobalQuestManager.Instance.GetQuestInfo(message.QuestId);
+            if (info == null || DisableManager.Instance.IsDisabled(DisableType.Quest, message.QuestId))
+                return;
+
+            IQuest quest = GetQuest(message.QuestId);
+            if (quest != null && quest.State != QuestState.Abandoned)
+                return;
+
+            SetClientQuestState(info, QuestState.Mentioned);
+            message.Send(player.Session);
+
+            log.LogTrace($"Delivered quest {info.Entry.Id} with communicator message {message.Id}.");
+        }
+
+        /// <summary>
+        /// The client took (<paramref name="engaged"/>) or ignored a communicator call for the supplied quest.
+        /// </summary>
+        /// <remarks>
+        /// The client has already set the quest to mentioned (or ignored) itself, the server follows without sending the state back.
+        /// </remarks>
+        public void OnCommunicatorAction(ushort questId, bool engaged)
+        {
+            IQuestInfo info = GlobalQuestManager.Instance.GetQuestInfo(questId);
+            if (info == null)
+                return;
+
+            QuestState? state = GetQuestState(questId);
+            if (engaged && state is null or QuestState.Abandoned or QuestState.Ignored)
+                SetClientQuestState(info, QuestState.Mentioned);
+            else if (!engaged && state is null or QuestState.Abandoned or QuestState.Mentioned)
+                SetClientQuestState(info, QuestState.Ignored);
+        }
+
+        private void SetClientQuestState(IQuestInfo info, QuestState state)
+        {
+            IQuest quest = GetQuest((ushort)info.Entry.Id);
+            if (quest == null)
+            {
+                quest = questFactory.Resolve();
+                quest.Initialise(player, info);
+            }
+            else
+                QuestReset(quest);
+
+            quest.SetClientState(state);
+            inactiveQuests.Add((ushort)info.Entry.Id, quest);
+        }
+
+        /// <summary>
         /// Add a quest from supplied id, optionally supplying <see cref="IItem"/> which was used to start the quest.
         /// </summary>
         public void QuestAdd(ushort questId, IItem item)
@@ -1431,7 +1489,7 @@ namespace NexusForever.Game.Entity
                 if (!message.Meets(player) || !MeetsPrerequisites(info))
                     continue;
 
-                QuestMention(info);
+                QuestMention(message);
             }
         }
 

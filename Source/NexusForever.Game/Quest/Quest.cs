@@ -57,6 +57,23 @@ namespace NexusForever.Game.Quest
 
         private QuestState state;
 
+        /// <summary>
+        /// Set the <see cref="QuestState"/> the client has already set itself (communicator calls), without sending it to the client.
+        /// </summary>
+        /// <remarks>
+        /// The client drops the queued communicator call of a quest whose state the server changes, sending the mentioned state for a
+        /// call the client queued made the call button go away before the call was played (report 105).
+        /// </remarks>
+        public void SetClientState(QuestState value)
+        {
+            QuestState oldState = state;
+
+            state = value;
+            saveMask |= QuestSaveMask.State;
+
+            OnStateChange(oldState, false);
+        }
+
         public QuestStateFlags Flags
         {
             get => flags;
@@ -837,18 +854,21 @@ namespace NexusForever.Game.Quest
         /// <summary>
         /// Invoked when <see cref="QuestState"/> for <see cref="IQuest"/> is updated.
         /// </summary>
-        private void OnStateChange(QuestState oldState)
+        private void OnStateChange(QuestState oldState, bool sendToClient = true)
         {
-            player.Session.EnqueueMessageEncrypted(new ServerQuestStateChange
+            if (sendToClient)
             {
-                QuestId    = Id,
-                QuestState = State
-            });
+                player.Session.EnqueueMessageEncrypted(new ServerQuestStateChange
+                {
+                    QuestId    = Id,
+                    QuestState = State
+                });
+            }
 
             // check if this quest and state is a trigger for a new communicator message
             foreach (ICommunicatorMessage message in GlobalQuestManager.Instance.GetQuestCommunicatorQuestStateTriggers(Id, state))
                 if (message.Meets(player))
-                    player.QuestManager.QuestMention(message.QuestId);
+                    player.QuestManager.QuestMention(message);
 
             scriptCollection?.Invoke<IQuestScript>(s => s.OnQuestStateChange(State, oldState));
 
