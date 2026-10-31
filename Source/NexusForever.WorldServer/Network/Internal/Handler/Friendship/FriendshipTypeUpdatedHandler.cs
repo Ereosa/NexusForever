@@ -3,6 +3,7 @@ using NexusForever.Game;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Network.Internal.Message.Friendship;
 using NexusForever.Network.World.Message.Model.Friendship;
+using NexusForever.WorldServer.Network.Internal;
 using Rebus.Handlers;
 
 namespace NexusForever.WorldServer.Network.Internal.Handler.Friendship
@@ -26,7 +27,7 @@ namespace NexusForever.WorldServer.Network.Internal.Handler.Friendship
             IPlayer player = playerManager.GetPlayer(message.Friend.InviterCharacter.Identity.ToGameIdentity());
             player?.Session.EnqueueMessageEncrypted(new ServerFriendshipTypeUpdate
             {
-                FriendshipId = message.Friend.Id,
+                FriendshipId = message.Friend.Id.ToNetworkFriendshipId(),
                 Type         = message.Friend.Type
             });
 

@@ -3,6 +3,7 @@ using NexusForever.Game;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Network.Internal.Message.Friendship;
 using NexusForever.Network.World.Message.Model.Friendship;
+using NexusForever.WorldServer.Network.Internal;
 using Rebus.Handlers;
 
 namespace NexusForever.WorldServer.Network.Internal.Handler.Friendship
@@ -28,7 +29,7 @@ namespace NexusForever.WorldServer.Network.Internal.Handler.Friendship
             {
                 FriendLocations = message.Friends.ConvertAll(f => new ServerFriendshipLocationUpdate.FriendLocation
                 {
-                    FriendshipId = f.Id,
+                    FriendshipId = f.Id.ToNetworkFriendshipId(),
                     WorldZoneId  = f.InviteeCharacter.WorldZoneId
                 })
             });
