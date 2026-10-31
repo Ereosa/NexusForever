@@ -118,7 +118,8 @@ namespace NexusForever.IO.Map
         /// </summary>
         public float? GetTerrainHeight(Vector3 vector)
         {
-            if ((flags & Flags.Zone) == 0)
+            // cells can have zone data without a height map (eg: the Skull's Eye ship interior, report #121)
+            if ((flags & Flags.Height) == 0 || heightMap == null)
                 return null;
 
             float trueX = vector.X + MapDefines.WorldGridOrigin * MapDefines.GridSize;
