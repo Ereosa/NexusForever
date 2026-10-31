@@ -723,8 +723,9 @@ namespace NexusForever.Game.Entity
                     activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.SucceedCSI, targetGroupId, 1u);
                     activator.QuestManager.ObjectiveUpdateRewardPane(QuestObjectiveType.Unknown10, targetGroupId, QuestChecklistMask);
 
-                    Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroup, targetGroupId, 1);
-                    Map.PublicEventManager.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistIdx);
+                    // the object can already be off its map (eg: an airlock removed by its event while the activation finished)
+                    Map?.PublicEventManager?.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroup, targetGroupId, 1);
+                    Map?.PublicEventManager?.UpdateObjective(activator, PublicEventObjectiveType.ActivateTargetGroupChecklist, targetGroupId, QuestChecklistIdx);
                 }
             }
 
@@ -745,7 +746,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         private void DepartForQuestDestination(IPlayer activator)
         {
-            if (CreatureInfo?.Entry == null || !activator.CanTeleport())
+            if (CreatureInfo?.Entry == null || Map == null || !activator.CanTeleport())
                 return;
 
             Spell4Entry spell = GameTableManager.Instance.Spell4.GetEntry(CreatureInfo.Entry.Spell4IdActivate[0]);
