@@ -11,13 +11,17 @@ namespace NexusForever.Script.Main.CombatTraining
     /// </summary>
     /// <remarks>
     /// Retail scripts damaged them, they stay hurt until healed to full and are hurt again a while later for the next trainee.
-    /// The 30% health and 20 second reset are inferred.
+    /// The 30% health and 20 second reset are inferred. The objective has no target ("Use your support actions to heal M.A.C. to
+    /// full health"), the player whose heal tops a M.A.C. up gets the credit (report 91).
     /// </remarks>
     [ScriptFilterCreatureId(70966, 70967)]
     public class InjuredTrainingBotEntityScript : IUnitScript, IOwnedScript<IUnitEntity>
     {
         private const float InjuredHealth = 0.3f;
         private const double ReinjureDelay = 20d;
+
+        private const ushort SupportTrainingHealing = 10043;
+        private const uint HealObjectiveId = 19143u;
 
         private IUnitEntity owner;
         private double reinjureTimer = -1d;
@@ -43,8 +47,14 @@ namespace NexusForever.Script.Main.CombatTraining
         /// </summary>
         public void OnHealthChange(IUnitEntity source, uint amount, DamageType? type)
         {
-            if (owner.Health >= owner.MaxHealth && reinjureTimer < 0d)
-                reinjureTimer = ReinjureDelay;
+            if (owner.Health < owner.MaxHealth || reinjureTimer >= 0d)
+                return;
+
+            reinjureTimer = ReinjureDelay;
+
+            // heals land as negative damage from the healer
+            if (type == DamageType.Heal && source is IPlayer player)
+                player.QuestManager.GetActiveQuest(SupportTrainingHealing)?.ObjectiveUpdate(HealObjectiveId, 1u);
         }
 
         /// <summary>
