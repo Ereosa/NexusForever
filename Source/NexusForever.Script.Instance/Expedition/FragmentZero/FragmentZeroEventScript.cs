@@ -120,13 +120,14 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         private readonly HashSet<PublicEventCreature> openedWingDoors = [];
 
         /// <summary>
-        /// Airlock centre and inner iris position of each wing (iris positions from the airlock caves' props).
+        /// Airlock centre and inner iris position of each wing (iris positions from the airlock caves' props), with the floor
+        /// height 6 m either side of the iris, airlock side then wing side (from the airlock caves' sector meshes).
         /// </summary>
-        private static readonly Dictionary<PublicEventCreature, (Vector3 Airlock, Vector3 Door)> WingAirlocks = new()
+        private static readonly Dictionary<PublicEventCreature, (Vector3 Airlock, Vector3 Door, float AirlockFloor, float WingFloor)> WingAirlocks = new()
         {
-            { PublicEventCreature.XenobiteDoorWing, (new Vector3(9685.685f, -767.607f, -6098.117f), new Vector3(9665.150f, -769.328f, -6100.075f)) },
-            { PublicEventCreature.GronyxDoorWing,   (new Vector3(10121.299f, -776.524f, -6117.797f), new Vector3(10132.879f, -781.862f, -6117.770f)) },
-            { PublicEventCreature.PellDoorWing,     (new Vector3(9831.389f, -780.753f, -6313.683f), new Vector3(9827.509f, -782.474f, -6331.560f)) }
+            { PublicEventCreature.XenobiteDoorWing, (new Vector3(9685.685f, -767.607f, -6098.117f), new Vector3(9665.150f, -769.328f, -6100.075f), -769.241f, -769.961f) },
+            { PublicEventCreature.GronyxDoorWing,   (new Vector3(10121.299f, -776.524f, -6117.797f), new Vector3(10132.879f, -781.862f, -6117.770f), -783.185f, -789.858f) },
+            { PublicEventCreature.PellDoorWing,     (new Vector3(9831.389f, -780.753f, -6313.683f), new Vector3(9827.509f, -782.474f, -6331.560f), -781.307f, -781.286f) }
         };
 
         private bool blackBoxFound;
@@ -361,7 +362,7 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
         {
             foreach (PublicEventCreature door in openedWingDoors)
             {
-                (Vector3 airlock, Vector3 iris) = WingAirlocks[door];
+                (Vector3 airlock, Vector3 iris, float airlockFloor, float wingFloor) = WingAirlocks[door];
                 Vector2 direction = Vector2.Normalize(new Vector2(iris.X - airlock.X, iris.Z - airlock.Z));
 
                 foreach (IPlayer player in players)
@@ -373,9 +374,8 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                     // through to the side the player isn't on
                     float side = Vector2.Dot(offset, direction) < 0f ? 1f : -1f;
                     Vector2 target = new Vector2(iris.X, iris.Z) + direction * side * 6f;
-                    // above the floor on either side: the iris props sit below it (the airlock floor is at its world location,
-                    // the iris 1.7 m lower), landing at iris + 1.5 m put players under the airlock floor (report 110)
-                    float height = side > 0f ? iris.Y + 3.5f : airlock.Y + 1.5f;
+                    // just above the floor on that side
+                    float height = (side > 0f ? wingFloor : airlockFloor) + 1f;
                     player.TeleportToLocal(new Vector3(target.X, height, target.Y), false);
                 }
             }
