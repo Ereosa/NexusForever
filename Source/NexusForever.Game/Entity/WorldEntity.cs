@@ -424,12 +424,22 @@ namespace NexusForever.Game.Entity
             ScriptManager.Instance.InitialiseEntityScripts<IWorldEntity>(scriptCollection, this, names);
         }
 
+        public float GroundClearance { get; private set; }
+
+        /// <summary>
+        /// Spawns more than this above the terrain are fliers or swimmers, they keep their height over the ground when they move.
+        /// </summary>
+        private const float AirborneClearance = 3f;
+
         /// <summary>
         /// Invoked when <see cref="IWorldEntity"/> is added to <see cref="IBaseMap"/>.
         /// </summary>
         public override void OnAddToMap(IBaseMap map, uint guid, Vector3 vector)
         {
             LeashPosition = vector;
+            float? terrain = map.GetTerrainHeight(vector.X, vector.Z);
+            GroundClearance = terrain.HasValue && vector.Y - terrain.Value > AirborneClearance ? vector.Y - terrain.Value : 0f;
+
             MovementManager.SetPosition(vector, false);
 
             base.OnAddToMap(map, guid, vector);

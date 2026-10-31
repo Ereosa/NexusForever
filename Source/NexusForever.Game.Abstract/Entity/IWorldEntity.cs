@@ -47,6 +47,11 @@ namespace NexusForever.Game.Abstract.Entity
 
         EntitySplineModel Spline { get; }
 
+        /// <summary>
+        /// Height the entity keeps above the terrain when it moves, about 0 for units that walk and the spawn height for fliers and swimmers.
+        /// </summary>
+        float GroundClearance { get; }
+
         Vector3 LeashPosition { get; }
         float LeashRange { get; }
         IMovementManager MovementManager { get; }

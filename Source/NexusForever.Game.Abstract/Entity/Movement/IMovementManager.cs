@@ -312,5 +312,10 @@ namespace NexusForever.Game.Abstract.Entity.Movement
         /// Launch a new chase spline, chasing the supplied <see cref="IWorldEntity"/> at distance.
         /// </summary>
         void Chase(IWorldEntity entity, float distance);
+
+        /// <summary>
+        /// Walk to the supplied position along the terrain, returns false if the map has no terrain data along the way and nothing was started.
+        /// </summary>
+        bool Wander(Vector3 destination, float speed);
     }
 }
