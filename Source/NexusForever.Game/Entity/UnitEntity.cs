@@ -660,12 +660,19 @@ namespace NexusForever.Game.Entity
             if (killer is IPlayer killerPlayer)
                 Map.PublicEventManager.UpdateStat(killerPlayer, PublicEventStat.Kills, 1);
 
+            // everyone who fought it gets the kill, an engineer whose bots did the fighting through their combat pets (report 124)
+            var rewarded = new HashSet<uint>();
             foreach (IHostileEntity hostile in ThreatManager)
             {
                 IUnitEntity entity = GetVisible<IUnitEntity>(hostile.HatedUnitId);
-                if (entity is IPlayer hostilePlayer)
+                if (entity is ICombatPetEntity hostilePet)
+                    entity = GetVisible<IUnitEntity>(hostilePet.OwnerGuid);
+                if (entity is IPlayer hostilePlayer && rewarded.Add(hostilePlayer.Guid))
                     RewardKiller(hostilePlayer);
             }
+
+            if (killer is IPlayer killingPlayer && rewarded.Add(killingPlayer.Guid))
+                RewardKiller(killingPlayer);
         }
 
         protected virtual void RewardKiller(IPlayer player)
