@@ -878,9 +878,11 @@ namespace NexusForever.Game.Entity
 
             instancePortalCooldown = 5d;
 
+            // the quest is still in progress, so its instance takes the player back in after the enter objective is done (eg: leaving
+            // the Combat Training Room before Support Training: Healing's patients are healed, report 77)
             foreach (IQuest quest in QuestManager.GetActiveQuests().Where(q => q.State == QuestState.Accepted))
             {
-                foreach (IQuestObjective objective in quest.Where(o => o.ObjectiveInfo.Type == QuestObjectiveType.EnterZone && !o.IsComplete()))
+                foreach (IQuestObjective objective in quest.Where(o => o.ObjectiveInfo.Type == QuestObjectiveType.EnterZone).OrderBy(o => o.IsComplete()))
                 {
                     if (!objective.ObjectiveInfo.GetAreaLocations().Any(l => l.WorldId == Map.Entry.Id
                         && Vector3.Distance(new Vector3(l.Position0, l.Position1, l.Position2), portal.Position) <= 15f))
