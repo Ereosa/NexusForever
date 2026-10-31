@@ -36,8 +36,33 @@ namespace NexusForever.Game.Entity
             public uint BundleCount;
             public readonly List<string> Owners = new();
 
+            // the improvement's unit in the world while it is active, e.g. a mailbox or a buff station
+            public IBaseMap SpawnMap;
+            public uint SpawnGuid;
+            public uint SpawnCreatureId;
+            public bool SpawnPending;
+
             public bool IsActive => Tier >= 0 && DateTime.UtcNow < Expires;
         }
+
+        /// <summary>
+        /// Improvements whose display spell isn't the activate spell of a creature, the client data doesn't link them to their unit.
+        /// </summary>
+        /// <remarks>
+        /// Keyed by the display spell's base name, the units are the "Settler Template - Improvement" creatures.
+        /// </remarks>
+        private static readonly Dictionary<string, uint> improvementCreaturesByDisplayName = new()
+        {
+            { "Mailbox", 18829u } // Settler Template - Improvement - Settler Mailbox
+        };
+
+        private static readonly Dictionary<uint, uint> improvementCreatures = new();
+        private static ILookup<uint, Creature2Entry> creaturesByActivateSpell;
+
+        /// <summary>
+        /// Distance from the display point that improvements sharing a display point are placed at.
+        /// </summary>
+        private const float ImprovementSpacing = 5f;
 
         private const float DepotInteractDistance = 30f;
 
@@ -113,6 +138,7 @@ namespace NexusForever.Game.Entity
                     state.Tier        = -1;
                     state.BundleCount = 0u;
                     state.Owners.Clear();
+                    state.SpawnPending = false;
                 }
 
                 return state;
@@ -189,6 +215,8 @@ namespace NexusForever.Game.Entity
             }
 
             log.Trace($"Player {player.CharacterId} built settler improvement group {group.Id} tier {tier}.");
+
+            SpawnImprovement(group, improvement, state);
 
             SendBuildResult(SettlerBuildResult.Ok, group);
             BroadcastStatus(group);
@@ -277,6 +305,146 @@ namespace NexusForever.Game.Entity
                     return Fail("the player doesn't have the resources");
 
             return SettlerBuildResult.Ok;
+        }
+
+        /// <summary>
+        /// Return the creature that represents a settler improvement in the world, 0 if there is none.
+        /// </summary>
+        /// <remarks>
+        /// Buff improvements display the spell their station casts when activated, e.g. "Shield Capacity Booster" is the "Max Shields" station.
+        /// A station named after the improvement group is preferred, then the "Settler Template" stations.
+        /// </remarks>
+        private static uint GetImprovementCreatureId(PathSettlerImprovementGroupEntry group, PathSettlerImprovementEntry improvement)
+        {
+            lock (improvementLock)
+            {
+                if (improvementCreatures.TryGetValue(improvement.Id, out uint creatureId))
+                    return creatureId;
+
+                creaturesByActivateSpell ??= GameTableManager.Instance.Creature2.Entries
+                    .Where(c => c?.Spell4IdActivate != null)
+                    .SelectMany(c => c.Spell4IdActivate.Where(s => s != 0u).Distinct().Select(s => (Spell: s, Creature: c)))
+                    .ToLookup(t => t.Spell, t => t.Creature);
+
+                TextTable text = GameTableManager.Instance.GetTextTable(Language.English);
+                string groupName = text?.GetEntry(group.LocalizedTextIdName);
+
+                Creature2Entry creature = creaturesByActivateSpell[improvement.Spell4IdDisplay]
+                    .OrderByDescending(c => groupName != null && StripPlural(text.GetEntry(c.LocalizedTextIdName) ?? "") == groupName)
+                    .ThenByDescending(c => c.Description?.Contains("Settler Template") ?? false)
+                    .ThenBy(c => c.Id)
+                    .FirstOrDefault();
+                creatureId = creature?.Id ?? 0u;
+
+                if (creatureId == 0u)
+                {
+                    Spell4Entry spell = GameTableManager.Instance.Spell4.GetEntry(improvement.Spell4IdDisplay);
+                    Spell4BaseEntry spellBase = spell != null ? GameTableManager.Instance.Spell4Base.GetEntry(spell.Spell4BaseIdBaseSpell) : null;
+                    string name = spellBase != null ? text?.GetEntry(spellBase.LocalizedTextIdName) : null;
+                    if (name != null)
+                        improvementCreaturesByDisplayName.TryGetValue(name, out creatureId);
+                }
+
+                improvementCreatures.Add(improvement.Id, creatureId);
+                return creatureId;
+            }
+        }
+
+        /// <summary>
+        /// Return the position of an improvement's unit, improvements of a depot often share one display point and are placed around it.
+        /// </summary>
+        private Vector3? GetImprovementPosition(PathSettlerImprovementGroupEntry group, out float yaw)
+        {
+            yaw = 0f;
+            WorldLocation2Entry location = GameTableManager.Instance.WorldLocation2.GetEntry(group.WorldLocation2IdDisplayPoint);
+            if (location == null)
+                return null;
+
+            var point = new Vector3(location.Position0, location.Position1, location.Position2);
+            List<PathSettlerImprovementGroupEntry> shared = GameTableManager.Instance.PathSettlerImprovementGroup.Entries
+                .Where(g => g != null && g.WorldLocation2IdDisplayPoint == group.WorldLocation2IdDisplayPoint)
+                .OrderBy(g => g.Id)
+                .ToList();
+            if (shared.Count <= 1)
+                return point;
+
+            float angle = MathF.PI * 2f * shared.FindIndex(g => g.Id == group.Id) / shared.Count;
+            float x = point.X + MathF.Cos(angle) * ImprovementSpacing;
+            float z = point.Z + MathF.Sin(angle) * ImprovementSpacing;
+            float y = player.Map.GetTerrainHeight(x, z) ?? point.Y;
+
+            // face the display point
+            yaw = MathF.Atan2(point.X - x, point.Z - z);
+            return new Vector3(x, y, z);
+        }
+
+        /// <summary>
+        /// Place the improvement's unit in the world until the improvement expires, contributions extend its time.
+        /// </summary>
+        private void SpawnImprovement(PathSettlerImprovementGroupEntry group, PathSettlerImprovementEntry improvement, ImprovementState state)
+        {
+            uint creatureId = GetImprovementCreatureId(group, improvement);
+            if (creatureId == 0u)
+            {
+                log.Debug($"Settler improvement {improvement.Id} of group {group.Id} has no unit to place.");
+                return;
+            }
+
+            IBaseMap map = player.Map;
+            TimeSpan remaining = state.Expires - DateTime.UtcNow;
+
+            lock (improvementLock)
+            {
+                if (state.SpawnPending)
+                    return;
+
+                // already in the world, only the time changes
+                if (state.SpawnMap == map && state.SpawnCreatureId == creatureId && map.GetEntity<IWorldEntity>(state.SpawnGuid) != null)
+                {
+                    map.CancelDespawn(state.SpawnGuid);
+                    map.ScheduleDespawn(state.SpawnGuid, remaining);
+                    return;
+                }
+
+                // a different tier has a different unit
+                if (state.SpawnMap == map)
+                    map.GetEntity<IWorldEntity>(state.SpawnGuid)?.RemoveFromMap();
+            }
+
+            ICreatureInfo creatureInfo = LegacyServiceProvider.Provider.GetService<ICreatureInfoManager>().GetCreatureInfo(creatureId);
+            Vector3? position = GetImprovementPosition(group, out float yaw);
+            if (creatureInfo == null || position == null)
+                return;
+
+            EntityType type = creatureInfo.Entry.CreationTypeEnum == EntityType.Player ? EntityType.SimpleCollidable : creatureInfo.Entry.CreationTypeEnum;
+            IWorldEntity unit = LegacyServiceProvider.Provider.GetService<IEntityFactory>().CreateWorldEntity(type);
+            if (unit == null)
+                return;
+
+            unit.Initialise(creatureInfo);
+            unit.Rotation = new Vector3(yaw, 0f, 0f);
+
+            lock (improvementLock)
+            {
+                state.SpawnPending    = true;
+                state.SpawnMap        = map;
+                state.SpawnCreatureId = creatureId;
+            }
+
+            // the guid is only known once the map adds the unit
+            unit.AddToMap(map, position.Value, (m, guid, vector) =>
+            {
+                lock (improvementLock)
+                {
+                    state.SpawnPending = false;
+                    state.SpawnGuid    = guid;
+                }
+
+                TimeSpan left = state.Expires - DateTime.UtcNow;
+                m.ScheduleDespawn(guid, left > TimeSpan.Zero ? left : TimeSpan.Zero);
+            });
+
+            log.Trace($"Placed settler improvement {improvement.Id} unit {creatureId} for group {group.Id} for {remaining}.");
         }
 
         private void SendBuildResult(SettlerBuildResult result, PathSettlerImprovementGroupEntry group)

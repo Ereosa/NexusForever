@@ -646,6 +646,11 @@ namespace NexusForever.Game.Map
             pendingDespawns.Add((guid, delay.TotalSeconds));
         }
 
+        public void CancelDespawn(uint guid)
+        {
+            pendingDespawns.RemoveAll(d => d.Guid == guid);
+        }
+
         private void UpdateRespawns(double lastTick)
         {
             for (int i = pendingDespawns.Count - 1; i >= 0; i--)
