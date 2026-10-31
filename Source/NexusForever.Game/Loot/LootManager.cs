@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract;
+﻿using System.Numerics;
+using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Group;
 using NexusForever.Game.Abstract.Loot;
@@ -245,15 +246,25 @@ namespace NexusForever.Game.Loot
         }
 
         /// <summary>
+        /// Distance from a unit whose loot is vacuumed though the unit isn't visible to the player.
+        /// </summary>
+        private const float VacuumRange = 15f;
+
+        /// <summary>
         /// Vacuums all loot in range for the specified player.
         /// </summary>
         /// <param name="player">The player to vacuum loot for.</param>
         public void VacuumLoot(IPlayer player)
         {
-            // TODO: might be better use a grid searcher...
-            foreach (IGridEntity entity in player.GetVisible())
+            // loot of units in range counts too when the unit itself isn't visible to the player any more, eg: a Discovery's loot lies on
+            // its indicator, the client offers it at the Discovery Chest standing on top of it (report 95)
+            var looted = new HashSet<uint>();
+            foreach (IGridEntity entity in player.GetVisible()
+                .Concat(lootInstances.Keys.ToList()
+                    .Select(guid => Map?.GetEntity<IUnitEntity>(guid))
+                    .Where(e => e != null && Vector3.Distance(e.Position, player.Position) <= VacuumRange)))
             {
-                if (entity is not IUnitEntity)
+                if (entity is not IUnitEntity || !looted.Add(entity.Guid))
                     continue;
 
                 if (!lootInstances.TryGetValue(entity.Guid, out List<ILootInstance> entityLootInstances))
