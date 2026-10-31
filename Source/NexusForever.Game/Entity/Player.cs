@@ -311,6 +311,45 @@ namespace NexusForever.Game.Entity
 
         private UpdateTimer relocationTimer = new(TimeSpan.FromSeconds(1));
 
+        /// <summary>
+        /// Re-evaluates what this player can see (quest givers, quest-gated creatures and objects) regularly, so state that changes
+        /// without a quest event (inventory, level, buffs, achievements, position based prerequisites) shows up without a relog.
+        /// </summary>
+        private readonly UpdateTimer visibilityRefreshTimer = new(TimeSpan.FromSeconds(1));
+        private readonly UpdateTimer visibilityRequestTimer = new(TimeSpan.FromMilliseconds(250), false);
+        private bool visibilityRefreshRequested;
+
+        /// <summary>
+        /// Request a visibility re-evaluation at the next opportunity, repeated requests are merged.
+        /// </summary>
+        public void RequestVisibilityRefresh()
+        {
+            if (visibilityRefreshRequested)
+                return;
+
+            visibilityRefreshRequested = true;
+            visibilityRequestTimer.Reset();
+        }
+
+        private void UpdateVisibilityRefresh(double lastTick)
+        {
+            if (IsLoading || Map == null)
+                return;
+
+            visibilityRefreshTimer.Update(lastTick);
+            if (visibilityRefreshRequested)
+                visibilityRequestTimer.Update(lastTick);
+
+            bool requested = visibilityRefreshRequested && visibilityRequestTimer.HasElapsed;
+            if (!requested && !visibilityRefreshTimer.HasElapsed)
+                return;
+
+            visibilityRefreshTimer.Reset();
+            visibilityRequestTimer.Pause();
+            visibilityRefreshRequested = false;
+            VisibilityUpdate();
+        }
+
         #region Dependency Injection
 
         private readonly IInternalMessagePublisher messagePublisher;
@@ -506,6 +545,8 @@ namespace NexusForever.Game.Entity
             ChallengeManager.Update(lastTick);
             ResurrectionManager.Update(lastTick);
             CinematicManager.Update(lastTick);
+
+            UpdateVisibilityRefresh(lastTick);
 
             relocationTimer.Update(lastTick);
             if (relocationTimer.HasElapsed)

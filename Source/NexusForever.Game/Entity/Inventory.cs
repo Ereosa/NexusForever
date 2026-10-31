@@ -290,6 +290,9 @@ namespace NexusForever.Game.Entity
                 player.ChallengeManager.OnItemAdded(info.Id, count);
             }
 
+            // creatures and objects can be gated on items in the inventory
+            player?.RequestVisibilityRefresh();
+
             // looted tradeskill materials go straight into the supply satchel, anything that doesn't fit goes into the inventory
             if (player != null && location == InventoryLocation.Inventory && reason == ItemUpdateReason.Loot)
             {
@@ -661,6 +664,7 @@ namespace NexusForever.Game.Entity
                 Reason = reason
             });
 
+            player.RequestVisibilityRefresh();
             return item;
         }
 

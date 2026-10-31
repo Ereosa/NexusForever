@@ -29,6 +29,11 @@ namespace NexusForever.Game.Abstract.Entity
     {
         IAccount Account { get; }
 
+        /// <summary>
+        /// Request a visibility re-evaluation of nearby entities soon, repeated requests are merged.
+        /// </summary>
+        void RequestVisibilityRefresh();
+
         Identity Identity { get; }
         ulong CharacterId { get; }
         string Name { get; }
