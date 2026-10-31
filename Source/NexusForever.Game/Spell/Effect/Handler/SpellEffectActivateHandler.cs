@@ -16,7 +16,13 @@ namespace NexusForever.Game.Spell.Effect.Handler
         /// </summary>
         public SpellEffectExecutionResult Apply(ISpellExecutionContext executionContext, IUnitEntity target, ISpellTargetEffectInfo info, ISpellEffectDefaultData data)
         {
-            executionContext.Spell.Parameters.ClientSideInteraction?.HandleSuccess(executionContext.Spell);
+            if (executionContext.Spell.Parameters.ClientSideInteraction != null)
+                executionContext.Spell.Parameters.ClientSideInteraction.HandleSuccess(executionContext.Spell);
+            // quest items used on an object activate it without an interaction of their own (eg: Fiery Vengeance's Incendiary
+            // Grenade thrown at a Cartel Slaver Shack, report 116)
+            else if (executionContext.Spell.Caster is IPlayer player && target is IWorldEntity entity && entity != player)
+                entity.OnActivateSuccess(player);
+
             return SpellEffectExecutionResult.Ok;
         }
     }
