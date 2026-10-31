@@ -30,8 +30,10 @@ namespace NexusForever.Game.Spell.Effect.Handler
             {
                 case SpellEffectForceSpellRemoveType.SpellGroupId:
                 {
-                    foreach (ISpell spellToRemove in target.GetSpellsByGroupId(data.Data))
+                    foreach (ISpell spellToRemove in target.GetSpellsByGroupId(data.Data).ToList())
                         spellToRemove.Finish();
+                    if (target is IPlayer player)
+                        SpellEffectActionBarSetHandler.OnSpellGroupRemoved(player, data.Data);
                     break;
                 }
                 case SpellEffectForceSpellRemoveType.Spell4:
