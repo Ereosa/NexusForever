@@ -917,6 +917,9 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         private void CheckLevelTeleporters(Vector3 position)
         {
+            if (CheckPairedTeleporters(position))
+                return;
+
             List<(uint CreatureId, string Name, Vector3 Position)> teleporters = GetLevelTeleporters((ushort)Map.Entry.Id);
             if (teleporters.Count == 0)
                 return;
@@ -945,6 +948,59 @@ namespace NexusForever.Game.Entity
                 ? height
                 : destination.Position.Y + LevelTeleporterHeight - 1f;
             TeleportToLocal(arrival);
+        }
+
+        /// <summary>
+        /// Teleporter pads whose destination the quests name, as pairs of <see cref="WorldLocation2Entry"/> pad locations.
+        /// </summary>
+        /// <remarks>
+        /// The Elder Vault under Star-Comm Station has four Eldan Teleporters, each leading to a different part of the station, most of them
+        /// too far away for the nearest teleporter rule, which sent every one of them back up to the station (report 104). The pairs come from
+        /// the Levian Bay quest objectives: Seizing Control (5859) "access Security Hub Sigma" and "return to the Elder Vault", The Key to
+        /// Power (5959) "access Engineering Sublevel Theta" and "return to the Elder Vault", Lost in the Fog (5865) "access the cave to the
+        /// surface" (Surfskitter Cave), Enter the Station (5868) the way in from Star-Comm Station.
+        /// </remarks>
+        private static readonly (uint From, uint To)[] pairedTeleporters =
+        [
+            (19319u, 19318u), // Elder Vault north - Star-Comm Station
+            (19321u, 19323u), // Elder Vault east - Security Hub Sigma
+            (19932u, 19934u), // Elder Vault west - Engineering Sublevel Theta
+            (20585u, 19335u)  // Elder Vault south - Surfskitter Cave
+        ];
+
+        private bool CheckPairedTeleporters(Vector3 position)
+        {
+            foreach ((uint from, uint to) in pairedTeleporters)
+            {
+                foreach ((uint source, uint target) in new[] { (from, to), (to, from) })
+                {
+                    WorldLocation2Entry sourceEntry = GameTableManager.Instance.WorldLocation2.GetEntry(source);
+                    if (sourceEntry == null || sourceEntry.WorldId != Map.Entry.Id)
+                        continue;
+
+                    var pad = new Vector3(sourceEntry.Position0, sourceEntry.Position1, sourceEntry.Position2);
+                    if (Vector2.Distance(new Vector2(pad.X, pad.Z), new Vector2(position.X, position.Z)) > LevelTeleporterRange
+                        || position.Y - pad.Y is <= -3f or >= LevelTeleporterHeight)
+                        continue;
+
+                    WorldLocation2Entry targetEntry = GameTableManager.Instance.WorldLocation2.GetEntry(target);
+                    if (targetEntry == null || targetEntry.WorldId != Map.Entry.Id)
+                        return false;
+
+                    instancePortalCooldown = 5d;
+
+                    // arrive beside the destination pad so it doesn't send the player straight back
+                    var destination = new Vector3(targetEntry.Position0, targetEntry.Position1, targetEntry.Position2);
+                    Vector3 arrival = destination + new Vector3(LevelTeleporterRange + 1.5f, 0f, 0f);
+                    arrival.Y = Map.GetTerrainHeight(arrival.X, arrival.Z) is float height && MathF.Abs(height - destination.Y) < LevelTeleporterHeight
+                        ? height
+                        : destination.Y + 1f;
+                    TeleportToLocal(arrival);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static List<(uint CreatureId, string Name, Vector3 Position)> GetLevelTeleporters(ushort worldId)
