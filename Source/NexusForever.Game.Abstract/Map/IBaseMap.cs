@@ -43,6 +43,11 @@ namespace NexusForever.Game.Abstract.Map
         void ScheduleDespawn(uint guid, TimeSpan delay);
 
         /// <summary>
+        /// Cancel any scheduled despawn of the entity with the supplied guid.
+        /// </summary>
+        void CancelDespawn(uint guid);
+
+        /// <summary>
         /// Disable respawns on the map, dead creatures and used objects stay gone (eg: expeditions and dungeons).
         /// </summary>
         bool RespawnsDisabled { get; set; }
