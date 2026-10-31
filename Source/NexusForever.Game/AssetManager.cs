@@ -5,6 +5,8 @@ using NexusForever.Database.Character;
 using NexusForever.Database.World;
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract;
+using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Entity;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
@@ -41,6 +43,7 @@ namespace NexusForever.Game
         private ImmutableDictionary</*pathSoldierEventId*/uint, ImmutableList<PathSoldierHoldoutSpawnModel>> holdoutSpawns;
         private ImmutableDictionary</*creatureId*/uint, /*builtCreatureId*/uint> settlerStructures;
         private ImmutableDictionary</*creatureId*/uint, PathExplorerSwitchModel> explorerSwitches;
+        private ImmutableDictionary</*creatureId*/uint, IVendorInfo> creatureVendors;
 
         private ImmutableDictionary<AccountTier, ImmutableList<RewardPropertyPremiumModifierEntry>> rewardPropertiesByTier;
 
@@ -58,6 +61,7 @@ namespace NexusForever.Game
             CacheHoldoutSpawns();
             CacheSettlerStructures();
             CacheExplorerSwitches();
+            CacheCreatureVendors();
             CacheRewardPropertiesByTier();
         }
 
@@ -132,6 +136,23 @@ namespace NexusForever.Game
         {
             settlerStructures = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetPathSettlerStructures()
                 .ToImmutableDictionary(m => m.CreatureId, m => m.BuiltCreatureId);
+        }
+
+        private void CacheCreatureVendors()
+        {
+            (ImmutableList<CreatureVendorModel> vendors, ImmutableList<CreatureVendorCategoryModel> categories, ImmutableList<CreatureVendorItemModel> items)
+                = DatabaseManager.Instance.GetDatabase<WorldDatabase>().GetCreatureVendors();
+
+            ILookup<uint, CreatureVendorCategoryModel> categoriesByCreature = categories.ToLookup(c => c.CreatureId);
+            ILookup<uint, CreatureVendorItemModel> itemsByCreature = items.ToLookup(i => i.CreatureId);
+
+            creatureVendors = vendors.ToImmutableDictionary(v => v.CreatureId,
+                v => (IVendorInfo)new VendorInfo(v, categoriesByCreature[v.CreatureId], itemsByCreature[v.CreatureId]));
+        }
+
+        public IVendorInfo GetCreatureVendor(uint creatureId)
+        {
+            return creatureVendors.TryGetValue(creatureId, out IVendorInfo vendorInfo) ? vendorInfo : null;
         }
 
         private void CacheExplorerSwitches()

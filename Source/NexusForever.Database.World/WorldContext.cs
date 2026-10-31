@@ -13,6 +13,9 @@ namespace NexusForever.Database.World
     {
         public DbSet<CreatureInfoPropertyModel> CreatureInfoProperty { get; set; }
         public DbSet<CreatureInfoStatModel> CreatureInfoStat { get; set; }
+        public DbSet<CreatureVendorModel> CreatureVendor { get; set; }
+        public DbSet<CreatureVendorCategoryModel> CreatureVendorCategory { get; set; }
+        public DbSet<CreatureVendorItemModel> CreatureVendorItem { get; set; }
         public DbSet<DisableModel> Disable { get; set; }
         public DbSet<EntityModel> Entity { get; set; }
         public DbSet<EntityEmoteModel> Emote { get; set; }
@@ -102,6 +105,81 @@ namespace NexusForever.Database.World
                 entity.Property(e => e.Value)
                     .HasColumnName("value")
                     .HasColumnType("float");
+            });
+
+            modelBuilder.Entity<CreatureVendorModel>(entity =>
+            {
+                entity.ToTable("creature_vendor");
+
+                entity.HasKey(e => e.CreatureId)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0)
+                    .ValueGeneratedNever();
+
+                entity.Property(e => e.BuyPriceMultiplier)
+                    .HasColumnName("buyPriceMultiplier")
+                    .HasColumnType("float")
+                    .HasDefaultValue(1f);
+
+                entity.Property(e => e.SellPriceMultiplier)
+                    .HasColumnName("sellPriceMultiplier")
+                    .HasColumnType("float")
+                    .HasDefaultValue(1f);
+            });
+
+            modelBuilder.Entity<CreatureVendorCategoryModel>(entity =>
+            {
+                entity.ToTable("creature_vendor_category");
+
+                entity.HasKey(e => new { e.CreatureId, e.Index })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Index)
+                    .HasColumnName("index")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.LocalisedTextId)
+                    .HasColumnName("localisedTextId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+            });
+
+            modelBuilder.Entity<CreatureVendorItemModel>(entity =>
+            {
+                entity.ToTable("creature_vendor_item");
+
+                entity.HasKey(e => new { e.CreatureId, e.Index })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Index)
+                    .HasColumnName("index")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CategoryIndex)
+                    .HasColumnName("categoryIndex")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ItemId)
+                    .HasColumnName("itemId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
             });
 
             modelBuilder.Entity<DisableModel>(entity =>

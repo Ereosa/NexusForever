@@ -56,6 +56,31 @@ namespace NexusForever.Game.Entity
             { "Mailbox", 18829u } // Settler Template - Improvement - Settler Mailbox
         };
 
+        /// <summary>
+        /// Settler "Consumables" vendors, the display spells (Merchant, Vendbot) are not the activate spell of any creature either.
+        /// </summary>
+        /// <remarks>
+        /// Keyed by improvement id, the units are the consumables vendors named after the tract and faction of the improvement's depot
+        /// ("Settler ... Consumables Vendbot ... Dominion Ellevar Tract 2", "Settler IMP - Consumables Merchant - Algoroc T1", ...).
+        /// Their stock is in the creature_vendor tables.
+        /// </remarks>
+        private static readonly Dictionary<uint, uint> improvementVendorCreatures = new()
+        {
+            { 3139u, 35743u }, // Jeric's Claim (Algoroc) - Merchant Gideon
+            { 2627u, 33256u }, // Webwood (Ellevar) - Consumables Vendbot
+            { 2717u, 33956u }, // South Firewalker (Deradune) - Consumables Vendbot
+            { 2718u, 33956u }, // Wildvine Refuge (Deradune) - Consumables Vendbot
+            { 2838u, 34556u }, // The Staging Point (Galeras) - Consumables Vendbot
+            { 2840u, 34556u }, // Noxbane Prison Camp (Galeras)
+            { 2841u, 34556u }, // Winding Ridge (Galeras)
+            { 2842u, 34556u }, // Control Site: Focus of Air (Galeras)
+            { 2843u, 34556u }, // Excavation Site (Galeras)
+            { 3571u, 39548u }, // Fort Glory (Auroria) tier 1 - Merchant Balian Froux
+            { 3572u, 39556u }, // Fort Glory (Auroria) tier 2 - Merchant Balian Froux
+            { 4645u, 51933u }, // The Keeper's Sanctuary (Grimvault), Dominion - Kadum Senti
+            { 4697u, 51932u }  // The Keeper's Sanctuary (Grimvault), Exile - Chill Starweed
+        };
+
         private static readonly Dictionary<uint, uint> improvementCreatures = new();
         private static ILookup<uint, Creature2Entry> creaturesByActivateSpell;
 
@@ -330,6 +355,12 @@ namespace NexusForever.Game.Entity
                 if (improvementCreatures.TryGetValue(improvement.Id, out uint creatureId))
                     return creatureId;
 
+                if (improvementVendorCreatures.TryGetValue(improvement.Id, out creatureId))
+                {
+                    improvementCreatures.Add(improvement.Id, creatureId);
+                    return creatureId;
+                }
+
                 creaturesByActivateSpell ??= GameTableManager.Instance.Creature2.Entries
                     .Where(c => c?.Spell4IdActivate != null)
                     .SelectMany(c => c.Spell4IdActivate.Where(s => s != 0u).Distinct().Select(s => (Spell: s, Creature: c)))
@@ -432,6 +463,14 @@ namespace NexusForever.Game.Entity
 
             unit.Initialise(creatureInfo);
             unit.Rotation = new Vector3(yaw, 0f, 0f);
+
+            // vendors need their stock before they are added to the map, the client is told with the create flags
+            if (unit is INonPlayerEntity vendor)
+            {
+                IVendorInfo vendorInfo = AssetManager.Instance.GetCreatureVendor(creatureId);
+                if (vendorInfo != null)
+                    vendor.InitialiseVendor(vendorInfo);
+            }
 
             lock (improvementLock)
             {

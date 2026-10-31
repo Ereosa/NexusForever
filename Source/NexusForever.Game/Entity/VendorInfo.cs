@@ -22,6 +22,32 @@ namespace NexusForever.Game.Entity
             Items               = model.EntityVendorItem.ToImmutableList();
         }
 
+        public VendorInfo(CreatureVendorModel vendor, IEnumerable<CreatureVendorCategoryModel> categories, IEnumerable<CreatureVendorItemModel> items)
+        {
+            Id                  = vendor.CreatureId;
+            SellPriceMultiplier = vendor.SellPriceMultiplier;
+            BuyPriceMultiplier  = vendor.BuyPriceMultiplier;
+            Categories          = categories
+                .Select(c => new EntityVendorCategoryModel
+                {
+                    Id              = vendor.CreatureId,
+                    Index           = c.Index,
+                    LocalisedTextId = c.LocalisedTextId
+                })
+                .OrderBy(c => c.Index)
+                .ToImmutableList();
+            Items               = items
+                .Select(i => new EntityVendorItemModel
+                {
+                    Id            = vendor.CreatureId,
+                    Index         = i.Index,
+                    CategoryIndex = i.CategoryIndex,
+                    ItemId        = i.ItemId
+                })
+                .OrderBy(i => i.Index)
+                .ToImmutableList();
+        }
+
         /// <summary>
         /// Return <see cref="EntityVendorItemModel"/> at the supplied index;
         /// </summary>

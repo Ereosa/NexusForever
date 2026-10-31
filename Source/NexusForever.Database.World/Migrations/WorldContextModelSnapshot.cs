@@ -62,6 +62,89 @@ namespace NexusForever.Database.World.Migrations
                     b.ToTable("creature_info_stat", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.World.Model.CreatureVendorCategoryModel", b =>
+                {
+                    b.Property<uint>("CreatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<uint>("Index")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("index");
+
+                    b.Property<uint>("LocalisedTextId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("localisedTextId");
+
+                    b.HasKey("CreatureId", "Index")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("creature_vendor_category", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.World.Model.CreatureVendorItemModel", b =>
+                {
+                    b.Property<uint>("CreatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<uint>("Index")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("index");
+
+                    b.Property<uint>("CategoryIndex")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("categoryIndex");
+
+                    b.Property<uint>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("itemId");
+
+                    b.HasKey("CreatureId", "Index")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("creature_vendor_item", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.World.Model.CreatureVendorModel", b =>
+                {
+                    b.Property<uint>("CreatureId")
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<float>("BuyPriceMultiplier")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(1f)
+                        .HasColumnName("buyPriceMultiplier");
+
+                    b.Property<float>("SellPriceMultiplier")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(1f)
+                        .HasColumnName("sellPriceMultiplier");
+
+                    b.HasKey("CreatureId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("creature_vendor", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.World.Model.DisableModel", b =>
                 {
                     b.Property<byte>("Type")

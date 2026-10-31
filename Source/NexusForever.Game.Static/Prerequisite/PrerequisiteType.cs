@@ -248,7 +248,7 @@
         BonusPower                  = 237, // Bonus power requirement not met
         Power                       = 238, // Power requirement not met
         ActionBar                   = 239, // Action bar does not meet requirements 
-        Unknown240                  = 240, // Exist in PrerequisiteType.tbl but does not have a description
+        Unknown240                  = 240, // compares the type of the map the player is on (MapType), see PrerequisiteCheckMapType
         Homeowner                   = 241, // Exist in PrerequisiteType.tbl but does not have a description, used for "Only a homeowner can claim this item"
         LiveEvent242                = 242, // Live event not complete
         Faction243                  = 243, // Faction requirement not met

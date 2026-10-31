@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static;
 using NexusForever.GameTable.Model;
 
@@ -59,6 +60,11 @@ namespace NexusForever.Game.Abstract
         /// Returns the built version of a settler structure creature, 0 if it has none.
         /// </summary>
         uint GetBuiltSettlerStructure(uint creatureId);
+
+        /// <summary>
+        /// Returns the vendor stock of a creature that is spawned by the server, null if the creature has none.
+        /// </summary>
+        IVendorInfo GetCreatureVendor(uint creatureId);
 
         /// <summary>
         /// Returns the explorer switch data for a creature, null if the creature isn't an explorer switch.

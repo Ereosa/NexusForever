@@ -46,6 +46,15 @@ namespace NexusForever.Game.Entity
             }
         }
 
+        /// <summary>
+        /// Make the entity a vendor with the supplied stock, for units that are spawned by the server instead of coming from a database entity.
+        /// </summary>
+        public void InitialiseVendor(IVendorInfo vendorInfo)
+        {
+            CreateFlags |= EntityCreateFlag.HasInteractionPrereq;
+            VendorInfo = vendorInfo;
+        }
+
         protected override IEntityModel BuildEntityModel()
         {
             return new NonPlayerEntityModel
