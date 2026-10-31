@@ -464,7 +464,24 @@ namespace NexusForever.Game.Entity
 
             foreach (IPropertyModifier propertyValue in baseProperties.Concat(classProperties))
                 SetBaseProperty(propertyValue.Property, propertyValue.GetValue(Level));
+
+            // property_base has no Focus pool and zeroes the Focus recovery rates, leaving Focus classes (Esper, Medic, Spellslinger) at 0 focus forever
+            // fall back to the client defaults for recovery and a flat pool
+            foreach (Property recovery in new[] { Property.BaseFocusRecoveryInCombat, Property.BaseFocusRecoveryOutofCombat })
+            {
+                if (GetProperty(recovery).BaseValue > 0f)
+                    continue;
+
+                UnitProperty2Entry entry = GameTableManager.Instance.UnitProperty2.GetEntry((uint)recovery);
+                if (entry != null && entry.DefaultValue > 0f)
+                    SetBaseProperty(recovery, entry.DefaultValue);
+            }
+
+            if (Class is Class.Esper or Class.Medic or Class.Spellslinger && GetProperty(Property.BaseFocusPool).BaseValue <= 0f)
+                SetBaseProperty(Property.BaseFocusPool, DefaultFocusPool);
         }
+
+        private const float DefaultFocusPool = 1000f;
 
         public override void Update(double lastTick)
         {

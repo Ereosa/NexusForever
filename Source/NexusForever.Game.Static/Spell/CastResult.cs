@@ -56,6 +56,7 @@ namespace NexusForever.Game.Static.Spell
         CasterVitalCostCurrency1              = 0x002F,
         CasterVitalCostCurrency2              = 0x0030,
         CasterVitalCostCurrency3              = 0x0031,
+        [CastResultVital(Vital.Focus)]
         CasterVitalCostResource0              = 0x0032,
         [CastResultVital(Vital.Resource1)]
         [CastResultVital(Vital.Volatility)]
