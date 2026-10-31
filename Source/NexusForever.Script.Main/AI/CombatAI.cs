@@ -128,6 +128,7 @@ namespace NexusForever.Script.Main.AI
             if (!entity.TargetGuid.HasValue)
             {
                 UpdateAggroCandidates(lastTick);
+                UpdateWander(lastTick);
                 return;
             }
 
@@ -283,6 +284,8 @@ namespace NexusForever.Script.Main.AI
             if (command is not IPositionCommand)
                 return;
 
+            wandering = false;
+
             if (!entity.TargetGuid.HasValue)
                 return;
 
@@ -320,6 +323,92 @@ namespace NexusForever.Script.Main.AI
                 return false;
 
             return Vector3.Distance(unit.Position, entity.Position) < AggroRange;
+        }
+
+        /// <summary>
+        /// Distance from its spawn point an idle creature wanders to.
+        /// </summary>
+        /// <remarks>
+        /// The sniffed spawn data only has the paths that were seen being walked, most creatures in the open world idled around their spawn point in
+        /// retail. The radius and the pauses are guesses.
+        /// </remarks>
+        private const float WanderRadius = 8f;
+        private const float WanderSpeed = 2.5f;
+        private const double WanderMinDelay = 8d;
+        private const double WanderMaxDelay = 25d;
+        private const double WanderChance = 0.7d;
+
+        private double wanderDelay = Random.Shared.NextDouble() * WanderMaxDelay;
+        private bool wandering;
+        private double wanderTime;
+        private bool? canWander;
+
+        /// <summary>
+        /// Returns if the creature is an idle wanderer: a hostile or neutral ground creature that has no path of its own to walk.
+        /// </summary>
+        private bool CanWander()
+        {
+            if (canWander.HasValue)
+                return canWander.Value;
+
+            canWander = false;
+            Creature2Entry creature = entity.CreatureInfo?.Entry;
+            if (creature == null || stationary || entity.Spline != null)
+                return false;
+
+            // townies, objects and traps stand where they were put, so do creatures with an interaction (quests, vendors, trainers)
+            if (creature.Creature2ArcheTypeId is 25u or 27u or 29u)
+                return false;
+
+            if (creature.QuestIdGiven.Any(q => q != 0u) || creature.QuestIdReceive.Any(q => q != 0u)
+                || creature.Spell4IdActivate.Any(s => s != 0u) || creature.TrainerClassIdMask != 0u
+                || creature.TradeSkillIdTrainer != 0u || creature.TradeSkillIdStation != 0u || creature.GossipSetId != 0u)
+                return false;
+
+            // friendly creatures are part of the scenery
+            if (entity.GetDispositionTo(Faction.Exile) == Disposition.Friendly && entity.GetDispositionTo(Faction.Dominion) == Disposition.Friendly)
+                return false;
+
+            // fliers and swimmers keep a height over the ground, a path along the terrain doesn't suit them
+            canWander = entity.GroundClearance == 0f;
+            return canWander.Value;
+        }
+
+        /// <summary>
+        /// Walk to a random point around the spawn point once in a while, only where a player can see it.
+        /// </summary>
+        private void UpdateWander(double lastTick)
+        {
+            wanderDelay -= lastTick;
+            if (wandering)
+            {
+                wanderTime += lastTick;
+                // the finalise event can be missed when another script took over the movement
+                if (wanderTime > 30d)
+                    wandering = false;
+            }
+
+            if (wanderDelay > 0d)
+                return;
+
+            wanderDelay = WanderMinDelay + Random.Shared.NextDouble() * (WanderMaxDelay - WanderMinDelay);
+
+            if (wandering || !CanWander() || entity.InCombat || entity.IsCasting() || !CanMove(entity))
+                return;
+
+            if (Random.Shared.NextDouble() > WanderChance)
+                return;
+
+            // nobody to see it, the creature stays where it is
+            if (!entity.GetVisible().OfType<IPlayer>().Any())
+                return;
+
+            Vector3 destination = entity.LeashPosition.GetRandomPoint2D(WanderRadius);
+            if (entity.MovementManager.Wander(destination, WanderSpeed))
+            {
+                wandering  = true;
+                wanderTime = 0d;
+            }
         }
 
         /// <summary>
