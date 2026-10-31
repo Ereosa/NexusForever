@@ -322,6 +322,16 @@ namespace NexusForever.Script.Instance.Expedition.FragmentZero
                 PublicEventCreature.GronyxDoorForceField   => PublicEventCreature.GronyxDoorSurface,
                 _                                          => PublicEventCreature.PellDoorSurface
             });
+
+            // the inner iris opens with the outer one: the outer irises showed open, they were opened while the players were
+            // still far from the cave, the inner ones opened with a player in the airlock stayed shut on the client (guess:
+            // a prop opened in view doesn't play its open state)
+            OpenDoor(forceField switch
+            {
+                PublicEventCreature.XenobiteDoorForceField => PublicEventCreature.XenobiteDoorWing,
+                PublicEventCreature.GronyxDoorForceField   => PublicEventCreature.GronyxDoorWing,
+                _                                          => PublicEventCreature.PellDoorWing
+            });
         }
 
         private void OpenDoor(PublicEventCreature door)
