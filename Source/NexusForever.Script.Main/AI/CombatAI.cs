@@ -32,6 +32,19 @@ namespace NexusForever.Script.Main.AI
         /// Turrets, and creatures bound to a world prop, attack from where they were placed and never chase.
         /// </summary>
         private bool stationary;
+
+        /// <summary>
+        /// Distance a hostile player is pulled from, in 3D.
+        /// </summary>
+        private const float AggroRange = 15f;
+
+        /// <summary>
+        /// Players further above or below a creature than this are not pulled however close they are horizontally.
+        /// </summary>
+        private const float AggroVerticalLimit = 8f;
+
+        private readonly Dictionary<uint, IUnitEntity> aggroCandidates = [];
+        private readonly UpdateTimer aggroScanTimer = new(TimeSpan.FromSeconds(0.25d));
         private const uint TurretUnitRaceId = 267;
         private const uint TurretAutoAttackSpell4Id = 23121;
 
@@ -113,7 +126,10 @@ namespace NexusForever.Script.Main.AI
             }
 
             if (!entity.TargetGuid.HasValue)
+            {
+                UpdateAggroCandidates(lastTick);
                 return;
+            }
 
             // also covers fights started without going through AggroEntity (eg: pulled by an ally)
             combatHome ??= entity.Position;
@@ -203,7 +219,7 @@ namespace NexusForever.Script.Main.AI
         /// </summary>
         private bool CheckLeash()
         {
-            if (entity.Position.GetDistance(Home) <= LeashDistance)
+            if (Vector3.Distance(entity.Position, Home) <= LeashDistance)
                 return false;
 
             evading = true;
@@ -233,7 +249,7 @@ namespace NexusForever.Script.Main.AI
 
             chaseDistance = Math.Min(chaseDistance, spell4Entry.TargetMaxRange);
 
-            if (entity.Position.GetDistance(target.Position) > spell4Entry.TargetMaxRange)
+            if (Vector3.Distance(entity.Position, target.Position) > spell4Entry.TargetMaxRange)
                 return;
 
             ISpellParameters spellParameters = spellParametersFactory.Resolve();
@@ -253,7 +269,7 @@ namespace NexusForever.Script.Main.AI
             if (target == null)
                 return;
 
-            if (entity.Position.GetDistance(target.Position) < chaseDistance)
+            if (Vector3.Distance(entity.Position, target.Position) < chaseDistance)
                 return;
             
             entity.MovementManager.Chase(target, chaseDistance / 2);
@@ -281,7 +297,60 @@ namespace NexusForever.Script.Main.AI
             if (entity is not IUnitEntity unit || !IsProximityAggroTarget(unit))
                 return;
 
-            AggroEntity(entity);
+            // the range check is horizontal, the unit is only a candidate until it is close enough in 3D (a cliff or a floor between does not count)
+            aggroCandidates[unit.Guid] = unit;
+            if (InAggroRange(unit))
+                AggroEntity(entity);
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IGridEntity"/> is removed from range check range.
+        /// </summary>
+        public void OnExitRange(IGridEntity entity)
+        {
+            aggroCandidates.Remove(entity.Guid);
+        }
+
+        /// <summary>
+        /// Returns if the unit is within aggro distance, measured in 3D and with a vertical limit.
+        /// </summary>
+        private bool InAggroRange(IUnitEntity unit)
+        {
+            if (MathF.Abs(unit.Position.Y - entity.Position.Y) > AggroVerticalLimit)
+                return false;
+
+            return Vector3.Distance(unit.Position, entity.Position) < AggroRange;
+        }
+
+        /// <summary>
+        /// Pull units that came into range horizontally but weren't close enough vertically at the time.
+        /// </summary>
+        private void UpdateAggroCandidates(double lastTick)
+        {
+            if (aggroCandidates.Count == 0)
+                return;
+
+            aggroScanTimer.Update(lastTick);
+            if (!aggroScanTimer.HasElapsed)
+                return;
+
+            aggroScanTimer.Reset();
+
+            foreach (IUnitEntity unit in aggroCandidates.Values.ToList())
+            {
+                if (!unit.IsAlive || unit.Map != entity.Map)
+                {
+                    aggroCandidates.Remove(unit.Guid);
+                    continue;
+                }
+
+                if (!IsProximityAggroTarget(unit) || !InAggroRange(unit))
+                    continue;
+
+                AggroEntity(unit);
+                if (entity.InCombat)
+                    return;
+            }
         }
 
         /// <summary>
