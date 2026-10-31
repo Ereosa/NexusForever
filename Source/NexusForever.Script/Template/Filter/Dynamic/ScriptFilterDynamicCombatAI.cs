@@ -55,7 +55,8 @@ namespace NexusForever.Script.Template.Filter.Dynamic
             return entry.Creature2ArcheTypeId is 25u or 27u or 29u
                 && ((entry.Description?.Contains("Hazard", StringComparison.OrdinalIgnoreCase) ?? false)
                     || (entry.Description?.Contains("Security Beam", StringComparison.OrdinalIgnoreCase) ?? false)
-                    || (entry.Description?.Contains(" Mine ", StringComparison.OrdinalIgnoreCase) ?? false));
+                    || (entry.Description?.Contains(" Mine ", StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (entry.Description?.Contains("spore", StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
         /// <summary>

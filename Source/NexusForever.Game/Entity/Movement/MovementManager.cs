@@ -883,12 +883,32 @@ namespace NexusForever.Game.Entity.Movement
             SetRotationFaceUnit(entity.Guid);
 
             Vector3 destination = entity.Position.GetPoint2D(GetRotation().X, distance);
-            // due to most content maps not having terrain data, movement generators will fail
-            // TODO: replace this once movement maps are implemented
-            List<Vector3> nodes = [positionCommandGroup.GetPosition(), destination];
+            // follow the ground, a straight line between the end points floats over slopes and cuts through hills
+            List<Vector3> nodes = GroundPathBuilder.Build(Owner.Map, positionCommandGroup.GetPosition(), destination, Owner.GroundClearance);
 
             float speed = Owner.GetPropertyValue(Property.MoveSpeedMultiplier) * 8f;
             LaunchSpline(nodes, SplineType.Linear, SplineMode.OneShot, speed);
+        }
+
+        /// <summary>
+        /// Walk to the supplied position along the terrain, returns false if the map has no terrain data along the way and nothing was started.
+        /// </summary>
+        public bool Wander(Vector3 destination, float speed)
+        {
+            if (!ServerControl)
+                return false;
+
+            // without terrain the path would be a straight line through whatever is in between
+            if (GroundPathBuilder.GetHeight(Owner.Map, destination.X, destination.Z, Owner.GroundClearance) == null)
+                return false;
+
+            Vector3 begin = positionCommandGroup.GetPosition();
+            if (GroundPathBuilder.GetHeight(Owner.Map, begin.X, begin.Z, Owner.GroundClearance) == null)
+                return false;
+
+            List<Vector3> nodes = GroundPathBuilder.Build(Owner.Map, begin, destination, Owner.GroundClearance);
+            LaunchSpline(nodes, SplineType.Linear, SplineMode.OneShot, speed);
+            return true;
         }
     }
 }
