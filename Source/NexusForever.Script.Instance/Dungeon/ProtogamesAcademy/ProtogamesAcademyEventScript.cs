@@ -25,7 +25,8 @@ namespace NexusForever.Script.Instance.Dungeon.ProtogamesAcademy
     /// - room 2 (zone 4507): gather (4491) and defeat Seek-N-Slaughter (4497), gather (4494) and defeat Icebox Mk. 2 (4498), gather (4343)
     ///   and defeat Super-Invulnotron (4499), take the teleporter (turnstile 4500),
     /// - room 3 (zone 4508): meet Phineas (4345) and defeat Wrathbone (4346).
-    /// The bosses appear in their arena once the whole party has gathered, veteran (prime) runs get the veteran creatures.
+    /// The boss spots are the objectives' world locations, which match the archived Jabbithole sightings (zones 471-473) of Invulnotron,
+    /// Iruki, Gromka, the room 2 bosses and Wrathbone. The bosses appear in their arena once the whole party has gathered, veteran (prime) runs get the veteran creatures.
     /// Guessed: that every room 1 and room 2 boss is fought (rather than a random pick), the order within a room, that the Start Button
     /// carries the party to room 1 and the teleporters to the next room's gather spot, where Phineas and the Start Button stand.
     /// </remarks>
@@ -189,6 +190,8 @@ namespace NexusForever.Script.Instance.Dungeon.ProtogamesAcademy
                 case Phase.MeetPhineas:
                     Gather(Objective.MeetPhineas, TriggerVolume.Room3, Room3);
                     SpawnCreature(PhineasRoom3, Room3 + new Vector3(0f, 0f, 6f), MathF.PI);
+                    // the way out at the end of the Mandatory Review Zone (archived Jabbithole sighting, zone 473)
+                    SpawnCreature(ExitPortal, new Vector3(-15751f, -904.5f, -29645f));
                     break;
                 case Phase.Wrathbone:
                     Activate(Objective.Wrathbone);
