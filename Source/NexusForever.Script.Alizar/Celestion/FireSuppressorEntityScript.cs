@@ -17,16 +17,18 @@ namespace NexusForever.Script.Alizar.Celestion
     /// Firefighting (6673): "Steal a Dominion Fire Suppressor", drive it through Emberwood spraying the forest fires and repair it when it overheats.
     /// </summary>
     /// <remarks>
-    /// The Fire Suppressor at Point Firestorm (30875) is a taxi unit with vehicle 397 and the generic quest activate spell, nothing in the client
-    /// data boards it (report 108). Using it seats the player as the pilot of a Fire Suppressor of their own and shows its action bar (294):
+    /// The Fire Suppressor at Point Firestorm is the quest object 30910 (the client names it for the objective, a taxi unit 30875 was spawned
+    /// there before and the client offered no interaction with it, report 128), 30875 is the vehicle (397) the player drives; nothing in the
+    /// client data boards it (report 108). Using it seats the player as the pilot of a Fire Suppressor of their own and shows its action bar (294):
     /// Water Spray Down (35409, ravel signal 11161) and Repairing Vehicle (35293, ravel signal 11014, removes Overheating 35315).
     /// A spray puts out the fires (31645, "Creature only fire") around the suppressor, each fire once per player. The suppressor overheats after
     /// a number of sprays and won't spray until repaired. Spray reach, the sprays before it overheats and the per player fires are guessed.
     /// </remarks>
-    [ScriptFilterCreatureId(FireSuppressorCreatureId)]
+    [ScriptFilterCreatureId(FireSuppressorCreatureId, ParkedSuppressorCreatureId)]
     public class FireSuppressorEntityScript : IWorldEntityScript, IOwnedScript<IWorldEntity>
     {
         private const uint FireSuppressorCreatureId = 30875u;
+        private const uint ParkedSuppressorCreatureId = 30910u;
         private const uint FireCreatureId           = 31645u;
         private const ushort Firefighting           = 6673;
 
